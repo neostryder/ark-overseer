@@ -1,0 +1,15 @@
+# Installed dependencies.
+node_modules/
+
+# Runtime data and databases.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Local editor and tool settings, and per-machine notes.
+.claude/
+CLAUDE.md
+
+# Log output.
+*.log
