@@ -8,6 +8,14 @@
     "node": ">=26"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "check": "node tools/check-coverage.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.0"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.30.0": true,
+    "protobufjs@7.6.6": true
   }
 }

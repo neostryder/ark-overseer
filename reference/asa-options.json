@@ -1,0 +1,3422 @@
+[
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ActiveMods",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "list of mod IDs, comma-separated with no spaces, in a single line (for example: ModID1,ModID2,ModID3)",
+    "description": "Specifies the order and which mods are loaded. ModIDs are comma separated and in one line. Priority is in descending order (the left-most ModID hast the highest priority). Alternatively, but not suggested, the command line ?GameModIds= can be used."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ActiveMapMod",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "mod ID for currently active mod map",
+    "description": "Specifies which mod map is loaded."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AdminLogging",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, logs all admin commands to in-game chat."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowAnyoneBabyImprintCuddle",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows anyone to \"take care\" of a baby creatures (cuddle etc.), not just whomever imprinted on it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowCaveBuildingPvE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows building in caves when PvE mode is also enabled. Note: no more working in command-line options before patch 241.5."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowCaveBuildingPvP",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, prevents building in caves when PvP mode is also enabled."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowCrateSpawnsOnTopOfStructures",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows from-the-air Supply Crates to appear on top of Structures, rather than being prevented by Structures."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowCryoFridgeOnSaddle",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows cryofridges to be built on platform saddles and rafts."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowFlyerCarryPvE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows flying creatures to pick up wild creatures in PvE."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowFlyingStaminaRecovery",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows server to recover Stamina when standing on a Flyer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowHideDamageSourceFromLogs",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, shows the damage sources in tribe logs."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowHitMarkers",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables optional markers for ranged attacks."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowIntegratedSPlusStructures",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "if False, disables all of the new S+ structures (intended mainly for letting unofficial servers that want to keep using the S+ mod version to keep using that without a ton of extra duplicate structures)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowMultipleAttachedC4",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows to attach more than one C4 per creature."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowRaidDinoFeeding",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows Titanosaurs to be permanently tamed (namely allow them to be fed). Note: in The Island only spawns a maximum of 3 Titanosaurs, so 3 tamed ones should ultimately block any more ones from spawning."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowSharedConnections",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows family sharing players to connect to the server."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowTekSuitPowersInGenesis",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables TEK suit powers in Genesis: Part 1."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowThirdPersonPlayer",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables third person camera allowed by default on all dedicated servers."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AlwaysAllowStructurePickup",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True disables the timer on the quick pick-up system."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AlwaysNotifyPlayerLeft",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, players will always get notified if someone leaves the server"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ArmadoggoDeathCooldown",
+    "commentedOut": false,
+    "value": "3600",
+    "default": "3600",
+    "valueType": "float",
+    "description": "Overrides the cooldown for Armadoggo to reappear after taking fatal damage (in seconds), default is set to 1 hour. Must be greater than 0."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AutoDestroyDecayedDinos",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, auto-destroys claimable decayed tames on load, rather than have them remain around as claimable. Note: after patch 273.691, in PvE mode the tame auto-unclaim after decay period has been disabled in official PvE."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AutoDestroyOldStructuresMultiplier",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Allows auto-destruction of structures only after sufficient \"no nearby tribe\" time has passed (defined as a multiplier of the Allow Claim period). To enable it, set it to 1.0. Useful for servers to clear off abandoned structures automatically over time. Requires -AutoDestroyStructures command line option to work. The value scales with each structure decay time."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AutoSavePeriodMinutes",
+    "commentedOut": false,
+    "value": "15.0",
+    "default": "15.0",
+    "valueType": "float",
+    "description": "Set interval for automatic saves. Setting this to 0 will cause constant saving."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BanListURL",
+    "commentedOut": true,
+    "value": "N/A",
+    "description": "&nbsp;ARK: Survival Ascended: Official ban list URL is https://cdn2.arkdedicated.com/asa/BanList.txt. Note: it supports both HTTP and HTTPS protocols."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "bForceCanRideFliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "boolean",
+    "description": "If True, allows flyers to be used on maps where they normally are disabled. Note: if you set it to False it will disable flyers on any map."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ClampItemSpoilingTimes",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, clamps all spoiling times to the items' maximum spoiling times. Useful if any infinite-spoiling exploits were used on the server and you wish to clean them up. Could potentially cause issues with mods that alter spoiling time, hence it is an option."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ClampItemStats",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables stats clamping for items. See ItemStatClamps for more info."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ClampResourceHarvestDamage",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, limit the damage caused by a tame to a resource on harvesting based on resource remaining health.  Note: enabling this setting may result in sensible resource harvesting reduction using high damage tools or creatures."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CosmeticWhitelistOverride",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "string with a URL",
+    "description": "URL to a comma-separated list of whitelisted custom cosmetics, in this format: Mod ID|Enable Dynamic Download (0/1)|Allow non-dataonly blueprints(0/1)|Calculated package CRC. See this post for details."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CosmoWeaponAmmoReloadAmount",
+    "commentedOut": false,
+    "value": "1",
+    "default": "1",
+    "valueType": "float",
+    "description": "Determines how much ammo is given as the Cosmo's webslinger reloads over time."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CustomDynamicConfigUrl",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "string with a URL",
+    "description": "Direct link to a live dynamicconfig.ini file (http://arkdedicated.com/dynamicconfig.ini), allowing live changes of the supported options without the need of server restart, as well defining custom colour set for wild creatures' spawns. Note: requires -UseDynamicConfig command line option, string with a URL must use the HTTP protocol (HTTPS is not supported) and inside quotes if used in command line. Check the DynamicConfig section for the supported settings."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CustomLiveTuningUrl",
+    "commentedOut": true,
+    "value": "N/A",
+    "description": "&nbsp;ARK: Survival Ascended: official servers use https://cdn2.arkdedicated.com/asa/livetuningoverloads.json. Note: string with a URL must use inside quotes if used in command line."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DayCycleSpeedScale",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the passage of time in the ARK, controlling how often day changes to night and night changes to day. The default value 1 provides the same cycle speed as the single player experience (and the official public servers). Values lower than 1 slow down the cycle; higher values accelerate it. Base time when value is 1 appears to be 1-minute real time equals approx. 28-minutes game time. Thus, for an approximate 24-hour day/night cycle in game, use .035 for the value."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DayTimeSpeedScale",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the passage of time in the ARK during the day. This value determines the length of each day, relative to the length of each night (as specified by NightTimeSpeedScale). Lowering this value increases the length of each day."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DifficultyOffset",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the difficulty level."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoCharacterFoodDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for creatures' food consumption. Higher values increase food consumption (creatures get hungry faster). It also affects the taming-times."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoCharacterHealthRecoveryMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for creatures' health recovery. Higher values increase the recovery rate (creatures heal faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoCharacterStaminaDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for creatures' stamina consumption. Higher values increase stamina consumption (creatures get tired faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoCountMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for creature spawns. Higher values increase the number of creatures spawned throughout the ARK."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the damage wild creatures deal with their attacks. The default value 1 provides normal damage. Higher values increase damage. Lower values decrease it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DinoResistanceMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the resistance to damage wild creatures receive when attacked. The default value 1 provides normal damage. Higher values decrease resistance, increasing damage per attack. Lower values increase it, reducing damage per attack. A value of 0.5 results in a creature taking half damage while a value of 2.0 would result in a creature taking double normal damage."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DestroyTamesOverTheSoftTameLimit",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Dinos above the Soft Tame Server Limit will be marked “For Cryo” and display an icon and a timer indicating how soon they need to be cryopodded before they are automatically destroyed. Dinos marked and dinos destroyed by this system will be logged in the tribe log. This differs from the standard tame limit, as it still allows new players to join servers and tame creatures above the 5000 limit, whereas previously, they would not have been able to tame or breed creatures at the server cap. You can define the soft tame limit with MaxTamedDinos_SoftTameLimit. You can define the time (in seconds) before tame's autodestruction with MaxTamedDinos_SoftTameLimit_CountdownForDeletionDuration."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableCryopodEnemyCheck",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows cryopods to be used while enemies are nearby."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableCryopodFridgeRequirement",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows cryopods to be used without needing to be in range of a powered cryofridge."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableDinoDecayPvE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables the creature decay in PvE mode. Note: after patch 273.691, in PvE mode the creature auto-unclaim after decay period has been disabled."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableImprintDinoBuff",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables the creature imprinting player Stat Bonus. Where whomever specifically imprinted on the creature, and raised it to have an Imprinting Quality, gets extra Damage/Resistance buff."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisablePvEGamma",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents use of console command \"gamma\" in PvE mode."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableStructureDecayPvE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables the gradual auto-decay of player structures."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DisableWeatherFog",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables fog."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DontAlwaysNotifyPlayerJoined",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, globally disables player joins notifications."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnableExtraStructurePreventionVolumes",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables building in specific resource-rich areas, in particular setup on The Island around the major mountains."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnablePvPGamma",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows use of console command \"gamma\" in PvP mode."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ExtinctionEventTimeInterval",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "seconds",
+    "description": "Used to enable the extinction mode (ARKpocalypse). The number is the time in seconds. Use 2592000 value for 30 days."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "FastDecayUnsnappedCoreStructures",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, unsnapped foundations/pillars/fences/Tek Dedicated Storage will decay after the time stated by FastDecayInterval in Game.ini (default is 12 hours). Before 259.0, it set the decay time for such structures straight to 5 times faster."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ForceAllStructureLocking",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, will default lock all structures."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ForceGachaUnhappyInCaves",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If True, Gachas will become unhappy within caves."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "globalVoiceChat",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, voice chat turns global."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "HarvestAmountMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for yields from all harvesting activities (chopping down trees, picking berries, carving carcasses, mining rocks, etc.). Higher values increase the amount of materials harvested with each strike."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "HarvestHealthMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the \"health\" of items that can be harvested (trees, rocks, carcasses, etc.). Higher values increase the amount of damage (i.e., \"number of strikes\") such objects can withstand before being destroyed, which results in higher overall harvest yields."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "IgnoreLimitMaxStructuresInRangeTypeFlag",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, removes the limit of 150 decorative structures (flags, signs, dermis etc.)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ImplantSuicideCD",
+    "commentedOut": false,
+    "value": "28800",
+    "default": "28800",
+    "valueType": "float",
+    "description": "Defines the time (in seconds) a player must wait between 2 uses of the implant's \"Respawn\" feature."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ItemStackSizeMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Allow increasing or decreasing global item stack size, this means all default stack sizes will be multiplied by the value given (excluding items that have a stack size of 1 by default)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "KickIdlePlayersPeriod",
+    "commentedOut": false,
+    "value": "3600.0",
+    "default": "3600.0",
+    "valueType": "float",
+    "description": "Time in seconds after which characters that have not moved or interacted will be kicked (if -EnableIdlePlayerKick as command line parameter is set). Note: although at code level it is defined as a floating-point number, it is suggested to use an integer instead."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxCosmoWeaponAmmo",
+    "commentedOut": false,
+    "value": "-1",
+    "default": "-1",
+    "valueType": "float",
+    "description": "This will make the maximum ammo amount for the Cosmo's webslinger to a set number instead of it scaling with the Cosmo's level. The default of -1 will enable scaling with level."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxGateFrameOnSaddles",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Defines the maximum amount of gateways allowed on platform saddles. A value of 2 would prevent players from placing more than 2 gateways on their platform saddles (used in Official PvP servers). This setting is not retroactive, meaning existing builds won't be affected. Set to 0 to not allow players to place gateways on platform saddles (used in Official PvE servers)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxHexagonsPerCharacter",
+    "commentedOut": false,
+    "value": "2000000000",
+    "default": "2000000000",
+    "valueType": "integer",
+    "description": "Sets the max amount of Hexagon a Character can accumulate. Official set it to 2500000."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxPersonalTamedDinos",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Sets a per-tribe creature tame limit (500 on official PvE servers, 300 in official PvP servers). The default value of 0 disables such limit."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxPlatformSaddleStructureLimit",
+    "commentedOut": false,
+    "value": "75",
+    "default": "75",
+    "valueType": "integer",
+    "description": "Changes the maximum number of platformed-creatures/rafts allowed on the ARK (a potential performance cost). Example: MaxPlatformSaddleStructureLimit=10 would only allow 10 platform saddles/rafts across the entire ARK."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTamedDinos",
+    "commentedOut": false,
+    "value": "5000.0",
+    "default": "5000.0",
+    "valueType": "float",
+    "description": "Sets the maximum number of tame creatures on a server, this is a global cap. Note: although at code level it is defined as a floating-point number, it is suggested to use an integer instead."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTamedDinos_SoftTameLimit",
+    "commentedOut": false,
+    "value": "5000",
+    "default": "5000",
+    "valueType": "integer",
+    "description": "Defines the server-wide soft tame limit. See DestroyTamesOverTheSoftTameLimit for more info."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTamedDinos_SoftTameLimit_CountdownForDeletionDuration",
+    "commentedOut": false,
+    "value": "604800",
+    "default": "604800",
+    "valueType": "integer",
+    "description": "Defines the time (in seconds) for tame to get destroyed. See DestroyTamesOverTheSoftTameLimit for more info."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTrainCars",
+    "commentedOut": false,
+    "value": "8",
+    "default": "8",
+    "valueType": "integer",
+    "description": "Defines the maximum amount of carts a train cave have."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTributeCharacters",
+    "commentedOut": false,
+    "value": "10",
+    "default": "10",
+    "valueType": "integer",
+    "description": "Slots for uploaded characters. Any value less than default will be reverted. Note: rising it may corrupt player/cluster data and lead to lose of all stored characters."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTributeDinos",
+    "commentedOut": false,
+    "value": "20",
+    "default": "20",
+    "valueType": "integer",
+    "description": "Slots for uploaded creatures. Any value less than default will be reverted. Note: Some player claimed maximum 273 to be safe cap and more will corrupt profile/cluster and lead to lose of all stored creatures but it need to be checked"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxTributeItems",
+    "commentedOut": false,
+    "value": "50",
+    "default": "50",
+    "valueType": "integer",
+    "description": "Slots for uploaded items and resources. Any value less than default will be reverted. Note: Some player claimed maximum 154 to be safe cap and more will corrupt profile/cluster and lead to lose of all stored items and resources but it need to be checked"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "NightTimeSpeedScale",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the passage of time in the ARK during night time. This value determines the length of each night, relative to the length of each day (as specified by DayTimeSpeedScale) Lowering this value increases the length of each night."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "NonPermanentDiseases",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, makes permanent diseases not permanent. Players will lose them if on re-spawn."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "NPCNetworkStasisRangeScalePlayerCountStart",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Minimum number of online players when the NPC Network Stasis Range Scale override is enabled (requires inputting into INI, not command line). Used to override the NPC Network Stasis Range Scale (to scale server performance for more player), on default is set to 0, disabling it. Official set it to 24."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "NPCNetworkStasisRangeScalePlayerCountEnd",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Maximum number of online players when NPCNetworkStasisRangeScalePercentEnd is reached (requires inputting into INI, not command line). Used to override the NPC Network Stasis Range Scale (to scale server performance for more player), on default is set to 0, disabling it. Official set it to 70"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "NPCNetworkStasisRangeScalePercentEnd",
+    "commentedOut": false,
+    "value": "0.55000001",
+    "default": "0.55000001",
+    "valueType": "float",
+    "description": "The Maximum scale percentage used when NPCNetworkStasisRangeScalePlayerCountEnd is reached (requires inputting into INI, not command line). Used to override the NPC Network Stasis Range Scale (to scale server performance for more player). Official set it to 0.5."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "OnlyAutoDestroyCoreStructures",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents any non-core/non-foundation structures from auto-destroying (however they'll still get auto-destroyed if a floor that they're on gets auto-destroyed). Official PvE Servers used this option."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "OnlyDecayUnsnappedCoreStructures",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, only unsnapped core structures will decay. Useful for eliminating lone pillar/foundation spam."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "OverrideOfficialDifficulty",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Allows you to override the default server difficulty level of 4 with 5 to match the new official server difficulty level. Default value of 0.0 disables the override. A value of 5.0 will allow common creatures to spawn up to level 150. Originally (247.95) available only as command line option."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "OverrideStructurePlatformPrevention",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, turrets becomes be buildable and functional on platform saddles. Since 247.999 applies on spike structure too. Note: despite patch notes, in ShooterGameServer it's coded OverrideStructurePlatformPrevention with two r."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "OxygenSwimSpeedStatMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Use this to set how swim speed is multiplied by level spent in oxygen. The value was reduced by 80% in 256.0."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PerPlatformMaxStructuresMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Higher value increases (from a percentage scale) max number of items place-able on saddles and rafts."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PersonalTamedDinosSaddleStructureCost",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Determines the amount of \"tame creature slots\" a platform saddle (with structures) will use towards the tribe tame creature limit."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlatformSaddleBuildAreaBoundsMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Increasing the number allows structures being placed further away from the platform."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerCharacterFoodDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for player characters' food consumption. Higher values increase food consumption (player characters get hungry faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerCharacterHealthRecoveryMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for player characters' health recovery. Higher values increase the recovery rate (player characters heal faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerCharacterStaminaDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for player characters' stamina consumption. Higher values increase stamina consumption (player characters get tired faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerCharacterWaterDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for player characters' water consumption. Higher values increase water consumption (player characters get thirsty faster)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the damage players deal with their attacks. The default value 1 provides normal damage. Higher values increase damage. Lower values decrease it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PlayerResistanceMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the resistance to damage players receive when attacked. The default value 1 provides normal damage. Higher values decrease resistance, increasing damage per attack. Lower values increase it, reducing damage per attack. A value of 0.5 results in a player taking half damage while a value of 2.0 would result in taking double normal damage."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventDiseases",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, completely diseases on the server. Thus far just Swamp Fever."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventMateBoost",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables creature mate boosting."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventOfflinePvP",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables the Offline Raiding Prevention (ORP). When all tribe members are logged off, tribe characters, creature and structures become invulnerable. Creature starvation still applies, moreover, characters and creature can still die if drowned. Despite the name, it works on both PvE and PvP game modes. Due to performance reason, it is recommended to set a minimum interval with PreventOfflinePvPInterval option before ORP becomes active. ORP also helps lowering memory and CPU usage on a server. Enabled by default on Official PvE since 258.3"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventOfflinePvPInterval",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Seconds to wait before a ORP becomes active for tribe/players and relative creatures/structures (10 seconds in official PvE servers). Note: although at code level it is defined as a floating-point number, it is suggested to use an integer instead."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventSpawnAnimations",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, player characters (re)spawn without the wake-up animation."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventTribeAlliances",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents tribes from creating Alliances."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ProximityChat",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, only players near each other can see their chat messages"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PvEAllowStructuresAtSupplyDrops",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows building near supply drop points in PvE mode."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PvEDinoDecayPeriodMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Creature PvE auto-decay time multiplier. Requires DisableDinoDecayPvE=false in GameUserSettings.ini or ?DisableDinoDecayPvE=false in command line to work."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PvEStructureDecayPeriodMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for  structures decay times, e.g.: setting it at 2.0 will double all structure decay times, while setting at 0.5 will halve the timers. Note: despite the name, works in both PvP and PvE modes when structure decay is enabled."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PvPDinoDecay",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables creatures' decay in PvP while the Offline Raid Prevention is active."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PvPStructureDecay",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables structures decay on PvP servers while the Offline Raid Prevention is active."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RaidDinoCharacterFoodDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Affects how quickly the food drains on such \"raid dinos\" (e.g.: Titanosaurus)"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RandomSupplyCratePoints",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, supply drops are in random locations. Note: This setting is known to cause artifacts becoming inaccessible on Ragnarok if active."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RCONEnabled",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables RCON, needs RCONPort=&lt;TCP_PORT&gt; and ServerAdminPassword=&lt;admin_password&gt; to work."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RCONPort",
+    "commentedOut": false,
+    "value": "27020",
+    "default": "27020",
+    "valueType": "integer",
+    "description": "Specifies the optional TCP RCON Port. See Dedicated server setup"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RCONServerGameLogBuffer",
+    "commentedOut": false,
+    "value": "600.0",
+    "default": "600.0",
+    "valueType": "float",
+    "description": "Determines how many lines of game logs are send over the RCON. Note: despite being coded as a float it's suggested to treat it as integer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ResourcesRespawnPeriodMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the re-spawn rate for resource nodes (trees, rocks, bushes, etc.). Lower values cause nodes to re-spawn more frequently."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerAdminPassword",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "string",
+    "description": "If specified, players must provide this password (via the in-game console) to gain access to administrator commands on the server. Note: no quotes are used."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerAutoForceRespawnWildDinosInterval",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Force re-spawn of all wild creatures on server restart afters the value set in seconds. Default value of 0.0 disables it. Useful to prevent certain creature species (like the Basilo and Spino) from becoming depopulated on long running servers."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerCrosshair",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables the Crosshair on your server."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerForceNoHUD",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, HUD is always disabled for non-tribe owned NPCs."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerHardcore",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables Hardcore mode (player characters revert to level 1 upon death)"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerPassword",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "string",
+    "description": "If specified, players must provide this password to join the server. Note: no quotes are used."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "serverPVE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables PvP and enables PvE"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ShowFloatingDamageText",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables RPG-style popup damage text mode."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ShowMapPlayerLocation",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, hides each player their own precise position when they view their map."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "SpectatorPassword",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "string",
+    "description": "To use non-admin spectator, the server must specify a spectator password. Then any client can use these console commands: requestspectator &lt;password&gt; and stopspectating. Note: no quotes are used."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "StructureDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the damage structures deal with their attacks (i.e., spiked walls). Higher values increase damage. Lower values decrease it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "StructurePickupHoldDuration",
+    "commentedOut": false,
+    "value": "0.5",
+    "default": "0.5",
+    "valueType": "float",
+    "description": "Specifies the quick pick-up hold duration, a value of 0 results in instant pick-up."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "StructurePickupTimeAfterPlacement",
+    "commentedOut": false,
+    "value": "30.0",
+    "default": "30.0",
+    "valueType": "float",
+    "description": "Amount of time in seconds after placement that quick pick-up is available."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "StructurePreventResourceRadiusMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Same as ResourceNoReplenishRadiusStructures in Game.ini. If both settings are set both multiplier will be applied. Can be useful when cannot change the Game.ini file as it works as a command line option too."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "StructureResistanceMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the resistance to damage structures receive when attacked. The default value 1 provides normal damage. Higher values decrease resistance, increasing damage per attack. Lower values increase it, reducing damage per attack. A value of 0.5 results in a structure taking half damage while a value of 2.0 would result in a structure taking double normal damage."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TamedDinoDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the damage tame creatures deal with their attacks. The default value 1 provides normal damage. Higher values increase damage. Lower values decrease it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TamedDinoResistanceMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the resistance to damage tame creatures receive when attacked. The default value 1 provides normal damage. Higher values decrease resistance, increasing damage per attack. Lower values increase it, reducing damage per attack. A value of 0.5 results in a structure taking half damage while a value of 2.0 would result in a structure taking double normal damage."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TamingSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for creature taming speed. Higher values make taming faster."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TheMaxStructuresInRange",
+    "commentedOut": false,
+    "value": "10500",
+    "default": "10500",
+    "valueType": "integer",
+    "description": "Specifies the maximum number of structures that can be constructed within a certain (currently hard-coded) range. Replaces the old value NewMaxStructuresInRange"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TribeLogDestroyedEnemyStructures",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "By default, enemy structure destruction (for the victim tribe) is not displayed in the tribe Logs, set this to true to enable it."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TribeNameChangeCooldown",
+    "commentedOut": false,
+    "value": "15.0",
+    "default": "15.0",
+    "valueType": "float",
+    "description": "Cool-down, in minutes, in between tribe name changes. Official server use a value of 172800.0 (2 days)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "UseFjordurTraversalBuff",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables the biome teleport in Fjordur when holding R (enabled in official PvE servers)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "UseOptimizedHarvestingHealth",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables a server harvesting optimization with high HarvestAmountMultiplier (but less rare items). Note: on &nbsp;ARK: Survival Evolved it's suggested to enable this option if harvesting with Tek Stryder causes lag spikes."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "XPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for the experience received by players, tribes and tames for various actions. The default value 1 provides the same amounts of experience as in the single player experience (and official public servers). Higher values increase XP amounts awarded for various actions; lower values decrease it. In 313.5 an additional hardcoded multiplier of 4 was activated."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "YoungIceFoxDeathCooldown",
+    "commentedOut": false,
+    "value": "3600",
+    "default": "3600",
+    "valueType": "float",
+    "description": "Overrides the cooldown for Veilwyn to reappear after taking fatal damage (in seconds), default is set to 1 hour. Must be greater than 0."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CrossARKAllowForeignDinoDownloads",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables non-native creatures tribute download on Aberration."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MinimumDinoReuploadInterval",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Number of seconds cool-down between allowed creature re-uploads (43200 on official Servers which is 12 hours)."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "noTributeDownloads",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents CrossArk-data downloads inCross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventDownloadDinos",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents creatures download from ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventDownloadItems",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents items download from ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventDownloadSurvivors",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents survivors download from ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventUploadDinos",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents creatures upload to ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventUploadItems",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents items upload to ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventUploadSurvivors",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents survivors upload to ARK Data in Cross-ARK Data Transfer."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TributeCharacterExpirationSeconds",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Set in seconds the expiration timer for uploaded survivors in ARK Data. With default or negative values there is no expiration time. Check Cross-ARK Data Transfer for more details. Warning: do not set this option to an insane high value, like more than 31536000 seconds (which is 1 year), as in ARK Data routines this is summed to upload time in Unix Epoch time format. Using really high values will result in overflow and may cause upload time checks to fail and ARK Data deleted. Finally, it is highly suggested to use the same value across all servers in a cluster, otherwise accessing ARK Data from a server with a lower value will result data deletion if in that server the timer is expired."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TributeDinoExpirationSeconds",
+    "commentedOut": false,
+    "value": "86400",
+    "default": "86400",
+    "valueType": "integer",
+    "description": "Set in seconds the expiration timer for uploaded tames in ARK Data. If set to 0 or less will revert to default. Check Cross-ARK Data Transfer for more details. Warning: do not set this option to an insane high value, like more than 31536000 seconds (which is 1 year), as in ARK Data routines this is summed to upload time in Unix Epoch time format. Using really high values will result in overflow and may cause upload time checks to fail and ARK Data deleted. Finally, it is highly suggested to use the same value across all servers in a cluster, otherwise accessing ARK Data from a server with a lower value will result data deletion if in that server the timer is expired."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TributeItemExpirationSeconds",
+    "commentedOut": false,
+    "value": "86400",
+    "default": "86400",
+    "valueType": "integer",
+    "description": "Set in seconds the expiration timer for uploaded items in ARK Data. If set to 0 or less will revert to default. Check Cross-ARK Data Transfer for more details. Warning: do not set this option to an insane high value, like more than 31536000 seconds (which is 1 year), as in ARK Data routines this is summed to upload time in Unix Epoch time format. Using really high values will result in overflow and may cause upload time checks to fail and ARK Data deleted. Finally, it is highly suggested to use the same value across all servers in a cluster, otherwise accessing ARK Data from a server with a lower value will result data deletion if in that server the timer is expired."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryopodNerfDamageMult",
+    "commentedOut": false,
+    "value": "0.0099999998",
+    "default": "0.0099999998",
+    "valueType": "float",
+    "description": "Reduces the amount of damage dealt by the creature after it is deployed from the cryopod, as a percentage of total damage output, and for the length of time set by CryopodNerfDuration. CryopodNerfDuration needs to be set as well. CryopodNerfDamageMult=0.01 means 99% of the damage is removed.  On official it is set to 0.1."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryopodNerfDuration",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "integer",
+    "description": "Amount of time, in seconds, Cryosickness lasts after deploying a creature from a Cryopod. Note: although at code level it is defined as a floating-point number, it is suggested to use an integer instead. On official it is set to 10.0."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryopodNerfIncomingDamageMultPercent",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Increases the amount of damage taken by the creature after it is deployed from the cryopod, as a percentage of total damage received, and for the length of time set by CryopodNerfDuration. CryopodNerfIncomingDamageMultPercent=0.25 means a released tame takes 25% more damage while the debuff lasts. On official it is set to 0.25."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnableCryopodNerf",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, there is no Cryopod cooldown timer, and creatures do not become unconscious. If this option is set, than EnableCryopodNerf and CryopodNerfIncomingDamageMultPercent must be set as well or they will default to 0."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnableCryoSicknessPVE",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables Cryopod cooldown timer when deploying a creature."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BadWordListURL",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "&nbsp;&nbsp;: \"http://arkdedicated.com/badwords.txt\"",
+    "description": "&nbsp;&nbsp;: \"http://cdn2.arkdedicated.com/asa/badwords.txt\" Add the URL to hosting your own bad words list. Note: on &nbsp;ARK: Survival Evolved servers only the HTTP protocol is supported (an HTTPS URL will not work).",
+    "valueType": "string with a URL"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BadWordWhiteListURL",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "&nbsp;&nbsp;: \"http://arkdedicated.com/goodwords.txt\"",
+    "description": "&nbsp;&nbsp;: \"http://cdn2.arkdedicated.com/asa/goodwords.txt\" Add the URL to hosting your own good words list. Note: on &nbsp;ARK: Survival Evolved servers only the HTTP protocol is supported (an HTTPS URL will not work).",
+    "valueType": "string with a URL"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "bFilterCharacterNames",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, filters out character names based on the bad words/good words list."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "bFilterChat",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, filters out character names based on the bad word/good words list."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "bFilterTribeNames",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, filters out tribe names based on the badwords/goodwords list."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "LimitBunkersPerTribe",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "LimitBunkersPerTribeNum",
+    "commentedOut": false,
+    "value": "3",
+    "default": "3",
+    "valueType": "integer"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowBunkersInPreventionZones",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowRidingDinosInsideBunkers",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowBunkerModulesAboveGround",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowDinoAIInsideBunkers",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AllowBunkerModulesInPreventionZones",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MinDistanceBetweenBunkers",
+    "commentedOut": false,
+    "value": "3000.0",
+    "default": "3000.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnemyAccessBunkerHPThreshold",
+    "commentedOut": false,
+    "value": "0.25",
+    "default": "0.25",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BunkerUnderHPThresholdDmgMultiplier",
+    "commentedOut": false,
+    "value": "0.05",
+    "default": "0.05",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryoHospitalHoursToRegenHP",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryoHospitalHoursToRegenFood",
+    "commentedOut": false,
+    "value": "24.0",
+    "default": "24.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryoHospitalHoursToDrainTorpor",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "CryoHospitalMatingCooldownReduction",
+    "commentedOut": false,
+    "value": "2.0",
+    "default": "2.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BloodforgeReinforceExtraDurability",
+    "commentedOut": false,
+    "value": "0.3",
+    "default": "0.3",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BloodforgeReinforceResourceCostMultiplier",
+    "commentedOut": false,
+    "value": "3.0",
+    "default": "3.0",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "BloodforgeReinforceSpeedMultiplier",
+    "commentedOut": false,
+    "value": "0.1",
+    "default": "0.1",
+    "valueType": "float"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxActiveOutposts",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "integer"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxActiveResourceCaches",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "integer"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxActiveCityOutposts",
+    "commentedOut": true,
+    "value": "N/A",
+    "valueType": "integer"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AdminListURL",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "string with a URL",
+    "description": "Alternative to AllowedCheaterAccountIDs.txt (see Administrator Whitelisting) using a web resource. The interval at which the server queries the resource to check for admin list update is defined by UpdateAllowedCheatersInterval. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "AutoRestartIntervalSeconds",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "Unknown",
+    "valueType": "float",
+    "description": "Defines the time (in seconds) after which the server will automatically restart. Undocumented by Wildcard. (Appears to shut off the server instead of restarting properly)"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ChatLogFileSplitIntervalSeconds",
+    "commentedOut": false,
+    "value": "86400",
+    "default": "86400",
+    "valueType": "integer",
+    "description": "Controls how to split the chat log file related to time in seconds. Cannot be set to a value lower than 45 (will default to 45 if the value is lower). Set to 0 only in official. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ChatLogFlushIntervalSeconds",
+    "commentedOut": false,
+    "value": "86400",
+    "default": "86400",
+    "valueType": "integer",
+    "description": "Controls in how many second the chat log is flushed to log file. Cannot be set to a value lower than 15 (will default to 15 if the value is lower). Set to 0 only in official. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ChatLogMaxAgeInDays",
+    "commentedOut": false,
+    "value": "5",
+    "default": "5",
+    "valueType": "integer",
+    "description": "Controls how many days the chat log is long. Set it to a negative value will result it to set at -1 (virtually infinite). Set to 0 only in official. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "DontRestoreBackup",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True and -DisableDupeLogDeletes is present, prevents the server to automatically restore a backup in case of corrupted save. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnableAFKKickPlayerCountPercent",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Enables the idle timeout to be applied only if the amount of online players reaches percentage value related to MaxPlayers argument. The percentage is expressed as normalised value between 0 and 1.0, where 1.0 means 100%. Official set it to 0.89999998. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "EnableMeshBitingProtection",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables mesh biting protection. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "FreezeReaperPregnancy",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, freezes the &nbsp;Reaper King pregnancy timer and experience gain. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "LogChatMessages",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables advanced chat logging. Chat logs will be saved in ShooterGame/Saved/Logs/ChatLogs/&lt;SessionName&gt;/ in json format. Disabled on official. The file will be split according to ChatLogFileSplitIntervalSeconds value and flushed every ChatLogFlushIntervalSeconds seconds value. Note: &lt;SessionName&gt; will be written without spaces. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxStructuresInSmallRadius",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Defines the amount of max structures allowed to be placed in a RadiusStructuresInSmallRadius from player position. Official set it to 40. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "MaxStructuresToProcess",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Controls the max batch size of structures to process (e.g.: culling, building graphs modifications, etc) at each server tick. Leaving at 0 (default behaviour) will force the server to process all structures in queue. It's a trade-off between how much can cost a server tick (worst case scenario) and simulation accuracy. Official set it to 5000. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "PreventOutOfTribePinCodeUse",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents out of tribe players to use pins on structures (doors, elevators, storage boxes, etc). Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "RadiusStructuresInSmallRadius",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Defines the small radius dimension (in Unreal Units) used by MaxStructuresInSmallRadius. Official set it to 225.0. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ServerEnableMeshChecking",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Involved in foliage repopulation. Takes no effect if -forcedisablemeshchecking is set. Enabled on official. Undocumented."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TribeMergeAllowed",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, prevents tribe to merge. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "TribeMergeCooldown",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Tribe merge cool-down in seconds. Official uses 86400.0. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "UpdateAllowedCheatersInterval",
+    "commentedOut": false,
+    "value": "600.0",
+    "default": "600.0",
+    "valueType": "float",
+    "description": "Times in seconds at which the remote admin list linked by AllowedCheatersURL is queried for updates. Any value less than 3.0 will be reverted to 3.0. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "UseCharacterTracker",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Used to enable character tracking. Alternatively, this option can be configured with -disableCharacterTracker argument in the command line (note that the argument from command line has priority over the value set in GameUserSettings.ini). Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "UseExclusiveList",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows same behaviour as -exclusivejoin. Undocumented by Wildcard."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[ServerSettings]",
+    "key": "ListenServerTetherDistanceMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the tether distance between host and other players on non-dedicated sessions only. Note: despite being readable from command line, this option affects non-dedicated sessions only, thus it has to be set in the GameUserSettings.ini file or through the in-game local host graphics menu."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[SessionSettings]",
+    "key": "MultiHome",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "IP_ADDRESS",
+    "description": "Specifies MultiHome IP Address. Boolean Multihome option must be set to True as well (command line or [MultiHome] section). Leave it empty if not using multihoming. Can be specified in command line too."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[SessionSettings]",
+    "key": "Port",
+    "commentedOut": false,
+    "value": "7777",
+    "default": "7777",
+    "valueType": "integer",
+    "description": "Specifies the UDP Game Port. See Dedicated server setup Note: command line append syntax is not supported by &nbsp;ARK: Survival Ascended"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[SessionSettings]",
+    "key": "QueryPort",
+    "commentedOut": false,
+    "value": "27015",
+    "default": "27015",
+    "valueType": "integer",
+    "description": "Specifies the UDP Steam Query Port. See Dedicated server setup"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[SessionSettings]",
+    "key": "SessionName",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "ARK #123456",
+    "valueType": "string",
+    "description": "Specifies the Server name advertised in the Game Server Browser as well in Steam Server browser. If no name is provide, the default name will be ARK # followed by a random 6 digit number. Note: Name must not be typed between quotes unless it is launched from command line."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[Ragnarok]",
+    "key": "AllowMultipleTamedUnicorns",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "False = one unicorn on the map at a time, True = one wild and unlimited tamed Unicorns on the map."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[Ragnarok]",
+    "key": "EnableVolcano",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "False = disabled (the volcano will not become active), True = enabled"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[Ragnarok]",
+    "key": "UnicornSpawnInterval",
+    "commentedOut": false,
+    "value": "24",
+    "default": "24",
+    "valueType": "integer",
+    "description": "How long in hours the game should wait before spawning a new Unicorn if the wild one is killed (or tamed, if AllowMultipleTamedUnicorns is enabled). This value sets the minimum amount of time (in hours), and the maximum is equal to 2x this value."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[Ragnarok]",
+    "key": "VolcanoIntensity",
+    "commentedOut": false,
+    "value": "1",
+    "default": "1",
+    "valueType": "float",
+    "description": "The lower the value, the more intense the volcano's eruption will be. Recommended to leave at 1. The minimum value is 0.25, and for multiplayer games, it should not go below 0.5. Very high numbers will basically disable the flaming rocks flung out of the volcano."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[Ragnarok]",
+    "key": "VolcanoInterval",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "0 = 5000 (min) - 15000 (max) seconds between instances of the volcano becoming active. Any number above 0 acts as a multiplier, with a minimum value of .1"
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[MessageOfTheDay]",
+    "key": "Duration",
+    "commentedOut": false,
+    "value": "20",
+    "default": "20",
+    "valueType": "integer",
+    "description": "Specifies in seconds the duration of the displayed message on player log-in."
+  },
+  {
+    "file": "gameusersettings",
+    "section": "[MessageOfTheDay]",
+    "key": "Message",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "string",
+    "description": "A single line string for a message displayed to played once logged-in. No quotes needed. Use \\n to start a new line in the message."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "AutoPvEStartTimeSeconds",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "States when the PvE mode should start in a PvPvE server. Valid values are from 0 to 86400. Options bAutoPvETimer, bAutoPvEUseSystemTime and AutoPvEStopTimeSeconds must also be set. Note: although at code level it is defined as a floating point number, it is suggested to use an integer instead."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "AutoPvEStopTimeSeconds",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "States when the PvE mode should end in a PvPvE server. Valid values are from 0 to 86400. Options bAutoPvETimer, bAutoPvEUseSystemTime and AutoPvEStopTimeSeconds must also be set. Note: although at code level it is defined as a floating point number, it is suggested to use an integer instead."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyCuddleGracePeriodMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how long after delaying cuddling with the Baby before Imprinting Quality starts to decrease."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyCuddleIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how often babies needs attention for imprinting. More often means you'll need to cuddle with them more frequently to gain Imprinting Quality. Scales always according to default BabyMatureSpeedMultiplier value: set at 1.0 the imprint request is every 8 hours. See also The Imprinting formula how it affects the imprinting amount at each baby care/cuddle."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyCuddleLoseImprintQualitySpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how fast Imprinting Quality decreases after the grace period if you haven't yet cuddled with the Baby."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyFoodConsumptionSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the speed that baby tames eat their food. A lower value decreases (by percentage) the food eaten by babies."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyImprintAmountMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the percentage each imprint provides. A higher value, will rise the amount of imprinting&nbsp;% at each baby care/cuddle, a lower value will decrease it. This multiplier is global, meaning it will affect the imprinting progression of every species. See also The Imprinting formula how it affects the imprinting amount at each baby care/cuddle."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyImprintingStatScaleMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how much of an effect on stats the Imprinting Quality has. Set it to 0 to effectively disable the system."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BabyMatureSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the maturation speed of babies. A higher number decreases (by percentage) time needed for baby tames to mature. See Times for Breeding tables for values at 1.0, see The Imprinting formula how it affects the imprinting amount at each baby care/cuddle."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowUnclaimDinos",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, prevents players to unclaim tame creatures."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowCustomRecipes",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disabled custom RP-oriented Recipe/Cooking System (including Skill-Based results)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowFlyerSpeedLeveling",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Specifies whether flyer creatures can have their Movement Speed levelled up. In ARK: Survival Ascended, setting this to True only works if bAllowSpeedLeveling is also True."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowPlatformSaddleMultiFloors",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows multiple platform floors."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowSpeedLeveling",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Specifies whether players and non-flyer creatures can have their Movement Speed levelled up."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAllowUnlimitedRespecs",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows more than one usage of Mindwipe Tonic without 24 hours cooldown."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BaseTemperatureMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Specifies the map base temperature scaling factor: lower value makes the environment colder, higher value makes the environment hotter."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAutoPvETimer",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enabled PvE mode in a PvPvE server at pre-specified times. The option bAutoPvEUseSystemTime determinates what kind of time to use, while AutoPvEStartTimeSeconds and AutoPvEStopTimeSeconds set the begin and end time of PvE mode."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAutoPvEUseSystemTime",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, PvE mode begin and end times in a PvPvE server will refer to the server system time instead of in-game world time. Options bAutoPvETimer, AutoPvEStartTimeSeconds and AutoPvEStopTimeSeconds must also be set."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bAutoUnlockAllEngrams",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, unlocks all Engrams available. Ignores OverrideEngramEntries and OverrideNamedEngramEntries entries."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableDinoBreeding",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents tames to be bred."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableDinoRiding",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents players to ride tames."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableDinoTaming",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents players to tame wild creatures."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableFriendlyFire",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents Friendly-Fire (among tribe mates/tames/structures)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableLootCrates",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, prevents spawning of Loot crates (artifact creates will still spawn)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisablePhotoMode",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "Defines if photo mode is allowed (False) or not (True)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableStructurePlacementCollision",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows for structures to clip into the terrain."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bFlyerPlatformAllowUnalignedDinoBasing",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, Quetz platforms will allow any non-allied tame to base on them when they are flying."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bIgnoreStructuresPreventionVolumes",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables building areas where normally it's not allowed, such around some maps' Obelisks, in the Aberration Portal and in Mission Volumes areas on Genesis: Part 1. Note: in Genesis: Part 1 this settings is enabled by default and there is an ad hoc settings called bGenesisUseStructuresPreventionVolumes to disable it."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bIncreasePvPRespawnInterval",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables PvP additional re-spawn time (IncreasePvPRespawnIntervalBaseAmount) that scales (IncreasePvPRespawnIntervalMultiplier) when a player is killed by a team within a certain amount of time (IncreasePvPRespawnIntervalCheckPeriod)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bOnlyAllowSpecifiedEngrams",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, any Engram not explicitly specified by OverrideEngramEntries or OverrideNamedEngramEntries list will be hidden. All Items and Blueprints based on hidden Engrams will be removed."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bPassiveDefensesDamageRiderlessDinos",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows spike walls to damage wild/riderless creatures."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bPvEAllowTribeWar",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, disables capability for Tribes to officially declare war on each other for mutually-agreed-upon period of time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bPvEAllowTribeWarCancel",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows cancellation of an agreed-upon war before it has actually started."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bPvEDisableFriendlyFire",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disabled Friendly-Fire (among tribe mates/tames/structures) in PvE servers."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bShowCreativeMode",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, adds a button to the pause menu to enable/disable creative mode."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bUseCorpseLocator",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, prevents survivors to see a green light beam at the location of their dead body."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bUseDinoLevelUpAnimations",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, tame creatures on level-up will not perform the related animation."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bUseSingleplayerSettings",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, all game settings will be more balanced for an individual player experience. Useful for dedicated server with a very small amount of players. See Single Player Settings section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bUseTameLimitForStructuresOnly",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True will make Tame Units only be applied and used for Platforms with Structures and Rafts effectively disabling Tame Units for tames without Platform Structures."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CheatTeleportLocations",
+    "commentedOut": true,
+    "value": "(TeleportName=\"<string>\",TeleportLocation=(X=<float>,Y=-<float>,Z=<float>))=N/A",
+    "description": "  With this example, executing the command cheat TP Hightower will teleport you to the defined coordinates, which (if the map is Ragnarok) is the highlands lighthouse."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigAddNPCSpawnEntriesContainer",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Adds specific creatures in spawn areas. See Creature Spawn related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigOverrideItemCraftingCosts",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Overrides items crafting resource requirements. See Item related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigOverrideItemMaxQuantity",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Overrides items stack size on a per-item basis. See Item related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigOverrideNPCSpawnEntriesContainer",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Overrides specific creatures in spawn areas. See Creature Spawn related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigOverrideSupplyCrateItems",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Overrides items contained in loot crates. See Items related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ConfigSubtractNPCSpawnEntriesContainer",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Removes specific creatures in spawn areas. See Creature Spawn related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CraftingSkillBonusMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the bonus received from upgrading the Crafting Skill."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CraftXPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the amount of XP earned for crafting."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CropDecaySpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the speed of crop decay in plots. A higher value decrease (by percentage) speed of crop decay in plots."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CropGrowthSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the speed of crop growth in plots. A higher value increases (by percentage) speed of crop growth."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CustomRecipeEffectivenessMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the effectiveness of custom recipes. A higher value increases (by percentage) their effectiveness."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "CustomRecipeSkillMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the effect of the players crafting speed level that is used as a base for the formula in creating a custom recipe. A higher number increases (by percentage) the effect."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DestroyTamesOverLevelClamp",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Tames that exceed that level will be deleted on server start. Official servers have it set to 450."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DinoClassDamageMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally overrides wild creatures damages. See Creature Stats related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DinoClassResistanceMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally overrides wild creatures resistance. See Creature Stats related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DinoHarvestingDamageMultiplier",
+    "commentedOut": false,
+    "value": "3.2",
+    "default": "3.2",
+    "valueType": "float",
+    "description": "Scales the damage done to a harvestable item/entity by a tame. A higher number increases (by percentage) the speed of harvesting."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DinoSpawnWeightMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally overrides creatures spawns likelihood. See Creature Spawn related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "DinoTurretDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the damage done by Turrets towards a creature. A higher values increases it (by percentage)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "EggHatchSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the time needed for a fertilised egg to hatch. A higher value decreases (by percentage) that time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "EngramEntryAutoUnlocks",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Automatically unlocks the specified Engram when reaching the level specified. See Engram Entries related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ExcludeItemIndices",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "integer",
+    "description": "Excludes an item from supply crates specifying its Item ID. You can have multiple lines of this option."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "FastDecayInterval",
+    "commentedOut": false,
+    "value": "43200",
+    "default": "43200",
+    "valueType": "integer",
+    "description": "Specifies the decay period for \"Fast Decay\" structures (such as pillars or lone foundations). Value is in seconds. FastDecayUnsnappedCoreStructures in GameUserSettings.ini must be set to True as well to take any effect."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "FishingLootQualityMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Sets the quality of items that have a quality when fishing. Valid values are from 1.0 to 5.0."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "FuelConsumptionIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Defines the interval of fuel consumption."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitGeneratorsNum",
+    "commentedOut": false,
+    "value": "3",
+    "default": "3",
+    "valueType": "integer",
+    "description": "Limits the number of generators in the area defined by LimitGeneratorsRange. Official servers have it set to 3."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitGeneratorsRange",
+    "commentedOut": false,
+    "value": "15000",
+    "default": "15000",
+    "valueType": "integer",
+    "description": "Sets the area range (in Unreal Units) in which the option LimitGeneratorsNum applies. Official servers have it set to 15000."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "GenericXPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the amount of XP earned for generic XP (automatic over time)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "GlobalCorpseDecompositionTimeMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the decomposition time of corpses, (player and creature), globally. Higher values prolong the time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "GlobalItemDecompositionTimeMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the decomposition time of dropped items, loot bags etc. globally. Higher values prolong the time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "GlobalPoweredBatteryDurabilityDecreasePerSecond",
+    "commentedOut": false,
+    "value": "3.0",
+    "default": "3.0",
+    "valueType": "float",
+    "description": "Specifies the rate at which charge batteries are used in electrical objects."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "GlobalSpoilingTimeMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the spoiling time of perishables globally. Higher values prolong the time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "HairGrowthSpeedMultiplier",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "1.0 (ASE), 0 (ASA)",
+    "valueType": "float",
+    "description": "Scales the hair growth. Higher values increase speed of growth."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "HarvestResourceItemAmountClassMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Scales on a per-resource type basis, the amount of resources harvested. See Items related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "HarvestXPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the amount of XP earned for harvesting."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "IgnorePVPMountedWeaponryRestrictions",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "No further information has been added about this variable. If you know anything, please consider creating an account and contributing."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "IncreasePvPRespawnIntervalBaseAmount",
+    "commentedOut": false,
+    "value": "60.0",
+    "default": "60.0",
+    "valueType": "float",
+    "description": "If bIncreasePvPRespawnInterval is True, sets the additional PvP re-spawn time in seconds that scales (IncreasePvPRespawnIntervalMultiplier) when a player is killed by a team within a certain amount of time (IncreasePvPRespawnIntervalCheckPeriod)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "IncreasePvPRespawnIntervalCheckPeriod",
+    "commentedOut": false,
+    "value": "300.0",
+    "default": "300.0",
+    "valueType": "float",
+    "description": "If bIncreasePvPRespawnInterval is True, sets the amount of time in seconds within a player re-spawn time increases (IncreasePvPRespawnIntervalBaseAmount) and scales (IncreasePvPRespawnIntervalMultiplier) when it is killed by a team in PvP."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "IncreasePvPRespawnIntervalMultiplier",
+    "commentedOut": false,
+    "value": "2.0",
+    "default": "2.0",
+    "valueType": "float",
+    "description": "If bIncreasePvPRespawnInterval is True, scales the PvP additional re-spawn time (IncreasePvPRespawnIntervalBaseAmount) when a player is killed by a team within a certain amount of time (IncreasePvPRespawnIntervalCheckPeriod)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "KillXPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scale the amount of XP earned for a kill."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LayEggIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the time between eggs are spawning / being laid. Higher number increases it (by percentage)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LevelExperienceRampOverrides",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Configures the total number of levels available to players and tame creatures and the experience points required to reach each level. See Players and tames levels override section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitNonPlayerDroppedItemsCount",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Limits the number of dropped items in the area defined by LimitNonPlayerDroppedItemsRange. Official servers have it set to 600."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitNonPlayerDroppedItemsRange",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Sets the area range (in Unreal Units) in which the option LimitNonPlayerDroppedItemsCount applies. Official servers have it set to 1600."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MatingIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the interval between tames can mate. A lower value decreases it (on a percentage scale). Example: a value of 0.5 would allow tames to mate 50% sooner."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MatingSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the speed at which tames mate with each other. A higher value increases it (by percentage). Example: MatingSpeedMultiplier=2.0 would cause tames to complete mating in half the normal time."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MaxAlliancesPerTribe",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "integer",
+    "description": "If set, defines the maximum alliances a tribe can form or be part of."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MaxFallSpeedMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Defines the falling speed multiplier at which players starts taking fall damage. The falling speed is based on the time players spent in the air while having a negated Z axis velocity meaning that the higher this setting is, the longer players can fall without taking fall damage. For example, having it set to 0.1 means players will no longer survive a regular jump while having it set very high such as to 100.0 means players will survive a fall from the sky limit, etc. This setting doesn't affect the gravity scale of the players so there won't be any physics difference to the character movements."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MaxNumberOfPlayersInTribe",
+    "commentedOut": false,
+    "value": "0",
+    "default": "0",
+    "valueType": "integer",
+    "description": "Sets the maximum survivors allowed in a tribe. A value of 1 effectively disables tribes. The default value of 0 means there is no limit about how many survivors can be in a tribe."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MaxTribeLogs",
+    "commentedOut": false,
+    "value": "400",
+    "default": "400",
+    "valueType": "integer",
+    "description": "Sets how many Tribe log entries are displayed for each tribe."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "MaxTribesPerAlliance",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "integer",
+    "description": "If set, defines the maximum of tribes in an alliance."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "NPCReplacements",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally replaces specific creatures with another using class names. See Creature Spawn related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "OverrideMaxExperiencePointsDino",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "integer",
+    "description": "Overrides the max XP cap of tame characters by exact specified amount."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "OverrideMaxExperiencePointsPlayer",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "integer",
+    "description": "Overrides the max XP cap of players characters by exact specified amount."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "OverrideEngramEntries",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Configures the status and requirements for learning an engram, specified by its index. See Engram Entries related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "OverrideNamedEngramEntries",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Configures the status and requirements for learning an engram, specified by its name. See Engram Entries related section for more detail."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "OverridePlayerLevelEngramPoints",
+    "commentedOut": true,
+    "value": "N/A",
+    "description": " OverridePlayerLevelEngramPoints=300"
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PassiveTameIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how often a survivor get tame requests for passive tame creatures."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PhotoModeRangeLimit",
+    "commentedOut": false,
+    "value": "3000",
+    "default": "3000",
+    "valueType": "integer",
+    "description": "Defines the maximum distance between photo mode camera position and player position."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PlayerHarvestingDamageMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the damage done to a harvestable item/entity by a Player. A higher value increases it (by percentage): the higher number, the faster the survivors collects."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PoopIntervalMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how frequently survivors can poop. Higher value decreases it (by percentage)"
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PreventBreedingForClassNames",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "\"&lt;string&gt;\"",
+    "description": "Prevents breeding of specific creatures via classname. E.g. PreventBreedingForClassNames=\"Argent_Character_BP_C\". Creature classnames can be found on the Creature IDs page."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PreventDinoTameClassNames",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "\"&lt;string&gt;\"",
+    "description": "Prevents taming of specific dinosaurs via classname. E.g. PreventDinoTameClassNames=\"Argent_Character_BP_C\". Dino classnames can be found on the Creature IDs page."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PreventOfflinePvPConnectionInvincibleInterval",
+    "commentedOut": false,
+    "value": "5.0",
+    "default": "5.0",
+    "valueType": "float",
+    "description": "Specifies the time in seconds a player cannot take damages after logged-in."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "PvPZoneStructureDamageMultiplier",
+    "commentedOut": false,
+    "value": "6.0",
+    "default": "6.0",
+    "valueType": "float",
+    "description": "Specifies the scaling factor for damage structures take within caves. The lower the value, the less damage the structure takes (i.e. setting to 1.0 will make structure built in or near a cave receive the same amount of damage as those built on the surface)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ResourceNoReplenishRadiusPlayers",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Controls how resources regrow closer or farther away from players. Values higher than 1.0 increase the distance around players where resources are not allowed to grow back. Values between 0 and 1.0 will reduce it."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ResourceNoReplenishRadiusStructures",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Controls how resources regrow closer or farther away from structures Values higher than 1.0 increase the distance around structures where resources are not allowed to grow back. Values between 0 and 1.0 will reduce it."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "SpecialXPMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scale the amount of XP earned for SpecialEvent."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "StructureDamageRepairCooldown",
+    "commentedOut": false,
+    "value": "180",
+    "default": "180",
+    "valueType": "integer",
+    "description": "Option for cooldown period on structure repair from the last time damaged. Set to 180 seconds by default, 0 to disable it."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "SupplyCrateLootQualityMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Increases the quality of items that have a quality in the supply crates. Valid values are from 1.0 to 5.0. The quality also depends on the Difficulty Offset."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TamedDinoCharacterFoodDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how fast tame creatures consume food."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TamedDinoClassDamageMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally overrides tamed creatures damages. See Creature Stats related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TamedDinoClassResistanceMultipliers",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "(...)",
+    "description": "Globally overrides tamed creatures resistance. See Creature Stats related section for more details."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TamedDinoTorporDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how fast tamed creatures lose torpor."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TribeTowerBonusMultiplier",
+    "commentedOut": false,
+    "value": "2.0",
+    "default": "2.0",
+    "valueType": "float",
+    "description": "Multiplier for Tribe Tower bonus."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "TribeSlotReuseCooldown",
+    "commentedOut": false,
+    "value": "0.0",
+    "default": "0.0",
+    "valueType": "float",
+    "description": "Locks a tribe slot for the value in seconds, e.g.: a value of 3600 would mean that if a survivor leaves the tribe, their place cannot be taken by another survivor (or re-join) for 1 hour. Used on Official Small Tribes Servers."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "UseCorpseLifeSpanMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Modifies corpse and dropped box lifespan."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "WildDinoCharacterFoodDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how fast wild creatures consume food."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "WildDinoTorporDrainMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales how fast wild creatures lose torpor."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bHardLimitTurretsInRange",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, enables the retroactive turret hard limit (100 turrets within a 10k unit radius)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bLimitTurretsInRange",
+    "commentedOut": false,
+    "value": "True",
+    "default": "True",
+    "valueType": "boolean",
+    "description": "If False, doesn't limit the maximum allowed automated turrets (including Plant Species X) in a certain range."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitTurretsNum",
+    "commentedOut": false,
+    "value": "100",
+    "default": "100",
+    "valueType": "integer",
+    "description": "Determines the maximum number of turrets that are allowed in the area."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "LimitTurretsRange",
+    "commentedOut": false,
+    "value": "10000.0",
+    "default": "10000.0",
+    "valueType": "float",
+    "description": "Determines the area in Unreal Unit in which turrets are added towards the limit."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "ValgueroMemorialEntries",
+    "commentedOut": true,
+    "value": "N/A",
+    "default": "N/A",
+    "valueType": "list of player names, semicolon-separated with no spaces, in a single line (for example: Name1;Name2;Name3;)",
+    "description": "The Valguero Memorial is now interactable, honouring those who have ascended by displaying their names. Server owners can customize the list of names."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "AdjustableMutagenSpawnDelayMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the Mutagen spawn rates. By default, The game attempts to spawn them every 8 hours on dedicated servers, and every hour on non-dedicated servers and single-player. Rising this value will rise the re-spawn interval, lowering will make it shorter."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "BaseHexagonRewardMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the missions score hexagon rewards. Also scales token rewards in Club Ark (ASA)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableHexagonStore",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables the Hexagon store"
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableDefaultMapItemSets",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables Genesis 2 Tek Suit on Spawn."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableGenesisMissions",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables missions on Genesis."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bDisableWorldBuffs",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables world effects from Missions (Genesis: Part 2) altogether. To disable specific world buffs, see DisableWorldBuffs of #DynamicConfig."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bEnableWorldBuffScaling",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, makes world effects from Missions (Genesis: Part 2) scale from server settings, rather than add/subtract a flat amount to the value at runtime."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bGenesisUseStructuresPreventionVolumes",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, disables building in mission areas on Genesis: Part 1."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "bHexStoreAllowOnlyEngramTradeOption",
+    "commentedOut": false,
+    "value": "False",
+    "default": "False",
+    "valueType": "boolean",
+    "description": "If True, allows only Engrams to be sold on the Hex Store, disables everything else."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "HexagonCostMultiplier",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Scales the hexagon cost of items in the Hexagon store. Also scales token cost of items in Club Ark (ASA)."
+  },
+  {
+    "file": "game",
+    "section": "[/script/shootergame.shootergamemode]",
+    "key": "WorldBuffScalingEfficacy",
+    "commentedOut": false,
+    "value": "1.0",
+    "default": "1.0",
+    "valueType": "float",
+    "description": "Makes world effects from Missions (Genesis: Part 2) scaling more or less effective when setting bEnableWorldBuffScaling=True. 1 would be default, 0.5 would be 50% less effective, 100 would be 100x more effective."
+  }
+]

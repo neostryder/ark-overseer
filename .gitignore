@@ -13,3 +13,6 @@ CLAUDE.md
 
 # Log output.
 *.log
+
+# Downloaded embedding model.
+.model-cache/
