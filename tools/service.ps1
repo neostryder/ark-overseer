@@ -1,5 +1,8 @@
 # Installs, removes or reports ARK Overseer as a Windows service run by shawl as Network Service.
 # Run install and uninstall from an administrator PowerShell 7. -DryRun prints every step and changes nothing.
+# The service runs its own copy of the checkout's last commit, under Root\app, so uncommitted work never
+# goes live and Network Service needs no rights on the repo or the folders above it. Installing again with
+# -Force deploys the current commit.
 # 7.3 is the first version that passes an empty argument, such as sc.exe's password=, to a program.
 #Requires -Version 7.3
 param(
@@ -40,12 +43,13 @@ function Invoke-Step([string]$Description, [string]$Shown, [scriptblock]$Block) 
 }
 
 # A native step: the printed line and the call are built from the same argument array.
-function Invoke-Native([string]$Description, [string]$Exe, [string[]]$Arguments) {
+# robocopy reports success with exit codes up to 7, hence -MaxSuccess.
+function Invoke-Native([string]$Description, [string]$Exe, [string[]]$Arguments, [int]$MaxSuccess = 0) {
   Write-Output "STEP: $Description :: $(Quote $Exe) $(($Arguments | ForEach-Object { Quote $_ }) -join ' ')"
   if ($DryRun) { return }
   $global:LASTEXITCODE = 0
   & $Exe @Arguments
-  if ($LASTEXITCODE -ne 0) { throw "$Description failed with exit code $LASTEXITCODE." }
+  if ($LASTEXITCODE -gt $MaxSuccess -or $LASTEXITCODE -lt 0) { throw "$Description failed with exit code $LASTEXITCODE." }
 }
 
 function Fail([string]$Reason) {
@@ -84,6 +88,8 @@ if ($Action -eq 'status') {
   Write-Output "Account: $($service.StartName)"
   Write-Output "Start type: $($service.StartMode)"
   Write-Output "Command: $($service.PathName)"
+  $deployed = Join-Path $Root 'app\.deployed-commit'
+  if (Test-Path -LiteralPath $deployed) { Write-Output "Deployed commit: $((Get-Content -LiteralPath $deployed -Raw).Trim())" }
   exit 0
 }
 
@@ -96,6 +102,7 @@ if (-not $DryRun) {
 }
 
 $Runtime = Join-Path $Root 'runtime'
+$App = Join-Path $Root 'app'
 $Data = Join-Path $Root 'data'
 $Logs = Join-Path $Root 'logs'
 
@@ -139,6 +146,22 @@ if ($Action -eq 'install') {
   Invoke-Step 'Copy Node' "Copy-Item $(Quote $node) $(Quote $nodeExe)" { Copy-Item -LiteralPath $node -Destination $nodeExe -Force }
   Invoke-Step 'Expand shawl' "Expand-Archive $(Quote $ShawlZip) $(Quote $shawlDir)" { Expand-Archive -LiteralPath $ShawlZip -DestinationPath $shawlDir -Force }
   Invoke-Step 'Expand PowerShell' "Expand-Archive $(Quote $PwshZip) $(Quote $pwshDir)" { Expand-Archive -LiteralPath $PwshZip -DestinationPath $pwshDir -Force }
+  # Only committed files are deployed. node_modules is copied from the checkout, since the runtime has no npm.
+  $commit = git -C $AppDir rev-parse --verify HEAD 2>$null
+  if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail "$AppDir is not a git checkout with a commit to deploy."; $commit = 'HEAD' }
+  elseif (git -C $AppDir status --porcelain) { Write-Output "NOTE: $AppDir has uncommitted changes. They are not deployed; the service runs commit $commit." }
+  if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules. Run npm ci there first." }
+  $archive = Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-$commit.zip"
+  if ($DryRun -or (Test-Path -LiteralPath $App)) {
+    Invoke-Step 'Remove the old app copy' "Remove-Item $(Quote $App) -Recurse -Force" { if (Test-Path -LiteralPath $App) { Remove-Item -LiteralPath $App -Recurse -Force } }
+  }
+  Invoke-Native "Export commit $commit" 'git' @('-C', $AppDir, 'archive', '--format=zip', '-o', $archive, $commit)
+  Invoke-Step 'Unpack the app' "Expand-Archive $(Quote $archive) $(Quote $App)" {
+    Expand-Archive -LiteralPath $archive -DestinationPath $App -Force
+    Remove-Item -LiteralPath $archive
+    Set-Content -LiteralPath (Join-Path $App '.deployed-commit') -Value $commit -NoNewline
+  }
+  Invoke-Native 'Copy node_modules' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @((Join-Path $AppDir 'node_modules'), (Join-Path $App 'node_modules'), '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1') 7
   $modelSource = Join-Path $AppDir '.model-cache'
   $modelCache = Join-Path $Data 'model-cache'
   if ((Test-Path -LiteralPath $modelSource) -and -not (Test-Path -LiteralPath $modelCache)) {
@@ -146,7 +169,7 @@ if ($Action -eq 'install') {
   }
 
   # Inherited grants on the folder reach everything inside it, so no /T is needed.
-  foreach ($dir in @($AppDir, $Runtime)) {
+  foreach ($dir in @($App, $Runtime)) {
     Invoke-Native "Let Network Service read $dir" $Icacls @($dir, '/grant', "${NetworkService}:(OI)(CI)RX")
   }
   # The database holds the password hash and the session secret, so data and logs drop the
@@ -164,12 +187,12 @@ if ($Action -eq 'install') {
   }
 
   $shawlArguments = @(
-    'add', '--name', $ServiceName, '--cwd', $AppDir,
+    'add', '--name', $ServiceName, '--cwd', $App,
     '--stop-timeout', '60000', '--restart-if-not', '0', '--restart-delay', '10000', '--log-dir', $Logs,
     '--env', "OVERSEER_DATA=$Data", '--env', 'OVERSEER_SERVICE=1',
     '--env', "OVERSEER_PWSH=$(Join-Path $pwshDir 'pwsh.exe')",
     '--env', "OVERSEER_MODEL_CACHE=$modelCache", '--env', "OVERSEER_PORT=$Port",
-    '--', $nodeExe, (Join-Path $AppDir 'src\main.js')
+    '--', $nodeExe, (Join-Path $App 'src\main.js')
   )
   Invoke-Native 'Create the service' (Join-Path $shawlDir 'shawl.exe') $shawlArguments
   Invoke-Native 'Run it as Network Service, started after boot' $Sc @('config', $ServiceName, 'obj=', 'NT AUTHORITY\NetworkService', 'password=', '', 'start=', 'delayed-auto', 'DisplayName=', 'ARK Overseer')
@@ -189,16 +212,17 @@ if ($Action -eq 'install') {
       if (-not $answered) { throw "The service is running but did not answer on port $Port. Its log is in $Logs." }
     }
   }
-  Write-Output "Service: $ServiceName, run as NT AUTHORITY\NetworkService"
+  Write-Output "Service: $ServiceName, run as NT AUTHORITY\NetworkService, commit $commit"
   Write-Output "Data: $Data"
   Write-Output "Logs: $Logs"
   Write-Output "Open: http://127.0.0.1:$Port"
 }
 elseif ($Action -eq 'uninstall') {
   Remove-ExistingService
-  Invoke-Native "Remove the Network Service grant from $AppDir" $Icacls @($AppDir, '/remove:g', $NetworkService)
+  # Installs made before the app was deployed under Root granted Network Service on the checkout itself.
+  Invoke-Native "Remove any old Network Service grant from $AppDir" $Icacls @($AppDir, '/remove:g', $NetworkService)
   Write-Output 'NOTE: Server install folders keep their Network Service grant.'
-  foreach ($dir in @($Runtime, $Logs)) {
+  foreach ($dir in @($App, $Runtime, $Logs)) {
     if ($DryRun -or (Test-Path -LiteralPath $dir)) {
       Invoke-Step "Remove $dir" "Remove-Item $(Quote $dir) -Recurse -Force" { Remove-Item -LiteralPath $dir -Recurse -Force }
     }

@@ -65,13 +65,21 @@ test('service script install dry run validates hashes and prints all planned ste
   ])
     assert.ok(shawlLine.includes(bit), bit);
   assert.ok(shawlLine.includes(`"${path.join(serviceRoot, 'runtime', 'node', 'node.exe')}"`));
-  assert.ok(shawlLine.includes(`"${path.join(appDir, 'src', 'main.js')}"`));
+  // The service runs its own copy of the last commit under the root, never the checkout itself.
+  assert.ok(shawlLine.includes(`"${path.join(serviceRoot, 'app', 'src', 'main.js')}"`));
+  assert.ok(shawlLine.includes(`"--cwd" "${path.join(serviceRoot, 'app')}"`));
+  assert.match(output, /^FAIL: .* is not a git checkout with a commit to deploy\./m);
+  assert.ok(steps.some((line) => line.startsWith('STEP: Export commit') && line.includes('"archive"')));
+  assert.ok(steps.some((line) => line.includes('robocopy.exe') && line.includes('node_modules')));
+  assert.ok(steps.every((line) => !(line.includes('/grant') && line.includes(`"${appDir}"`))));
   const config = steps.find((line) => line.includes('sc.exe" "config"'));
   assert.match(config, /NT AUTHORITY\\NetworkService/);
   assert.match(config, /delayed-auto/);
   assert.ok(steps.some((line) => line.includes('sc.exe" "description"')));
   assert.ok(steps.some((line) => line.includes('sc.exe" "failure"')));
-  assert.ok(steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)RX`) && line.includes(appDir)));
+  assert.ok(
+    steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)RX`) && line.includes(path.join(serviceRoot, 'app'))),
+  );
   assert.ok(steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)RX`) && line.includes('runtime')));
   for (const folder of [path.join(serviceRoot, 'data'), path.join(serviceRoot, 'logs'), grant])
     assert.ok(

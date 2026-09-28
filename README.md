@@ -16,10 +16,10 @@ The database, backups and SteamCMD live in the `data` folder next to the code. S
 
 ## Running as a Windows service
 
-As a service, ARK Overseer starts with Windows and keeps running when nobody is signed in. It runs as the built-in Network Service account through [shawl](https://github.com/mtkennerly/shawl), with its own copies of Node and PowerShell under `C:\ProgramData\ARK Overseer`.
+As a service, ARK Overseer starts with Windows and keeps running when nobody is signed in. It runs as the built-in Network Service account through [shawl](https://github.com/mtkennerly/shawl), from its own copy of the app and its own Node and PowerShell under `C:\ProgramData\ARK Overseer`. The installer copies the checkout's last commit, so uncommitted changes never reach the service.
 
 1. Download `shawl-v1.9.0-win64.zip` from the shawl releases page and `PowerShell-7.6.6-win-x64.zip` from the PowerShell releases page on GitHub, and put both in the `vendor` folder. The installer refuses either one if its SHA-256 does not match the published release.
-2. In an administrator PowerShell, run `pwsh -File tools\service.ps1 install -Start`. Add `-GrantFolder <path>` for each server install folder that Network Service cannot already change, such as a Steam library. After adding a server in a new install folder, run the install again with `-Force` so the service can reach that folder too.
+2. In an administrator PowerShell, run `pwsh -File tools\service.ps1 install -Start`. Add `-GrantFolder <path>` for each server install folder that Network Service cannot already change, such as a Steam library. Run the install again with `-Force` to update the service to a newer commit, or after adding a server in a new install folder so the service can reach it.
 3. Open http://localhost:3310.
 
 `install -DryRun` prints every step without changing anything. `status` shows the service, and `uninstall` removes it and its runtime but keeps the database. The service writes its logs to `C:\ProgramData\ARK Overseer\logs`.
