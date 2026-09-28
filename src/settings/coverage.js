@@ -46,7 +46,10 @@ export function checkCoverage({ reference, fields, rawOnly }) {
         // focused to show why, so the whole form silently refuses to submit.
         const steps = (field.default - field.min) / field.step;
         if (Math.abs(steps - Math.round(steps)) > 1e-9) {
-          note('step', `${field.key} default ${field.default} is off-step: min ${field.min} with step ${field.step} cannot reach it`);
+          note(
+            'step',
+            `${field.key} default ${field.default} is off-step: min ${field.min} with step ${field.step} cannot reach it`,
+          );
         }
       }
     }
@@ -79,7 +82,11 @@ export function checkCoverage({ reference, fields, rawOnly }) {
       continue;
     }
 
-    const where = field ? (field.locked ? `locked field (${field.category})` : `field (${field.category})`) : 'raw INI only';
+    const where = field
+      ? field.locked
+        ? `locked field (${field.category})`
+        : `field (${field.category})`
+      : 'raw INI only';
     placements.push(`${option.key.padEnd(52)} ${where}`);
 
     // A field pointed at the wrong file or section writes a key the game never reads. The breeding
@@ -91,7 +98,10 @@ export function checkCoverage({ reference, fields, rawOnly }) {
     if (field) {
       const declaredSection = field.iniSection || SECTION_FOR_FILE[declaredFile];
       if (lower(declaredSection) !== lower(option.section)) {
-        note('routing', `${option.key} is declared under ${declaredSection} but the reference puts it under ${option.section}`);
+        note(
+          'routing',
+          `${option.key} is declared under ${declaredSection} but the reference puts it under ${option.section}`,
+        );
       }
     }
   }

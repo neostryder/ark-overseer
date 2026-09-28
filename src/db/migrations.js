@@ -140,8 +140,8 @@ export const MIGRATIONS = [
         detail_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(detail_json))
       );
       CREATE INDEX idx_audit_events_created_at ON audit_events(created_at);
-    `
-  }
+    `,
+  },
 ];
 
 // Versions run 1, 2, 3 with no gaps, so a typo in a version number fails at startup rather than

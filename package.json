@@ -9,7 +9,9 @@
   },
   "scripts": {
     "test": "node --test test/",
-    "check": "node tools/check-coverage.js"
+    "check": "node tools/check-coverage.js",
+    "format": "prettier --write src test tools",
+    "format:check": "prettier --check src test tools"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0"
@@ -17,5 +19,8 @@
   "allowScripts": {
     "onnxruntime-node@1.30.0": true,
     "protobufjs@7.6.6": true
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
   }
 }

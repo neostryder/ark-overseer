@@ -8,7 +8,9 @@ import { streamJobEvents } from '../src/jobs/sse.js';
 
 function deferred() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -51,7 +53,9 @@ function readerStream(response) {
 test('response headers and initial snapshot contain only active jobs', async (t) => {
   const { db, engine, url } = await setup(t);
   const stamp = new Date().toISOString();
-  const insert = db.prepare('INSERT INTO jobs (created_at, updated_at, kind, state, params_json) VALUES (?, ?, ?, ?, ?)');
+  const insert = db.prepare(
+    'INSERT INTO jobs (created_at, updated_at, kind, state, params_json) VALUES (?, ?, ?, ?, ?)',
+  );
   insert.run(stamp, stamp, 'queued-kind', 'queued', '{}');
   insert.run(stamp, stamp, 'running-kind', 'running', '{}');
   insert.run(stamp, stamp, 'done-kind', 'succeeded', '{}');
@@ -64,13 +68,26 @@ test('response headers and initial snapshot contain only active jobs', async (t)
   const stream = readerStream(response);
   const snapshot = await stream.nextEvent();
   assert.match(snapshot, /^event: snapshot\n/);
-  assert.deepEqual(JSON.parse(snapshot.split('\n').find((line) => line.startsWith('data: ')).slice(6)).jobs.map((job) => job.state), ['running', 'queued']);
+  assert.deepEqual(
+    JSON.parse(
+      snapshot
+        .split('\n')
+        .find((line) => line.startsWith('data: '))
+        .slice(6),
+    ).jobs.map((job) => job.state),
+    ['running', 'queued'],
+  );
   await stream.reader.cancel();
 });
 
 test('lifecycle events arrive with increasing ids and single line JSON data', async (t) => {
   const gate = deferred();
-  const { engine, url } = await setup(t, { work: async ({ progress }) => { progress(0.5, 'half'); await gate.promise; } });
+  const { engine, url } = await setup(t, {
+    work: async ({ progress }) => {
+      progress(0.5, 'half');
+      await gate.promise;
+    },
+  });
   const response = await fetch(url);
   const stream = readerStream(response);
   await stream.nextEvent();
@@ -81,16 +98,28 @@ test('lifecycle events arrive with increasing ids and single line JSON data', as
     events.push(value);
     assert.match(value, new RegExp(`^id: \\d+\\nevent: ${type}\\n`));
     assert.equal(value.split('\n').filter((line) => line.startsWith('data: ')).length, 1);
-    JSON.parse(value.split('\n').find((line) => line.startsWith('data: ')).slice(6));
+    JSON.parse(
+      value
+        .split('\n')
+        .find((line) => line.startsWith('data: '))
+        .slice(6),
+    );
   }
-  const done = new Promise((resolve) => engine.subscribe((event) => { if (event.type === 'succeeded' && event.job.id === job.id) resolve(); }));
+  const done = new Promise((resolve) =>
+    engine.subscribe((event) => {
+      if (event.type === 'succeeded' && event.job.id === job.id) resolve();
+    }),
+  );
   gate.resolve();
   await done;
   const succeeded = await stream.nextEvent();
   assert.match(succeeded, /^id: \d+\nevent: succeeded\n/);
   const ids = [...events, succeeded].map((event) => Number(event.match(/^id: (\d+)/)[1]));
   // One engine emitting to one stream: each id is exactly one more than the last.
-  assert.deepEqual(ids, ids.map((_, i) => ids[0] + i));
+  assert.deepEqual(
+    ids,
+    ids.map((_, i) => ids[0] + i),
+  );
   await stream.reader.cancel();
 });
 
@@ -101,21 +130,50 @@ test('filter limits snapshot and live events to one server', async (t) => {
   const stamp = new Date().toISOString();
   db.prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'host')").run(stamp, stamp);
   db.prepare("INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, 'path')").run(stamp, stamp);
-  db.prepare("INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'one', 'map', 'one', 7777)").run(stamp, stamp);
-  db.prepare("INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'two', 'map', 'two', 7778)").run(stamp, stamp);
-  const add = db.prepare("INSERT INTO jobs (created_at, updated_at, kind, server_id, state, params_json) VALUES (?, ?, 'x', ?, 'queued', '{}')");
-  add.run(stamp, stamp, 1); add.run(stamp, stamp, 2);
-  const server = http.createServer((req, res) => streamJobEvents(engine, req, res, { filter: (job) => job.serverId === 1 }));
+  db.prepare(
+    "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'one', 'map', 'one', 7777)",
+  ).run(stamp, stamp);
+  db.prepare(
+    "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'two', 'map', 'two', 7778)",
+  ).run(stamp, stamp);
+  const add = db.prepare(
+    "INSERT INTO jobs (created_at, updated_at, kind, server_id, state, params_json) VALUES (?, ?, 'x', ?, 'queued', '{}')",
+  );
+  add.run(stamp, stamp, 1);
+  add.run(stamp, stamp, 2);
+  const server = http.createServer((req, res) =>
+    streamJobEvents(engine, req, res, { filter: (job) => job.serverId === 1 }),
+  );
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  t.after(async () => { await engine.stop(); await new Promise((resolve) => server.close(resolve)); db.close(); });
+  t.after(async () => {
+    await engine.stop();
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  });
   const response = await fetch(`http://127.0.0.1:${server.address().port}`);
   const stream = readerStream(response);
-  const snapshot = JSON.parse((await stream.nextEvent()).split('\n').find((line) => line.startsWith('data: ')).slice(6));
-  assert.deepEqual(snapshot.jobs.map((job) => job.serverId), [1]);
+  const snapshot = JSON.parse(
+    (await stream.nextEvent())
+      .split('\n')
+      .find((line) => line.startsWith('data: '))
+      .slice(6),
+  );
+  assert.deepEqual(
+    snapshot.jobs.map((job) => job.serverId),
+    [1],
+  );
   engine.enqueue('x');
   engine.enqueue('x', {}, { serverId: 1 });
   const live = await stream.nextEvent();
-  assert.equal(JSON.parse(live.split('\n').find((line) => line.startsWith('data: ')).slice(6)).serverId, 1);
+  assert.equal(
+    JSON.parse(
+      live
+        .split('\n')
+        .find((line) => line.startsWith('data: '))
+        .slice(6),
+    ).serverId,
+    1,
+  );
   await stream.reader.cancel();
 });
 
@@ -136,7 +194,11 @@ test('heartbeat comments arrive at the configured interval', async (t) => {
   const engine = createJobEngine({ db, handlers: {} });
   const server = http.createServer((req, res) => streamJobEvents(engine, req, res, { heartbeatMs: 50 }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  t.after(async () => { await engine.stop(); await new Promise((resolve) => server.close(resolve)); db.close(); });
+  t.after(async () => {
+    await engine.stop();
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  });
   const response = await fetch(`http://127.0.0.1:${server.address().port}`);
   const stream = readerStream(response);
   await stream.nextEvent();
@@ -150,7 +212,10 @@ function backedUpResponse() {
   res.chunks = [];
   res.writableNeedDrain = true;
   res.writeHead = () => {};
-  res.write = (chunk) => { res.chunks.push(chunk); return false; };
+  res.write = (chunk) => {
+    res.chunks.push(chunk);
+    return false;
+  };
   return res;
 }
 
@@ -158,8 +223,16 @@ function fakeEngine() {
   let listener;
   return {
     listCalls: [],
-    list(options) { this.listCalls.push(options); return []; },
-    subscribe: (fn) => { listener = fn; return () => { listener = null; }; },
+    list(options) {
+      this.listCalls.push(options);
+      return [];
+    },
+    subscribe: (fn) => {
+      listener = fn;
+      return () => {
+        listener = null;
+      };
+    },
     emit: (event) => listener?.(event),
   };
 }

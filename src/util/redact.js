@@ -10,7 +10,10 @@ const PATTERNS = [
   // The same keys inside JSON, such as a settings body quoted in an error: "ServerPassword":"x".
   [/("[^"]*password[^"]*"\s*:\s*")[^"]*(")/gi, `$1${MASK}$2`],
   // Header-style secrets, in case a request or response ever gets logged.
-  [/(\b(?:x-api-key|authorization|cf-access-jwt-assertion)\s*[:=]\s*)(?:(?:basic|bearer)\s+)?[^\s"',;]+/gi, `$1${MASK}`],
+  [
+    /(\b(?:x-api-key|authorization|cf-access-jwt-assertion)\s*[:=]\s*)(?:(?:basic|bearer)\s+)?[^\s"',;]+/gi,
+    `$1${MASK}`,
+  ],
 ];
 
 export function redact(text) {

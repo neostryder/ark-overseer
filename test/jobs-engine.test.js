@@ -6,7 +6,10 @@ import { createJobEngine } from '../src/jobs/engine.js';
 function deferred() {
   let resolve;
   let reject;
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  const promise = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
   return { promise, resolve, reject };
 }
 
@@ -15,12 +18,20 @@ function setup(t, handlers = {}, options = {}) {
   const stamp = new Date().toISOString();
   db.prepare('INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, ?)').run(stamp, stamp, 'test-host');
   for (let index = 1; index <= 3; index += 1) {
-    db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(stamp, stamp, `install-${index}`);
-    db.prepare('INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, ?, ?, ?, ?, ?)')
-      .run(stamp, stamp, index, `server-${index}`, 'TheIsland', `Server ${index}`, 7777 + index);
+    db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
+      stamp,
+      stamp,
+      `install-${index}`,
+    );
+    db.prepare(
+      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, ?, ?, ?, ?, ?)',
+    ).run(stamp, stamp, index, `server-${index}`, 'TheIsland', `Server ${index}`, 7777 + index);
   }
   const engine = createJobEngine({ db, handlers, ...options });
-  t.after(async () => { await engine.stop({ abort: true, timeoutMs: 1000 }); db.close(); });
+  t.after(async () => {
+    await engine.stop({ abort: true, timeoutMs: 1000 });
+    db.close();
+  });
   engine.start();
   return { db, engine };
 }
@@ -28,7 +39,10 @@ function setup(t, handlers = {}, options = {}) {
 function eventWait(engine, type, predicate = () => true) {
   return new Promise((resolve) => {
     const off = engine.subscribe((event) => {
-      if (event.type === type && predicate(event.job)) { off(); resolve(event); }
+      if (event.type === type && predicate(event.job)) {
+        off();
+        resolve(event);
+      }
     });
   });
 }
@@ -41,7 +55,13 @@ test('enqueueing an unknown kind throws and inserts nothing', (t) => {
 
 test('a job runs with parsed params and stores its successful result', async (t) => {
   let received;
-  const { engine } = setup(t, { work: async (ctx) => { received = ctx; ctx.progress(0.4); return { ok: true }; } });
+  const { engine } = setup(t, {
+    work: async (ctx) => {
+      received = ctx;
+      ctx.progress(0.4);
+      return { ok: true };
+    },
+  });
   const done = eventWait(engine, 'succeeded');
   const job = engine.enqueue('work', { value: 3 });
   const event = await done;
@@ -55,7 +75,11 @@ test('a job runs with parsed params and stores its successful result', async (t)
 });
 
 test('a rejected handler stores a failed and redacted error', async (t) => {
-  const { engine } = setup(t, { work: async () => { throw new Error('ServerAdminPassword=secret'); } });
+  const { engine } = setup(t, {
+    work: async () => {
+      throw new Error('ServerAdminPassword=secret');
+    },
+  });
   const done = eventWait(engine, 'failed');
   const job = engine.enqueue('work');
   const event = await done;
@@ -64,7 +88,11 @@ test('a rejected handler stores a failed and redacted error', async (t) => {
 });
 
 test('a synchronously throwing handler ends failed', async (t) => {
-  const { engine } = setup(t, { work: () => { throw new Error('broken'); } });
+  const { engine } = setup(t, {
+    work: () => {
+      throw new Error('broken');
+    },
+  });
   const done = eventWait(engine, 'failed');
   engine.enqueue('work');
   assert.equal((await done).job.error, 'broken');
@@ -74,11 +102,14 @@ test('concurrency limits the number of running jobs', async (t) => {
   const gates = [deferred(), deferred(), deferred()];
   let index = 0;
   const { engine } = setup(t, { work: async () => gates[index++].promise }, { concurrency: 2 });
-  engine.enqueue('work'); engine.enqueue('work'); engine.enqueue('work');
+  engine.enqueue('work');
+  engine.enqueue('work');
+  engine.enqueue('work');
   await eventWait(engine, 'started', (job) => job.id === 2);
   assert.equal(engine.list({ state: 'running' }).length, 2);
   assert.equal(engine.list({ state: 'queued' }).length, 1);
-  gates[0].resolve(); gates[1].resolve();
+  gates[0].resolve();
+  gates[1].resolve();
   await eventWait(engine, 'started', (job) => job.id === 3);
   gates[2].resolve();
 });
@@ -119,7 +150,17 @@ test('cancelling a queued job prevents its handler from running', async (t) => {
   const gate = deferred();
   const entered = deferred();
   let calls = 0;
-  const { engine } = setup(t, { work: async () => { calls += 1; entered.resolve(); return gate.promise; } }, { concurrency: 1 });
+  const { engine } = setup(
+    t,
+    {
+      work: async () => {
+        calls += 1;
+        entered.resolve();
+        return gate.promise;
+      },
+    },
+    { concurrency: 1 },
+  );
   engine.enqueue('work');
   await eventWait(engine, 'started');
   const queued = engine.enqueue('work');
@@ -132,7 +173,12 @@ test('cancelling a queued job prevents its handler from running', async (t) => {
 
 test('cancelling a running job aborts its signal and ends cancelled on rejection', async (t) => {
   let signal;
-  const { engine } = setup(t, { work: ({ signal: value }) => { signal = value; return new Promise((resolve, reject) => value.addEventListener('abort', () => reject(new Error('aborted')))); } });
+  const { engine } = setup(t, {
+    work: ({ signal: value }) => {
+      signal = value;
+      return new Promise((resolve, reject) => value.addEventListener('abort', () => reject(new Error('aborted'))));
+    },
+  });
   const cancelled = eventWait(engine, 'cancelled');
   const job = engine.enqueue('work');
   await eventWait(engine, 'started');
@@ -163,9 +209,14 @@ test('cancel returns false for a finished job', async (t) => {
 test('start recovers running rows and runs queued rows', async (t) => {
   const db = openDatabase(':memory:');
   const engine = createJobEngine({ db, handlers: { work: async () => 'done' } });
-  t.after(async () => { await engine.stop({ abort: true }); db.close(); });
+  t.after(async () => {
+    await engine.stop({ abort: true });
+    db.close();
+  });
   const stamp = new Date().toISOString();
-  const insert = db.prepare("INSERT INTO jobs (created_at, updated_at, kind, state, params_json) VALUES (?, ?, 'work', ?, '{}')");
+  const insert = db.prepare(
+    "INSERT INTO jobs (created_at, updated_at, kind, state, params_json) VALUES (?, ?, 'work', ?, '{}')",
+  );
   insert.run(stamp, stamp, 'running');
   insert.run(stamp, stamp, 'queued');
   const succeeded = eventWait(engine, 'succeeded', (job) => job.id === 2);
@@ -179,7 +230,16 @@ test('start recovers running rows and runs queued rows', async (t) => {
 
 test('stop with abort interrupts running jobs and leaves queued jobs queued', async (t) => {
   let signal;
-  const { engine } = setup(t, { work: ({ signal: value }) => { signal = value; return new Promise((resolve, reject) => value.addEventListener('abort', () => reject(new Error('aborted')))); } }, { concurrency: 1 });
+  const { engine } = setup(
+    t,
+    {
+      work: ({ signal: value }) => {
+        signal = value;
+        return new Promise((resolve, reject) => value.addEventListener('abort', () => reject(new Error('aborted'))));
+      },
+    },
+    { concurrency: 1 },
+  );
   engine.enqueue('work');
   const running = eventWait(engine, 'started');
   await running;
@@ -196,7 +256,9 @@ test('stop without abort waits for a running handler to finish', async (t) => {
   const job = engine.enqueue('work');
   await eventWait(engine, 'started');
   let stopped = false;
-  const stopping = engine.stop().then(() => { stopped = true; });
+  const stopping = engine.stop().then(() => {
+    stopped = true;
+  });
   gate.resolve();
   await stopping;
   assert.equal(stopped, true);
@@ -210,15 +272,34 @@ test('progress emits each call while throttling database writes', async (t) => {
   db.prepare = (sql) => {
     const statement = prepare(sql);
     if (!sql.startsWith('UPDATE jobs SET progress = ?, message = ?')) return statement;
-    return { run: (...args) => { progressWrites += 1; return statement.run(...args); } };
+    return {
+      run: (...args) => {
+        progressWrites += 1;
+        return statement.run(...args);
+      },
+    };
   };
   const gate = deferred();
   let report;
-  const engine = createJobEngine({ db, handlers: { work: ({ progress }) => { report = progress; return gate.promise; } }, progressWriteMs: 60000 });
-  t.after(async () => { await engine.stop({ abort: true }); db.close(); });
+  const engine = createJobEngine({
+    db,
+    handlers: {
+      work: ({ progress }) => {
+        report = progress;
+        return gate.promise;
+      },
+    },
+    progressWriteMs: 60000,
+  });
+  t.after(async () => {
+    await engine.stop({ abort: true });
+    db.close();
+  });
   engine.start();
   const events = [];
-  engine.subscribe((event) => { if (event.type === 'progress') events.push(event); });
+  engine.subscribe((event) => {
+    if (event.type === 'progress') events.push(event);
+  });
   const started = eventWait(engine, 'started');
   engine.enqueue('work');
   await started;
@@ -233,9 +314,16 @@ test('progress emits each call while throttling database writes', async (t) => {
 test('progress clamps fractions, rejects invalid types, and redacts messages', async (t) => {
   let report;
   const gate = deferred();
-  const { engine } = setup(t, { work: ({ progress }) => { report = progress; return gate.promise; } });
+  const { engine } = setup(t, {
+    work: ({ progress }) => {
+      report = progress;
+      return gate.promise;
+    },
+  });
   const observed = [];
-  engine.subscribe((event) => { if (event.type === 'progress') observed.push(event.job); });
+  engine.subscribe((event) => {
+    if (event.type === 'progress') observed.push(event.job);
+  });
   const done = eventWait(engine, 'succeeded');
   engine.enqueue('work');
   await eventWait(engine, 'started');
@@ -252,13 +340,18 @@ test('progress clamps fractions, rejects invalid types, and redacts messages', a
 test('events increase sequence and throwing listeners do not affect others', async (t) => {
   const { engine } = setup(t, { work: async () => undefined });
   const sequences = [];
-  engine.subscribe(() => { throw new Error('listener'); });
+  engine.subscribe(() => {
+    throw new Error('listener');
+  });
   engine.subscribe((event) => sequences.push(event.seq));
   const done = eventWait(engine, 'succeeded');
   engine.enqueue('work');
   await done;
   assert.ok(sequences.length >= 3);
-  assert.deepEqual(sequences, sequences.map((_, i) => sequences[0] + i));
+  assert.deepEqual(
+    sequences,
+    sequences.map((_, i) => sequences[0] + i),
+  );
 });
 
 test('list filters states and server and sorts newest first', (t) => {
@@ -266,8 +359,14 @@ test('list filters states and server and sorts newest first', (t) => {
   const a = engine.enqueue('work', {}, { serverId: 1 });
   const b = engine.enqueue('work', {}, { serverId: 2 });
   const c = engine.enqueue('work', {}, { serverId: 1 });
-  assert.deepEqual(engine.list({ state: 'queued' }).map((job) => job.id), [c.id, b.id, a.id]);
-  assert.deepEqual(engine.list({ state: ['queued', 'running'], serverId: 1 }).map((job) => job.id), [c.id, a.id]);
+  assert.deepEqual(
+    engine.list({ state: 'queued' }).map((job) => job.id),
+    [c.id, b.id, a.id],
+  );
+  assert.deepEqual(
+    engine.list({ state: ['queued', 'running'], serverId: 1 }).map((job) => job.id),
+    [c.id, a.id],
+  );
 });
 
 test('a result that cannot be saved ends the job failed instead of leaving it running', async (t) => {
@@ -289,10 +388,18 @@ test('a job scheduled weeks ahead waits quietly instead of spinning the timer', 
   db.prepare = (sql) => {
     const statement = prepare(sql);
     if (!sql.includes('MIN(run_after)')) return statement;
-    return { get: (...args) => { timerQueries += 1; return statement.get(...args); } };
+    return {
+      get: (...args) => {
+        timerQueries += 1;
+        return statement.get(...args);
+      },
+    };
   };
   const engine = createJobEngine({ db, handlers: { work: async () => 'done' } });
-  t.after(async () => { await engine.stop({ abort: true }); db.close(); });
+  t.after(async () => {
+    await engine.stop({ abort: true });
+    db.close();
+  });
   engine.start();
   const sixtyDays = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
   engine.enqueue('work', {}, { runAfter: sixtyDays });
@@ -304,12 +411,16 @@ test('a job scheduled weeks ahead waits quietly instead of spinning the timer', 
 
 test('the last progress value reaches the database after a burst goes quiet', async (t) => {
   const gate = deferred();
-  const { db, engine } = setup(t, {
-    work: async (ctx) => {
-      for (let i = 1; i <= 50; i++) ctx.progress(i / 100, `step ${i}`);
-      return gate.promise;
+  const { db, engine } = setup(
+    t,
+    {
+      work: async (ctx) => {
+        for (let i = 1; i <= 50; i++) ctx.progress(i / 100, `step ${i}`);
+        return gate.promise;
+      },
     },
-  }, { progressWriteMs: 50 });
+    { progressWriteMs: 50 },
+  );
   const started = eventWait(engine, 'started');
   const job = engine.enqueue('work');
   await started;
@@ -324,22 +435,41 @@ test('a job whose final write fails keeps its server busy and raises no unhandle
   const db = openDatabase(':memory:');
   const stamp = new Date().toISOString();
   db.prepare('INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, ?)').run(stamp, stamp, 'host');
-  db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(stamp, stamp, 'install');
+  db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
+    stamp,
+    stamp,
+    'install',
+  );
   for (const port of [7777, 7787]) {
-    db.prepare('INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, ?, ?, ?, ?)')
-      .run(stamp, stamp, `s${port}`, 'TheIsland', `s${port}`, port);
+    db.prepare(
+      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, ?, ?, ?, ?)',
+    ).run(stamp, stamp, `s${port}`, 'TheIsland', `s${port}`, port);
   }
   let failWrites = true;
   const prepare = db.prepare.bind(db);
   db.prepare = (sql) => {
     const statement = prepare(sql);
     if (!sql.startsWith('UPDATE jobs SET state = ?, progress = ?')) return statement;
-    return { run: (...args) => { if (failWrites) throw new Error('disk full'); return statement.run(...args); } };
+    return {
+      run: (...args) => {
+        if (failWrites) throw new Error('disk full');
+        return statement.run(...args);
+      },
+    };
   };
   const unhandled = [];
   const onUnhandled = (reason) => unhandled.push(reason);
   process.on('unhandledRejection', onUnhandled);
-  const engine = createJobEngine({ db, handlers: { work: async () => { throw new Error('boom'); }, wait: () => new Promise(() => {}) }, concurrency: 5 });
+  const engine = createJobEngine({
+    db,
+    handlers: {
+      work: async () => {
+        throw new Error('boom');
+      },
+      wait: () => new Promise(() => {}),
+    },
+    concurrency: 5,
+  });
   t.after(async () => {
     process.off('unhandledRejection', onUnhandled);
     await engine.stop({ abort: true, timeoutMs: 50 });

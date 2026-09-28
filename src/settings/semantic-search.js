@@ -37,7 +37,9 @@ function getExtractor() {
       env.cacheDir = CACHE_DIR;
       return pipeline('feature-extraction', MODEL_ID, { dtype: 'q8' });
     })();
-    extractorPromise.catch(() => { extractorPromise = null; });
+    extractorPromise.catch(() => {
+      extractorPromise = null;
+    });
   }
   return extractorPromise;
 }
@@ -74,7 +76,7 @@ function getCorpus(fields, extractor, cacheKey) {
 // Returns [] when nothing clears MIN_SCORE: no result is the right answer for a query with no real
 // match, rather than a forced best guess.
 export async function rankFields(query, fields, { extractor: injectedExtractor } = {}) {
-  const extractor = injectedExtractor || await getExtractor();
+  const extractor = injectedExtractor || (await getExtractor());
   const cacheKey = injectedExtractor || DEFAULT_EXTRACTOR;
   const corpus = await getCorpus(fields, extractor, cacheKey);
   const queryOutput = await extractor([query], { pooling: 'mean', normalize: true });

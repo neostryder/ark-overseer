@@ -12,16 +12,29 @@ if (verbose) {
   for (const line of report.placements.sort()) console.log('  ' + line);
   console.log('');
 }
-for (const [label, count] of [['reference options', report.counts.reference], ['curated fields', report.counts.curated], ['locked fields', report.counts.locked], ['raw INI only', report.counts.rawOnly], ['launch-flag fields', report.counts.launchFlag]]) console.log(`${label.padEnd(20)} ${count}`);
+for (const [label, count] of [
+  ['reference options', report.counts.reference],
+  ['curated fields', report.counts.curated],
+  ['locked fields', report.counts.locked],
+  ['raw INI only', report.counts.rawOnly],
+  ['launch-flag fields', report.counts.launchFlag],
+])
+  console.log(`${label.padEnd(20)} ${count}`);
 console.log('');
 if (report.uncovered.length) {
-  console.error(`UNCOVERED: ${report.uncovered.length} documented option(s) are neither a field nor declared raw-INI-only:`);
-  for (const option of report.uncovered) console.error(`  ${option.key}  (${option.file} ${option.section}, ${option.valueType || 'type undocumented'})`);
+  console.error(
+    `UNCOVERED: ${report.uncovered.length} documented option(s) are neither a field nor declared raw-INI-only:`,
+  );
+  for (const option of report.uncovered)
+    console.error(`  ${option.key}  (${option.file} ${option.section}, ${option.valueType || 'type undocumented'})`);
   console.error('');
 }
 if (report.unknownFields.length) {
-  console.error(`NOT IN REFERENCE: ${report.unknownFields.length} key(s) exist here but not in the reference - check for a typo:`);
-  for (const key of report.unknownFields) console.error(`  ${SETTINGS_FIELDS.find((field) => field.key.toLowerCase() === key).key}`);
+  console.error(
+    `NOT IN REFERENCE: ${report.unknownFields.length} key(s) exist here but not in the reference - check for a typo:`,
+  );
+  for (const key of report.unknownFields)
+    console.error(`  ${SETTINGS_FIELDS.find((field) => field.key.toLowerCase() === key).key}`);
   console.error('');
 }
 if (report.problems.length) {

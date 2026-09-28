@@ -1,5 +1,14 @@
 import { SETTINGS_FIELDS } from './fields.js';
-import { readIniFile, writeIniFile, getIniKey, setIniKey, removeIniKey, fileFor, sectionFor, SESSION_SETTINGS } from './ini.js';
+import {
+  readIniFile,
+  writeIniFile,
+  getIniKey,
+  setIniKey,
+  removeIniKey,
+  fileFor,
+  sectionFor,
+  SESSION_SETTINGS,
+} from './ini.js';
 import { validateSettings } from './validate.js';
 
 export function createSettingsStore({ gameUserSettingsPath, gameIniPath }) {
@@ -44,7 +53,12 @@ export function createSettingsStore({ gameUserSettingsPath, gameIniPath }) {
       if (value === null) {
         removeIniKey(files[file].lines, sectionFor(field), field.key);
       } else {
-        setIniKey(files[file].lines, sectionFor(field), field.key, field.type === 'bool' ? (value ? 'True' : 'False') : String(value));
+        setIniKey(
+          files[file].lines,
+          sectionFor(field),
+          field.key,
+          field.type === 'bool' ? (value ? 'True' : 'False') : String(value),
+        );
       }
       touched.add(file);
     }
@@ -73,7 +87,12 @@ export function createSettingsStore({ gameUserSettingsPath, gameIniPath }) {
       } else if (typeof field.default === 'string' && field.default.startsWith('(')) {
         removeIniKey(lines, section, field.key);
       } else {
-        setIniKey(lines, section, field.key, field.type === 'bool' ? (field.default ? 'True' : 'False') : String(field.default));
+        setIniKey(
+          lines,
+          section,
+          field.key,
+          field.type === 'bool' ? (field.default ? 'True' : 'False') : String(field.default),
+        );
       }
       touched.add(file);
     }

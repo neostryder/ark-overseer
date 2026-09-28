@@ -17,7 +17,11 @@ export function transaction(db, fn) {
     return result;
   } catch (error) {
     if (db.isTransaction) {
-      try { db.exec('ROLLBACK'); } catch { /* keep the original error */ }
+      try {
+        db.exec('ROLLBACK');
+      } catch {
+        /* keep the original error */
+      }
     }
     throw error;
   }

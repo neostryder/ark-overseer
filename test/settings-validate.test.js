@@ -13,7 +13,16 @@ function assertRejected(body, pattern) {
 }
 
 test('a valid body returns no errors', () => {
-  assert.deepEqual(validateSettings({ sessionName: 'Neo Olympus', ServerPVE: true, MaxPlayers: 20, ServerPassword: 'friends', TamingSpeedMultiplier: '2.5' }), []);
+  assert.deepEqual(
+    validateSettings({
+      sessionName: 'Neo Olympus',
+      ServerPVE: true,
+      MaxPlayers: 20,
+      ServerPassword: 'friends',
+      TamingSpeedMultiplier: '2.5',
+    }),
+    [],
+  );
 });
 
 test('session name rules', () => {

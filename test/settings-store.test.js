@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { createSettingsStore } from '../src/settings/store.js';
 
-const USER_INI = '; kept comment\r\n[ServerSettings]\r\nUnknown=abc\r\nServerPVE=False\r\nServerAdminPassword=secret\r\nRCONPort=27020\r\n';
+const USER_INI =
+  '; kept comment\r\n[ServerSettings]\r\nUnknown=abc\r\nServerPVE=False\r\nServerAdminPassword=secret\r\nRCONPort=27020\r\n';
 
 function setup(t, userIni = USER_INI) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ark-overseer-'));
@@ -34,7 +35,10 @@ test('missing files read as empty settings', (t) => {
 test('a write changes only the keys it names and leaves the rest of the file alone', (t) => {
   const { user, store } = setup(t);
   store.writeSettings({ ServerHardcore: true });
-  assert.equal(fs.readFileSync(user, 'utf8'), USER_INI.replace('[ServerSettings]\r\n', '[ServerSettings]\r\nServerHardcore=True\r\n'));
+  assert.equal(
+    fs.readFileSync(user, 'utf8'),
+    USER_INI.replace('[ServerSettings]\r\n', '[ServerSettings]\r\nServerHardcore=True\r\n'),
+  );
   assert.equal(store.readSettings().TamingSpeedMultiplier, null);
 });
 
@@ -59,7 +63,10 @@ test('Game.ini is only created by a write that touches a Game.ini field', (t) =>
   assert.deepEqual(store.writeSettings({ ServerPVE: true }).written, ['gameusersettings']);
   assert.equal(fs.existsSync(game), false);
   assert.deepEqual(store.writeSettings({ BabyCuddleIntervalMultiplier: 0.5 }).written, ['game']);
-  assert.equal(fs.readFileSync(game, 'utf8'), '[/script/shootergame.shootergamemode]\r\nBabyCuddleIntervalMultiplier=0.5');
+  assert.equal(
+    fs.readFileSync(game, 'utf8'),
+    '[/script/shootergame.shootergamemode]\r\nBabyCuddleIntervalMultiplier=0.5',
+  );
 });
 
 test('an invalid body throws with its errors and writes nothing', (t) => {
@@ -71,7 +78,10 @@ test('an invalid body throws with its errors and writes nothing', (t) => {
     { ServerPVE: true, Message: 'hi\r\nServerAdminPassword=taken' },
     { ServerPVE: true, TamingSpeedMultiplier: '' },
   ]) {
-    assert.throws(() => store.writeSettings(body), (error) => Array.isArray(error.errors) && error.errors.length > 0);
+    assert.throws(
+      () => store.writeSettings(body),
+      (error) => Array.isArray(error.errors) && error.errors.length > 0,
+    );
     assert.deepEqual(fs.readFileSync(user), before);
     assert.equal(fs.existsSync(game), false);
   }

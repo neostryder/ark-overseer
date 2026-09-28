@@ -19,10 +19,16 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
   let timer = null;
 
   const selectJob = db.prepare('SELECT * FROM jobs WHERE id = ?');
-  const selectNextRunAfter = db.prepare("SELECT MIN(run_after) AS run_after FROM jobs WHERE state = 'queued' AND run_after > ?");
-  const claimJob = db.prepare("UPDATE jobs SET state = 'running', started_at = ?, attempts = attempts + 1, updated_at = ? WHERE id = ? AND state = 'queued'");
+  const selectNextRunAfter = db.prepare(
+    "SELECT MIN(run_after) AS run_after FROM jobs WHERE state = 'queued' AND run_after > ?",
+  );
+  const claimJob = db.prepare(
+    "UPDATE jobs SET state = 'running', started_at = ?, attempts = attempts + 1, updated_at = ? WHERE id = ? AND state = 'queued'",
+  );
   const writeProgress = db.prepare('UPDATE jobs SET progress = ?, message = ?, updated_at = ? WHERE id = ?');
-  const writeFinish = db.prepare('UPDATE jobs SET state = ?, progress = ?, message = ?, result_json = ?, error = ?, finished_at = ?, updated_at = ? WHERE id = ?');
+  const writeFinish = db.prepare(
+    'UPDATE jobs SET state = ?, progress = ?, message = ?, result_json = ?, error = ?, finished_at = ?, updated_at = ? WHERE id = ?',
+  );
 
   function toJob(row) {
     return {
@@ -53,7 +59,11 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
   function emit(type, job) {
     const event = { seq: ++sequence, type, job };
     for (const listener of listeners) {
-      try { listener(event); } catch { /* a listener cannot interrupt job processing */ }
+      try {
+        listener(event);
+      } catch {
+        /* a listener cannot interrupt job processing */
+      }
     }
   }
 
@@ -76,7 +86,10 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       sql += ' LIMIT ?';
       values.push(limit);
     }
-    return db.prepare(sql).all(...values).map(toJob);
+    return db
+      .prepare(sql)
+      .all(...values)
+      .map(toJob);
   }
 
   function busyTargets() {
@@ -134,7 +147,9 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       let resultJson = null;
       if (state === 'succeeded') resultJson = JSON.stringify(result) ?? 'null';
       const progress = state === 'succeeded' ? 1 : job.progress;
-      transaction(db, () => writeFinish.run(state, progress, job.message, resultJson, error ?? null, stamp, stamp, job.id));
+      transaction(db, () =>
+        writeFinish.run(state, progress, job.message, resultJson, error ?? null, stamp, stamp, job.id),
+      );
     } catch (writeError) {
       if (state !== 'succeeded') throw writeError;
       const message = redact(`The job finished but its result could not be saved: ${writeError.message}`);
@@ -146,7 +161,15 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
 
   function run(job) {
     const controller = new AbortController();
-    const entry = { job, controller, cancelled: false, stopping: false, finished: false, lastWrite: 0, flushTimer: null };
+    const entry = {
+      job,
+      controller,
+      cancelled: false,
+      stopping: false,
+      finished: false,
+      lastWrite: 0,
+      flushTimer: null,
+    };
     running.set(job.id, entry);
 
     function flushProgress() {
@@ -235,9 +258,13 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       runAfter = new Date(time).toISOString();
     }
     const stamp = nowIso();
-    const result = transaction(db, () => db.prepare(
-      'INSERT INTO jobs (created_at, updated_at, kind, server_id, install_id, state, params_json, run_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    ).run(stamp, stamp, kind, serverId, installId, 'queued', JSON.stringify(params), runAfter));
+    const result = transaction(db, () =>
+      db
+        .prepare(
+          'INSERT INTO jobs (created_at, updated_at, kind, server_id, install_id, state, params_json, run_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(stamp, stamp, kind, serverId, installId, 'queued', JSON.stringify(params), runAfter),
+    );
     const job = get(Number(result.lastInsertRowid));
     emit('queued', job);
     queueMicrotask(pump);
@@ -261,7 +288,9 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       const found = db.prepare("SELECT id FROM jobs WHERE state = 'running' ORDER BY id").all();
       if (found.length) {
         const stamp = nowIso();
-        db.prepare("UPDATE jobs SET state = 'interrupted', error = ?, finished_at = ?, updated_at = ? WHERE state = 'running'").run(INTERRUPTED, stamp, stamp);
+        db.prepare(
+          "UPDATE jobs SET state = 'interrupted', error = ?, finished_at = ?, updated_at = ? WHERE state = 'running'",
+        ).run(INTERRUPTED, stamp, stamp);
       }
       return found;
     });
@@ -275,9 +304,15 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
     if (!job) return false;
     if (job.state === 'queued') {
       const stamp = nowIso();
-      const changed = transaction(db, () => db.prepare(
-        "UPDATE jobs SET state = 'cancelled', finished_at = ?, updated_at = ? WHERE id = ? AND state = 'queued'",
-      ).run(stamp, stamp, id).changes);
+      const changed = transaction(
+        db,
+        () =>
+          db
+            .prepare(
+              "UPDATE jobs SET state = 'cancelled', finished_at = ?, updated_at = ? WHERE id = ? AND state = 'queued'",
+            )
+            .run(stamp, stamp, id).changes,
+      );
       if (!changed) return false;
       emit('cancelled', get(id));
       return true;

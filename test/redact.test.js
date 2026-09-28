@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { redact, MASK } from '../src/util/redact.js';
 
 test('redact masks passwords in an ASA launch line', () => {
-  const line = 'Commandline: Astraeos_WP?listen?SessionName=Neo Olympus?ServerPassword=hunter2?ServerAdminPassword=s3cret -port=7777';
+  const line =
+    'Commandline: Astraeos_WP?listen?SessionName=Neo Olympus?ServerPassword=hunter2?ServerAdminPassword=s3cret -port=7777';
   const out = redact(line);
   assert.ok(!out.includes('hunter2'));
   assert.ok(!out.includes('s3cret'));

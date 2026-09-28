@@ -18,7 +18,8 @@ export function validateSettings(body) {
     else {
       if (name.includes('?')) errors.push('Session Name cannot contain "?".');
       if (LINE_BREAK.test(name)) errors.push('Session Name cannot contain a line break.');
-      if (name.trim().length > SESSION_NAME_MAX_LENGTH) errors.push(`Session Name must be ${SESSION_NAME_MAX_LENGTH} characters or fewer.`);
+      if (name.trim().length > SESSION_NAME_MAX_LENGTH)
+        errors.push(`Session Name must be ${SESSION_NAME_MAX_LENGTH} characters or fewer.`);
     }
   }
   for (const field of SETTINGS_FIELDS) {
@@ -39,10 +40,13 @@ export function validateSettings(body) {
         continue;
       }
       if (LINE_BREAK.test(value)) errors.push(`${field.label} cannot contain a line break.`);
-      if (field.pattern && !new RegExp(field.pattern).test(value)) errors.push(`${field.label}: ${field.patternHelp || 'invalid value'}`);
-      if (field.maxLength && value.length > field.maxLength) errors.push(`${field.label} must be ${field.maxLength} characters or fewer.`);
+      if (field.pattern && !new RegExp(field.pattern).test(value))
+        errors.push(`${field.label}: ${field.patternHelp || 'invalid value'}`);
+      if (field.maxLength && value.length > field.maxLength)
+        errors.push(`${field.label} must be ${field.maxLength} characters or fewer.`);
     } else if (field.type === 'int' || field.type === 'float') {
-      const valid = typeof value === 'number' ? Number.isFinite(value) : typeof value === 'string' && DECIMAL.test(value);
+      const valid =
+        typeof value === 'number' ? Number.isFinite(value) : typeof value === 'string' && DECIMAL.test(value);
       const num = Number(value);
       if (!valid) errors.push(`${field.label} must be a number.`);
       else if (field.type === 'int' && !Number.isInteger(num)) errors.push(`${field.label} must be a whole number.`);

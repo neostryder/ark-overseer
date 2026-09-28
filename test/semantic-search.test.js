@@ -20,7 +20,10 @@ test('results come best first and stop at the score window', async () => {
   const scores = { best: 0.95, close: 0.95 - SCORE_WINDOW / 2, far: 0.95 - SCORE_WINDOW * 2 };
   const { extractor } = fakeExtractor(scores);
   const results = await rankFields('QUERY', fieldsFor(scores), { extractor });
-  assert.deepEqual(results.map((r) => r.key), ['best', 'close']);
+  assert.deepEqual(
+    results.map((r) => r.key),
+    ['best', 'close'],
+  );
 });
 
 test('nothing above MIN_SCORE returns no results', async () => {
@@ -58,5 +61,8 @@ test('a failed corpus embedding is retried on the next search', async () => {
   const fields = fieldsFor(scores);
   await assert.rejects(rankFields('QUERY', fields, { extractor }), /model unavailable/);
   fail = false;
-  assert.deepEqual((await rankFields('QUERY', fields, { extractor })).map((r) => r.key), ['a']);
+  assert.deepEqual(
+    (await rankFields('QUERY', fields, { extractor })).map((r) => r.key),
+    ['a'],
+  );
 });

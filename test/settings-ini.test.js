@@ -5,8 +5,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { SETTINGS_FIELDS } from '../src/settings/fields.js';
 import {
-  readIniFile, writeIniFile, readIniLines, writeIniLines, getIniKey, setIniKey, removeIniKey,
-  fileFor, sectionFor, GAME_MODE_SETTINGS,
+  readIniFile,
+  writeIniFile,
+  readIniLines,
+  writeIniLines,
+  getIniKey,
+  setIniKey,
+  removeIniKey,
+  fileFor,
+  sectionFor,
+  GAME_MODE_SETTINGS,
 } from '../src/settings/ini.js';
 
 const field = (key) => SETTINGS_FIELDS.find((f) => f.key === key);
@@ -20,7 +28,11 @@ function tempDir(t) {
 test('a section header matches regardless of case and is never duplicated', () => {
   const lines = ['[/Script/ShooterGame.ShooterGameMode]', 'bDisablePhotoMode=False'];
   setIniKey(lines, GAME_MODE_SETTINGS, 'BabyCuddleIntervalMultiplier', '0.5');
-  assert.deepEqual(lines, ['[/Script/ShooterGame.ShooterGameMode]', 'BabyCuddleIntervalMultiplier=0.5', 'bDisablePhotoMode=False']);
+  assert.deepEqual(lines, [
+    '[/Script/ShooterGame.ShooterGameMode]',
+    'BabyCuddleIntervalMultiplier=0.5',
+    'bDisablePhotoMode=False',
+  ]);
 });
 
 test('a key matches regardless of case, leaving one line for it', () => {
@@ -39,11 +51,24 @@ test('a missing section is appended after a blank line, a missing key goes right
 });
 
 test('lines the helpers do not own come through unchanged', () => {
-  const original = ['; kept comment', '', '[ServerSettings]', 'Unknown=abc', 'ServerPVE=False', '', '[Other]', 'Thing=1', ''];
+  const original = [
+    '; kept comment',
+    '',
+    '[ServerSettings]',
+    'Unknown=abc',
+    'ServerPVE=False',
+    '',
+    '[Other]',
+    'Thing=1',
+    '',
+  ];
   const lines = [...original];
   setIniKey(lines, '[ServerSettings]', 'ServerPVE', 'True');
   removeIniKey(lines, '[ServerSettings]', 'ServerPVE');
-  assert.deepEqual(lines, original.filter((line) => line !== 'ServerPVE=False'));
+  assert.deepEqual(
+    lines,
+    original.filter((line) => line !== 'ServerPVE=False'),
+  );
 });
 
 test('a missing file reads as no lines, and a new file is written with CRLF', (t) => {
@@ -57,8 +82,17 @@ test('a missing file reads as no lines, and a new file is written with CRLF', (t
 test('a write keeps the file encoding, byte order mark and line endings', (t) => {
   const dir = tempDir(t);
   const cases = [
-    { name: 'utf8-bom.ini', bytes: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('[ServerSettings]\r\nServerPVE=False\r\n')]) },
-    { name: 'utf16.ini', bytes: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('[ServerSettings]\r\nServerPVE=False\r\n', 'utf16le')]) },
+    {
+      name: 'utf8-bom.ini',
+      bytes: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('[ServerSettings]\r\nServerPVE=False\r\n')]),
+    },
+    {
+      name: 'utf16.ini',
+      bytes: Buffer.concat([
+        Buffer.from([0xff, 0xfe]),
+        Buffer.from('[ServerSettings]\r\nServerPVE=False\r\n', 'utf16le'),
+      ]),
+    },
     { name: 'lf.ini', bytes: Buffer.from('[ServerSettings]\nServerPVE=False\n') },
   ];
   for (const { name, bytes } of cases) {
@@ -71,7 +105,10 @@ test('a write keeps the file encoding, byte order mark and line endings', (t) =>
     writeIniFile(target, file);
     const expected = Buffer.from(bytes.toString('latin1').replace('False', 'True'), 'latin1');
     if (name === 'utf16.ini') {
-      assert.deepEqual(fs.readFileSync(target), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('[ServerSettings]\r\nServerPVE=True\r\n', 'utf16le')]));
+      assert.deepEqual(
+        fs.readFileSync(target),
+        Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('[ServerSettings]\r\nServerPVE=True\r\n', 'utf16le')]),
+      );
     } else {
       assert.deepEqual(fs.readFileSync(target), expected, name);
     }
@@ -106,7 +143,13 @@ test('a header followed by a comment is still that section', () => {
   const lines = ['[ServerSettings] ; managed', 'ServerPVE=False', '[Other] ; x', 'ServerPVE=True'];
   assert.equal(getIniKey(lines, '[ServerSettings]', 'ServerPVE'), 'False');
   setIniKey(lines, '[ServerSettings]', 'ServerHardcore', 'True');
-  assert.deepEqual(lines, ['[ServerSettings] ; managed', 'ServerHardcore=True', 'ServerPVE=False', '[Other] ; x', 'ServerPVE=True']);
+  assert.deepEqual(lines, [
+    '[ServerSettings] ; managed',
+    'ServerHardcore=True',
+    'ServerPVE=False',
+    '[Other] ; x',
+    'ServerPVE=True',
+  ]);
 });
 
 test('values are read without the spaces around them', () => {

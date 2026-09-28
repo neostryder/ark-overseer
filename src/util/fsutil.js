@@ -15,14 +15,22 @@ export function writeFileAtomic(target, data) {
   // The replacement keeps the target's permission bits, since GameUserSettings.ini holds the admin
   // password and may have been locked down.
   let mode = 0o666;
-  try { mode = fs.statSync(target).mode & 0o777; } catch { /* new file */ }
+  try {
+    mode = fs.statSync(target).mode & 0o777;
+  } catch {
+    /* new file */
+  }
   const fd = fs.openSync(tmp, 'w', mode);
   try {
     fs.writeSync(fd, data);
     fs.fsyncSync(fd);
   } catch (e) {
     fs.closeSync(fd);
-    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* already gone */
+    }
     throw e;
   }
   fs.closeSync(fd);
@@ -37,7 +45,10 @@ export function writeFileAtomic(target, data) {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1));
     }
   }
-  try { fs.unlinkSync(tmp); } catch (e) { /* already gone */ }
+  try {
+    fs.unlinkSync(tmp);
+  } catch (e) {
+    /* already gone */
+  }
   throw lastErr;
 }
-
