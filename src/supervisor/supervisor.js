@@ -61,7 +61,7 @@ export function createSupervisor({
   let closing = false;
 
   const selectServer = db.prepare(
-    'SELECT s.*, i.path AS install_path FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+    'SELECT s.*, i.path AS install_path, i.state AS install_state FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
   );
   const selectIds = db.prepare('SELECT id FROM servers ORDER BY id');
   const writeState = db.prepare(
@@ -195,9 +195,17 @@ export function createSupervisor({
   // A pid from spawn proves nothing: the server can die within a couple of seconds, and reporting
   // that pid as a success is how a dead server once showed as started. Only a launch that exited is
   // retried. One still alive but slow must not be, since a second instance would fight over the port.
+  // An install that SteamCMD is changing, or one it left broken, must not be launched from.
+  const BUSY_INSTALL_STATES = new Set(['installing', 'updating', 'validating', 'broken']);
+
   async function startInternal(id, { manual }) {
     const server = row(id);
     if (server.observed_state === 'starting' || server.observed_state === 'running') return status(id);
+    if (BUSY_INSTALL_STATES.has(server.install_state)) {
+      const error = new Error(`The server cannot start while its install is ${server.install_state}.`);
+      error.code = 'INSTALL_BUSY';
+      throw error;
+    }
     if (manual) crashes.delete(id);
     cancelRestart(id);
     setDesired(id, 'running');
@@ -409,7 +417,10 @@ export function createSupervisor({
       emit(id, 'crashed', 'crashed', 'crash loop');
       return;
     }
-    const delay = config.restartBackoffMs[Math.min(history.times.length - 1, config.restartBackoffMs.length - 1)];
+    armRestart(id, config.restartBackoffMs[Math.min(history.times.length - 1, config.restartBackoffMs.length - 1)]);
+  }
+
+  function armRestart(id, delay) {
     cancelRestart(id);
     const controller = new AbortController();
     restartTimers.set(id, controller);
@@ -421,9 +432,11 @@ export function createSupervisor({
           if (row(id).desired_state !== 'running' || crashes.get(id)?.blocked) return;
           try {
             await startInternal(id, { manual: false });
-          } catch {
+          } catch (error) {
+            // An install being updated is not a crash: wait and try again without counting it.
+            if (error.code === 'INSTALL_BUSY') armRestart(id, config.pollMs);
             // A restart that fails is another crash: it backs off further and counts toward the loop.
-            if (row(id).observed_state === 'crashed') scheduleRestart(id);
+            else if (row(id).observed_state === 'crashed') scheduleRestart(id);
           }
         }),
       )

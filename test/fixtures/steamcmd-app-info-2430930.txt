@@ -1,0 +1,164 @@
+Steam Console Client (c) Valve Corporation - version 1788292693
+-- type 'quit' to exit --
+Loading Steam API...OK
+Connecting anonymously to Steam Public...OK
+Waiting for client config...OK
+Waiting for user info...OK
+AppID : 2430930, change number : 39246929/39246929, last change : Sun Sep 27 18:24:49 2026 
+"2430930"
+{
+	"common"
+	{
+		"name"		"ARK: Survival Ascended Dedicated Server"
+		"type"		"Tool"
+		"parent"		"2399830"
+		"oslist"		"windows"
+		"osarch"		"64"
+		"osextended"		""
+		"icon"		"655cc2012105979c2b8e4821d568351c86b22be7"
+		"clienticon"		"3c1546488725d43835e3a05645d3072e99e0c621"
+		"clienttga"		"cd48da01ba019629a67ee8ddca05ae3bb7ff6835"
+		"eulas"
+		{
+			"0"
+			{
+				"id"		"2430930_eula_0"
+				"name"		"ARK: Survival Ascended Dedicated Server EULA"
+				"url"		"https://store.steampowered.com//eula/2430930_eula_0"
+				"version"		"1"
+			}
+		}
+		"ReleaseState"		"released"
+		"freetodownload"		"1"
+		"gameid"		"2430930"
+	}
+	"config"
+	{
+		"installdir"		"ARK Survival Ascended Dedicated Server"
+		"launch"
+		{
+			"0"
+			{
+				"executable"		"\\ShooterGame\\Binaries\\Win64\\ArkAscendedServer.exe"
+				"arguments"		"TheIsland_WP?listen"
+				"config"
+				{
+					"oslist"		"windows"
+				}
+				"description_loc"
+				{
+					"english"		"Launch (Map: TheIsland)"
+				}
+				"description"		"Launch (Map: TheIsland)"
+			}
+			"1"
+			{
+				"executable"		"\\ShooterGame\\Binaries\\Win64\\ArkAscendedServer.exe"
+				"arguments"		"TheIsland_WP?listen -UseBattlEye"
+				"config"
+				{
+					"oslist"		"windows"
+				}
+				"description_loc"
+				{
+					"english"		"Launch (Map: TheIsland, With BattlEye Anticheat)"
+				}
+				"description"		"Launch (Map: TheIsland, With BattlEye Anticheat)"
+			}
+		}
+	}
+	"depots"
+	{
+		"1004"
+		{
+			"config"
+			{
+				"oslist"		"windows"
+			}
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"7604377918839582995"
+					"size"		"67863136"
+					"download"		"24251776"
+				}
+			}
+			"depotfromapp"		"1007"
+		}
+		"1005"
+		{
+			"config"
+			{
+				"oslist"		"macos"
+			}
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"2135359612286175146"
+					"size"		"0"
+					"download"		"0"
+				}
+			}
+			"depotfromapp"		"1007"
+		}
+		"1006"
+		{
+			"config"
+			{
+				"oslist"		"linux"
+			}
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"4559160656493359681"
+					"size"		"111284048"
+					"download"		"36733840"
+				}
+			}
+			"depotfromapp"		"1007"
+		}
+		"2430931"
+		{
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"6068136383897274900"
+					"size"		"12141718519"
+					"download"		"9230072800"
+				}
+				"public_test_realm"
+				{
+					"gid"		"1489624788715994108"
+					"size"		"12010150375"
+					"download"		"7971029632"
+				}
+			}
+		}
+		"branches"
+		{
+			"public"
+			{
+				"buildid"		"25535041"
+				"timeupdated"		"1790364583"
+				"timebuildupdated"		"1790359901"
+			}
+			"public_test_realm"
+			{
+				"buildid"		"21994402"
+				"description"		"Try out the new stuff"
+				"timeupdated"		"1771467747"
+				"timebuildupdated"		"1771467055"
+			}
+		}
+		"privatebranches"		"1"
+	}
+}
+Unloading Steam API...OK
+Redirecting stderr to 'C:\Temp\ark-overseer-smoke\steamcmd\logs\stderr.txt'
+Logging directory: 'C:\Temp\ark-overseer-smoke\steamcmd/logs'
+[  0%] Checking for available updates...
+[----] Verifying installation...

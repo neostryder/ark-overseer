@@ -490,3 +490,24 @@ async function waitFor(predicate, tries = 500) {
   }
   assert.fail('condition was not reached');
 }
+
+test('a server does not start while its install is being updated', async (t) => {
+  const ctx = setup(t);
+  ctx.db.prepare("UPDATE installs SET state = 'updating' WHERE id = 1").run();
+  await assert.rejects(ctx.supervisor.start(1), /cannot start while its install is updating/);
+  assert.equal(ctx.spawns.length, 0);
+  assert.equal(ctx.supervisor.status(1).observedState, 'stopped');
+});
+
+test('an automatic restart waits for an install update without counting it as a crash', async (t) => {
+  const ctx = setup(t);
+  await ctx.supervisor.start(1);
+  ctx.db.prepare("UPDATE installs SET state = 'updating' WHERE id = 1").run();
+  ctx.live.clear();
+  await ctx.supervisor.poll(1);
+  await ctx.clock.sleep(20000);
+  assert.equal(ctx.spawns.length, 1);
+  assert.equal(ctx.supervisor.status(1).crashLoop, false);
+  ctx.db.prepare("UPDATE installs SET state = 'installed' WHERE id = 1").run();
+  await waitFor(() => ctx.spawns.length === 2);
+});
