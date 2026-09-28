@@ -104,11 +104,16 @@ class AoApp extends HTMLElement {
   closeDrawer() {
     this.classList.remove('drawer-open');
   }
+  // The one poll of the server list; the fleet rail draws from the event it sends.
   async loadServers() {
+    let error = '';
     try {
       this.servers = await api.get('/api/servers');
       if (parseRoute(location.hash).screen === 'home') this.route();
-    } catch {}
+    } catch (cause) {
+      error = cause.message;
+    }
+    this.dispatchEvent(new CustomEvent('servers-loaded', { detail: { servers: this.servers, error } }));
   }
   route() {
     this.shownHash = location.hash;

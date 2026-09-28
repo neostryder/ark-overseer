@@ -117,6 +117,16 @@ export class AoServerNetwork extends HTMLElement {
     const fh = document.createElement('h2');
     fh.textContent = STRINGS.network.firewall;
     section.append(fh);
+    for (const [shown, text] of [
+      [this.firewall.checked === false, STRINGS.network.unchecked],
+      [this.firewall.localRulesIgnored, STRINGS.network.localIgnored],
+    ]) {
+      if (!shown) continue;
+      const note = document.createElement('p');
+      note.className = 'wizard-warning';
+      note.textContent = text;
+      section.append(note);
+    }
     for (const rule of this.firewall.rules || []) {
       const p = document.createElement('p');
       p.textContent = `${rule.name}: ${rule.coveredBy ? `${STRINGS.network.coveredBy} ${rule.coveredBy}` : STRINGS.network.noRule}`;

@@ -13,6 +13,7 @@ import {
   generatePassword,
   settingsBody,
   createPlan,
+  mapName,
 } from '../lib/wizard.js';
 
 const NEW_FLOW = ['welcome', 'host', 'steamcmd', 'server', 'preset', 'network', 'passwords', 'review'];
@@ -481,7 +482,7 @@ export class AoSetupWizard extends HTMLElement {
       [w.install, installPath],
       [w.name, s.name],
       [w.sessionName, s.sessionName],
-      [w.map, MAPS.find((item) => item.id === s.map)?.name ?? s.map],
+      [w.map, mapName(s.map)],
       [w.maxPlayers, s.maxPlayers],
       [w.steps.preset, w.presets[s.presetId].name],
       [w.gamePort, s.gamePort],
@@ -727,7 +728,7 @@ export class AoSetupWizard extends HTMLElement {
         node('strong', sv.name),
         node(
           'span',
-          ` ${MAPS.find((m) => m.id === sv.map)?.name ?? sv.map}. ${w.gamePort} ${sv.game_port}, ${w.queryPort} ${sv.query_port ?? w.none}, ${w.rconPort} ${sv.rcon_port ?? w.none}.`,
+          ` ${mapName(sv.map)}. ${w.gamePort} ${sv.game_port}, ${w.queryPort} ${sv.query_port ?? w.none}, ${w.rconPort} ${sv.rcon_port ?? w.none}.`,
         ),
         node('span', ` ${w.install}: ${found.install.path}.`),
         node('span', ` ${found.files.length} ${w.files}.`),

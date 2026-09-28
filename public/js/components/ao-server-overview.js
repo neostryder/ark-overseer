@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { icon } from '../lib/icon.js';
 import { stateName, relativeTime } from '../lib/format.js';
+import { mapName } from '../lib/wizard.js';
 export class AoServerOverview extends HTMLElement {
   async connectedCallback() {
     this.serverId = this.getAttribute('server-id');
@@ -66,7 +67,7 @@ export class AoServerOverview extends HTMLElement {
     const install = s.install || {};
     const values = [
       [STRINGS.overview.session, s.session_name],
-      [STRINGS.overview.map, s.map],
+      [STRINGS.overview.map, mapName(s.map)],
       [STRINGS.overview.since, statusSince],
       [STRINGS.overview.game, s.game_port],
       [STRINGS.overview.peer, Number(s.game_port) + 1],

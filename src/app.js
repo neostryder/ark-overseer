@@ -216,15 +216,15 @@ export function createApp({
       return gaming.status();
     }),
   );
-  // Network Service may not be allowed to list firewall rules. The page then still shows the whole
-  // script, which is safe to run because it only replaces ARK Overseer's own rules.
+  // A failed read leaves the preview proposing every rule, and says so, rather than failing the page.
+  // The whole script is still safe to run because it only replaces ARK Overseer's own rules.
   const readFirewallRules = async () => {
     try {
-      return await firewallRules();
+      const { rules, localRulesIgnored = false } = await firewallRules();
+      return { rules, checked: true, localRulesIgnored };
     } catch (cause) {
-      if (!serviceMode) throw cause;
       log(`Reading firewall rules failed: ${cause.message}`);
-      return [];
+      return { rules: [], checked: false, localRulesIgnored: false };
     }
   };
   router.add('GET', '/api/installs', () => db.prepare('SELECT * FROM installs ORDER BY id').all());
@@ -544,9 +544,12 @@ export function createApp({
   );
   router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
     const row = must(serverRow(db, params.id));
-    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await readFirewallRules());
+    const { rules, checked, localRulesIgnored } = await readFirewallRules();
+    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], rules);
     return {
       ...preview,
+      checked,
+      localRulesIgnored,
       token: preview.script ? crypto.createHash('sha256').update(preview.script).digest('hex') : null,
     };
   });
@@ -558,7 +561,10 @@ export function createApp({
       'server',
       async ({ params, body }) => {
         const row = must(serverRow(db, params.id)),
-          preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await readFirewallRules());
+          preview = firewallPreview(
+            [{ server: row, install: { path: row.install_path } }],
+            (await readFirewallRules()).rules,
+          );
         if (!preview.script) return { applied: false };
         if (serviceMode) throw error(409, API_MESSAGES.firewallService, { script: preview.script });
         const token = crypto.createHash('sha256').update(preview.script).digest('hex');

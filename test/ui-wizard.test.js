@@ -12,6 +12,7 @@ import {
   generatePassword,
   settingsBody,
   createPlan,
+  mapName,
 } from '../public/js/lib/wizard.js';
 
 test('official maps have valid unique ids in order', () => {
@@ -168,4 +169,10 @@ test('create plan orders install, server and settings and reuses existing instal
     ['server', 'settings'],
   );
   assert.equal(existing[0].body.installId, 9);
+});
+
+test('mapName shows a known map by name and a custom map by its id', () => {
+  assert.equal(mapName('Astraeos_WP'), 'Astraeos');
+  assert.equal(mapName('TheIsland_WP'), 'The Island');
+  assert.equal(mapName('MyModMap_WP'), 'MyModMap_WP');
 });

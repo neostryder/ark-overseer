@@ -1,0 +1,10 @@
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|Profile=Domain|Profile=Private|Profile=Public|App=C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended Dedicated Server\ShooterGame\Binaries\Win64\ArkAscendedServer.exe|Name=ARK: Survival Ascended Dedicated Server|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=6|Profile=Domain|Profile=Private|Profile=Public|App=C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended Dedicated Server\ShooterGame\Binaries\Win64\ArkAscendedServer.exe|Name=ARK: Survival Ascended Dedicated Server|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort=27015|Name=ARK Query Port 27015 UDP|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort=7778|Name=ARK Peer Port 7778 UDP|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort=7777|Name=ARK Game Port 7777 UDP|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|App=C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended\ShooterGame\Binaries\Win64\ArkAscended.exe|Name=ARK: Survival Ascended|
+v2.10|Action=Allow|Active=TRUE|Dir=In|Protocol=17|Profile=Private|Profile=Public|App=C:\xboxgames\ark- survival ascended\content\shootergame\binaries\wingdk\arkascended.exe|Name=ArkAscended|Desc=ArkAscended|Defer=User|
+v2.33|Action=Allow|Active=TRUE|Dir=In|Profile=Domain|Profile=Private|Profile=Public|Name=Microsoft Store|Desc=Microsoft Store|PFN=Microsoft.WindowsStore_8wekyb3d8bbwe|LUOwn=S-1-5-21-1-2-3-1001|EmbedCtxt=Microsoft Store|Platform=2:6:2|Platform2=GTEQ|Edge=TRUE|
+v2.33|Action=Allow|Active=FALSE|Dir=In|Protocol=6|Profile=Domain|LPort=RPC|App=%SystemRoot%\system32\svchost.exe|Svc=schedule|Name=@FirewallAPI.dll,-33253|Desc=@FirewallAPI.dll,-33256|EmbedCtxt=@FirewallAPI.dll,-33252|
+v2.33|Action=Allow|Active=FALSE|Dir=In|Protocol=6|Profile=Private|Profile=Public|LPort=445|RA4=LocalSubnet|RA6=LocalSubnet|App=System|Name=@FirewallAPI.dll,-29257|Desc=@FirewallAPI.dll,-29260|EmbedCtxt=@FirewallAPI.dll,-29252|

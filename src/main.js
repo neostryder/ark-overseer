@@ -16,7 +16,7 @@ import { rconCommand } from './supervisor/rcon.js';
 import { saveAllWorlds } from './supervisor/save-all.js';
 import { readIniLines, getIniKey, SERVER_SETTINGS } from './settings/ini.js';
 import { listListeners as readListeners } from './network/listeners.js';
-import { parseFirewallRules } from './network/firewall.js';
+import { readFirewallRules } from './network/firewall.js';
 import { rankFields } from './settings/semantic-search.js';
 import { SETTINGS_FIELDS } from './settings/fields.js';
 import { createApp } from './app.js';
@@ -64,17 +64,7 @@ export async function start() {
   const listListeners = () => readListeners({ runner });
   // Windows' own tools by full path, never whatever a PATH entry happens to put first.
   const system32 = path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
-  const firewallRules = async () => {
-    let output = '';
-    const netsh = path.win32.join(system32, 'netsh.exe');
-    const result = await runner(netsh, ['advfirewall', 'firewall', 'show', 'rule', 'name=all', 'verbose'], {
-      onLine: (line) => {
-        output += `${line}\n`;
-      },
-    });
-    if (result.code !== 0) throw new Error('Could not read Windows Firewall rules');
-    return parseFirewallRules(output);
-  };
+  const firewallRules = () => readFirewallRules({ pwshPath });
   // "net session" succeeds only for an administrator.
   const isElevated = async () => (await runner(path.win32.join(system32, 'net.exe'), ['session'])).code === 0;
   // Extra names the server may be reached by, such as a relay's domain, as a comma-separated list.

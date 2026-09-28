@@ -40,7 +40,7 @@ async function fixture(t) {
     },
     platform: {},
     listListeners: async () => [{ protocol: 'tcp', port: 28000, pid: 123, state: 'LISTENING' }],
-    firewallRules: async () => activeRules,
+    firewallRules: async () => ({ rules: activeRules }),
     isElevated: async () => true,
     rankFields: async (q, fields) => [{ key: q, count: fields.length }],
     log: () => {},
@@ -191,6 +191,8 @@ test('firewall previews require the current token and audit rows never include p
     await fetch(`${url}/api/servers/${server.id}/firewall`, { headers: { Cookie: cookie } })
   ).json();
   assert.ok(preview.token);
+  assert.equal(preview.checked, true);
+  assert.equal(preview.localRulesIgnored, false);
   assert.equal((await post(`/api/servers/${server.id}/firewall/apply`, { token: 'old' })).status, 409);
   assert.equal(calls.length, 0);
   const apply = await post(`/api/servers/${server.id}/firewall/apply`, { token: preview.token });
@@ -555,7 +557,7 @@ async function fixtureWith(t, overrides = {}) {
     runner: async () => ({ code: 0 }),
     platform: {},
     listListeners: async () => [],
-    firewallRules: async () => [],
+    firewallRules: async () => ({ rules: [] }),
     isElevated: async () => false,
     rankFields: async () => [],
     log: () => {},
@@ -809,20 +811,24 @@ test('a manual backup is queued with the backup schedule limit, and update check
   assert.deepEqual(list, []);
 });
 
-test('in service mode a failed firewall read still shows the whole script', async (t) => {
-  const logged = [];
-  const { url, cookie, db } = await fixtureWith(t, {
-    serviceMode: true,
-    firewallRules: async () => {
-      throw new Error('access denied');
-    },
-    log: (line) => logged.push(line),
-  });
-  seedServer(db);
-  const response = await fetch(`${url}/api/servers/1/firewall`, { headers: { Cookie: cookie } });
-  assert.equal(response.status, 200);
-  assert.match((await response.json()).script, /netsh advfirewall firewall add rule/);
-  assert.match(logged.join('\n'), /Reading firewall rules failed: access denied/);
+test('a failed firewall read still shows the whole script and says the check was skipped', async (t) => {
+  for (const serviceMode of [true, false]) {
+    const logged = [];
+    const { url, cookie, db } = await fixtureWith(t, {
+      serviceMode,
+      firewallRules: async () => {
+        throw new Error('access denied');
+      },
+      log: (line) => logged.push(line),
+    });
+    seedServer(db);
+    const response = await fetch(`${url}/api/servers/1/firewall`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.checked, false);
+    assert.match(body.script, /netsh advfirewall firewall add rule/);
+    assert.match(logged.join('\n'), /Reading firewall rules failed: access denied/);
+  }
 });
 
 test('closing the server does not wait for a browser holding the live jobs feed open', async (t) => {

@@ -145,6 +145,10 @@ export const STRINGS = {
     peerUnknown: 'set a game port first',
     coveredBy: 'Covered by',
     noRule: 'No rule covers this yet',
+    localIgnored:
+      "Group policy on this computer turns off local firewall rules, so rules added here won't take effect. Ask whoever manages that policy to open the game and query ports.",
+    unchecked:
+      "ARK Overseer couldn't read this computer's firewall rules, so the list below may include rules you already have.",
     confirmApply: 'Windows will ask for administrator approval, then add the rules shown above.',
     applied: 'The firewall rules were added.',
     notApplied: 'The firewall rules were not added.',
@@ -350,7 +354,7 @@ export const STRINGS = {
     finish: 'The server is ready',
     finishCreated:
       'It is stopped for now. Add its firewall rules on the network page, then start it from the overview.',
-    finishImported: 'The Phase 0 dashboard still runs it. Start it here only after stopping it there.',
+    finishImported: 'If the Phase 0 dashboard is still running this server, stop it there before you start it here.',
     finishInstallFailed: 'The server was added, but the download did not finish',
     retryInstall: 'Try the download again',
     overview: 'Open the overview',

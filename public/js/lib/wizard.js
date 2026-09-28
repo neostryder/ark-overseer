@@ -13,6 +13,8 @@ export const MAPS = [
   { id: 'LostColony_WP', name: 'Lost Colony' },
   { id: 'BobsMissions_WP', name: 'Club ARK', note: 'wizard.clubArkNote' },
 ];
+// A custom map keeps its own id as its name.
+export const mapName = (id) => MAPS.find((item) => item.id === id)?.name ?? id;
 export const PRESETS = [
   { id: 'default', settings: {} },
   { id: 'relaxed', settings: { XPMultiplier: 2, TamingSpeedMultiplier: 3, HarvestAmountMultiplier: 2 } },

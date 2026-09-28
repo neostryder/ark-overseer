@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  parseFirewallRules,
+  parseRegistryRules,
+  readFirewallRules,
   neededRules,
   coveredBy,
   firewallPreview,
@@ -13,12 +14,17 @@ import {
 } from '../src/network/firewall.js';
 import { createProcessRunner } from '../src/steamcmd/runner.js';
 
-const fixture = fs.readFileSync(new URL('./fixtures/netsh-show-rule-ark.txt', import.meta.url), 'utf8');
-const rules = parseFirewallRules(fixture);
+const fixture = fs
+  .readFileSync(new URL('./fixtures/firewall-registry-ark.txt', import.meta.url), 'utf8')
+  .split(/\r?\n/)
+  .filter(Boolean);
+const env = { SystemRoot: 'C:\\Windows' };
+const rules = parseRegistryRules(fixture, env);
 const server = { id: 1, name: 'Neo Olympus', game_port: 7777, query_port: 27015, rcon_port: 27020 };
 const install = { path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\ARK Survival Ascended Dedicated Server' };
 const without = (name) => rules.filter((r) => r.name !== name);
 const SERVER_RULE = 'ARK: Survival Ascended Dedicated Server';
+const PORT_RULES = 'ARK Game Port 7777 UDP, ARK Peer Port 7778 UDP';
 
 function temp(t, prefix = 'ark-fw-') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -26,7 +32,7 @@ function temp(t, prefix = 'ark-fw-') {
   return dir;
 }
 
-test('parseFirewallRules reads the nine captured rules', () => {
+test('parseRegistryRules reads the ten captured rules', () => {
   assert.deepEqual(
     rules.map((r) => r.name),
     [
@@ -36,9 +42,10 @@ test('parseFirewallRules reads the nine captured rules', () => {
       'ARK Peer Port 7778 UDP',
       'ARK Game Port 7777 UDP',
       'ARK: Survival Ascended',
-      'ARK: Survival Ascended',
-      'ARK: Survival Ascended',
-      'ARK: Survival Ascended',
+      'ArkAscended',
+      'Microsoft Store',
+      '@FirewallAPI.dll,-33253',
+      '@FirewallAPI.dll,-29257',
     ],
   );
   assert.deepEqual(
@@ -48,21 +55,130 @@ test('parseFirewallRules reads the nine captured rules', () => {
   assert.equal(rules[0].localPorts, 'any');
   assert.equal(rules[0].program, `${install.path}\\ShooterGame\\Binaries\\Win64\\ArkAscendedServer.exe`);
   assert.deepEqual(rules[0].profiles, ['Domain', 'Private', 'Public']);
-  assert.equal(rules[0].remoteIp, 'Any');
   assert.equal(rules[0].enabled, true);
   assert.equal(rules[0].direction, 'in');
   assert.equal(rules[0].action, 'allow');
+  assert.equal(rules[0].limited, false);
   assert.deepEqual(rules[2].localPorts, [27015]);
   assert.deepEqual(rules[4].localPorts, [7777]);
   assert.equal(rules[4].program, null);
+  // No Profile field means every profile, and no Protocol field means any protocol.
+  assert.deepEqual(rules[2].profiles, ['Any']);
+  assert.equal(rules[7].protocol, 'Any');
 });
 
-test('parseFirewallRules parses port lists and ranges', () => {
-  const parsed = parseFirewallRules(
-    'Rule Name: Test\nEnabled: Yes\nDirection: In\nProtocol: UDP\nLocalPort: 1, 7-9\nAction: Allow',
-  );
-  assert.deepEqual(parsed[0].localPorts, [1, { from: 7, to: 9 }]);
+test('parseRegistryRules marks package, service, owner and address limits, and reads keywords as no port', () => {
+  const [store, schedule, smb] = rules.slice(7);
+  assert.equal(store.limited, true);
+  assert.equal(schedule.limited, true);
+  assert.equal(schedule.enabled, false);
+  assert.deepEqual(schedule.localPorts, []);
+  assert.equal(schedule.program, 'C:\\Windows\\system32\\svchost.exe');
+  assert.equal(smb.limited, true);
+  assert.equal(smb.program, 'System');
+  assert.equal(rules[6].limited, false, 'Defer and Desc do not narrow a rule');
 });
+
+test('parseRegistryRules reads single ports from LPort and ranges from LPort2_10, and skips non-rules', () => {
+  const [parsed] = parseRegistryRules(
+    ['v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort=1|LPort2_10=7-9|Name=Test|', 'not a rule', 42],
+    env,
+  );
+  assert.deepEqual(parsed.localPorts, [1, { from: 7, to: 9 }]);
+  assert.equal(parsed.limited, false);
+  assert.equal(parseRegistryRules(['junk', null], env).length, 0);
+});
+
+test('a range rule written the way Windows stores 7777-7778 covers the game and peer ports', () => {
+  // netsh stores localport=7777-7778 as LPort2_10, which is how ARK Overseer's own Game rule is kept.
+  const range = parseRegistryRules(
+    ['v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort2_10=7777-7778|Name=Range|'],
+    env,
+  );
+  assert.equal(coveredBy(neededRules(server, install)[0], range), 'Range');
+});
+
+test('a rule limited to some Windows versions is not cover', () => {
+  const [rule] = parseRegistryRules(
+    ['v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|Platform=2:6:2|Platform2=GTEQ|Name=Versioned|'],
+    env,
+  );
+  assert.equal(rule.limited, true);
+  assert.equal(coveredBy(neededRules(server, install)[0], [rule]), null);
+});
+
+test('readFirewallRules runs pwsh hidden and parses the JSON it prints', async () => {
+  let call;
+  const exec = async (file, args, options) => {
+    call = { file, args, options };
+    return {
+      stdout: JSON.stringify({
+        rules: fixture.slice(0, 2).map((text) => ({ store: 'local', text })),
+        merge: [null, null, null],
+      }),
+      stderr: '',
+    };
+  };
+  const read = await readFirewallRules({ pwshPath: 'C:\\pwsh\\pwsh.exe', exec, env });
+  assert.equal(call.file, 'C:\\pwsh\\pwsh.exe');
+  assert.equal(call.options.windowsHide, true);
+  assert.match(call.args.at(-1), /SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules/);
+  assert.match(call.args.at(-1), /Policies\\Microsoft\\WindowsFirewall\\FirewallRules/);
+  assert.equal(read.localRulesIgnored, false);
+  assert.deepEqual(
+    read.rules.map((r) => [r.protocol, r.store]),
+    [
+      ['UDP', 'local'],
+      ['TCP', 'local'],
+    ],
+  );
+  // ConvertTo-Json prints a single rule as a bare object rather than an array.
+  const one = await readFirewallRules({
+    exec: async () => ({ stdout: JSON.stringify({ rules: { store: 'policy', text: fixture[2] }, merge: null }) }),
+    env,
+  });
+  assert.deepEqual(one.rules[0].localPorts, [27015]);
+  assert.equal(one.rules[0].store, 'policy');
+  assert.deepEqual(await readFirewallRules({ exec: async () => ({ stdout: '' }), env }), {
+    rules: [],
+    localRulesIgnored: false,
+  });
+});
+
+test('when group policy turns off local rules for a profile, local rules are not cover', async () => {
+  const stdout = JSON.stringify({
+    rules: [
+      { store: 'local', text: fixture[0] },
+      { store: 'policy', text: fixture[2] },
+    ],
+    merge: [null, 0, null],
+  });
+  const read = await readFirewallRules({ exec: async () => ({ stdout }), env });
+  assert.equal(read.localRulesIgnored, true);
+  assert.deepEqual(
+    read.rules.map((r) => r.name),
+    ['ARK Query Port 27015 UDP'],
+  );
+  // Positive control: with merging allowed (1) the local rule stays.
+  const allowed = await readFirewallRules({
+    exec: async () => ({ stdout: stdout.replace('[null,0,null]', '[1,1,1]') }),
+    env,
+  });
+  assert.equal(allowed.localRulesIgnored, false);
+  assert.equal(allowed.rules.length, 2);
+});
+
+test(
+  'the real reader script runs in pwsh and returns rules from this machine',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const read = await readFirewallRules();
+    assert.ok(Array.isArray(read.rules));
+    assert.equal(typeof read.localRulesIgnored, 'boolean');
+    // Every Windows install ships with enabled inbound rules.
+    assert.ok(read.rules.some((r) => r.direction === 'in' && r.enabled));
+  },
+);
 
 test('neededRules builds a game rule covering the peer port and a query rule when there is one', () => {
   const [game, query] = neededRules(server, install);
@@ -91,24 +207,53 @@ test('neededRules refuses a server without an id and an install path holding a q
 });
 
 test('the Neo Olympus exe is covered by its any-port program rule', () => {
-  for (const rule of neededRules(server, install)) assert.equal(coveredBy(rule, rules), SERVER_RULE);
+  const programOnly = rules.filter((r) => r.program);
+  for (const rule of neededRules(server, install)) assert.equal(coveredBy(rule, programOnly), SERVER_RULE);
 });
 
 test('a program rule compares paths without regard to case', () => {
   const game = neededRules({ ...server }, { path: install.path.toUpperCase() })[0];
-  assert.equal(coveredBy(game, rules), SERVER_RULE);
+  assert.equal(
+    coveredBy(
+      game,
+      rules.filter((r) => r.program),
+    ),
+    SERVER_RULE,
+  );
 });
 
 test('a server whose exe lives elsewhere is not covered by that program rule', () => {
   const game = neededRules(server, { path: 'D:\\ARK\\Server' })[0];
-  assert.equal(coveredBy(game, without(SERVER_RULE).concat(rules.filter((r) => r.program))), null);
+  assert.equal(
+    coveredBy(
+      game,
+      rules.filter((r) => r.program),
+    ),
+    null,
+  );
 });
 
-test('a port rule with no program covers its own port but not the game and peer range', () => {
+test('separate port rules share the cover for the game and peer range', () => {
   const others = without(SERVER_RULE);
+  const [game, query] = neededRules(server, install);
+  assert.equal(coveredBy(game, others), PORT_RULES);
+  assert.equal(coveredBy(query, others), 'ARK Query Port 27015 UDP');
+  assert.equal(
+    coveredBy(
+      game,
+      without(SERVER_RULE).filter((r) => r.name !== 'ARK Peer Port 7778 UDP'),
+    ),
+    null,
+  );
+});
+
+test('the Microsoft Store rule, open on every port but limited to its app package, is not cover', () => {
   const game = neededRules(server, install)[0];
-  assert.equal(coveredBy({ ...game, localPorts: [7777] }, others), 'ARK Game Port 7777 UDP');
-  assert.equal(coveredBy(game, others), null);
+  const store = rules.filter((r) => r.name === 'Microsoft Store');
+  assert.equal(store[0].localPorts, 'any');
+  assert.equal(coveredBy(game, store), null);
+  // Positive control: the same rule without its package limit would cover everything.
+  assert.equal(coveredBy(game, [{ ...store[0], limited: false }]), 'Microsoft Store');
 });
 
 test('a disabled, blocking, outbound, other-protocol, partial-profile or remote-limited rule is not cover', () => {
@@ -121,6 +266,7 @@ test('a disabled, blocking, outbound, other-protocol, partial-profile or remote-
     { protocol: 'TCP' },
     { profiles: ['Private'] },
     { remoteIp: 'LocalSubnet' },
+    { limited: true },
   ])
     assert.equal(coveredBy(game, [{ ...base, ...change }]), null, JSON.stringify(change));
   // Positive control: the unchanged rule does cover it, and so does one with the Any profile or protocol.

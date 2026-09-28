@@ -2,25 +2,21 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { stateName } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
+import { mapName } from '../lib/wizard.js';
 export class AoFleetRail extends HTMLElement {
   connectedCallback() {
+    this.app = this.closest('ao-app');
+    this.onServers = ({ detail }) => {
+      if (detail.servers) this.servers = detail.servers;
+      this.refreshError = detail.error;
+      this.render();
+    };
+    this.app?.addEventListener('servers-loaded', this.onServers);
+    this.servers = this.app?.servers;
     this.render();
-    this.refresh();
-    this.timer = setInterval(() => {
-      if (!document.hidden) this.refresh();
-    }, 5000);
   }
   disconnectedCallback() {
-    clearInterval(this.timer);
-  }
-  async refresh() {
-    try {
-      this.servers = await api.get('/api/servers');
-      this.refreshError = '';
-    } catch (error) {
-      this.refreshError = error.message;
-    }
-    this.render();
+    this.app?.removeEventListener('servers-loaded', this.onServers);
   }
   render() {
     this.replaceChildren();
@@ -51,7 +47,7 @@ export class AoFleetRail extends HTMLElement {
       const serverName = document.createElement('strong');
       serverName.textContent = server.name;
       const meta = document.createElement('span');
-      meta.textContent = `${server.map} · ${stateName(server.status?.observedState)}`;
+      meta.textContent = `${mapName(server.map)} · ${stateName(server.status?.observedState)}`;
       const text = document.createElement('span');
       text.className = 'server-text';
       text.append(serverName, meta);
