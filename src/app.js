@@ -38,6 +38,9 @@ export const API_MESSAGES = {
   badSchedule: 'Choose a supported schedule kind and a valid cron time.',
   badScheduleOptions: 'Check the schedule options.',
   steamSchedule: 'This install is kept up to date by Steam.',
+  badGaming:
+    'Gaming mode needs a priority of Below normal or Lowest, fewer cores set aside than this PC has, and program names that end in .exe.',
+  gamingUnavailable: 'Gaming mode did not start with ARK Overseer, so its settings cannot be read or saved.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -100,6 +103,7 @@ export function createApp({
   log = console.error,
   now = () => Date.now(),
   scheduler,
+  gaming,
   rcon,
   getRconPassword,
   serviceMode = false,
@@ -155,6 +159,63 @@ export function createApp({
     elevated: serviceMode ? false : await isElevated(),
     ...(serviceMode ? { service: true } : {}),
   }));
+  router.add('GET', '/api/gaming', () => {
+    if (!gaming) throw error(503, API_MESSAGES.gamingUnavailable);
+    return gaming.status();
+  });
+  router.add(
+    'PUT',
+    '/api/gaming',
+    protectedRoute('gaming.save', 'host', async ({ body }) => {
+      if (!gaming) throw error(503, API_MESSAGES.gamingUnavailable);
+      const cpuCount = gaming.status().cpuCount;
+      const validNames = (list) =>
+        Array.isArray(list) &&
+        list.length <= 50 &&
+        list.every(
+          (name) =>
+            typeof name === 'string' &&
+            name.trim() === name &&
+            name.length >= 1 &&
+            name.length <= 64 &&
+            /\.exe$/i.test(name) &&
+            !/[\\/\x00-\x1f\x7f]/.test(name),
+        );
+      if (
+        typeof body.enabled !== 'boolean' ||
+        !['Idle', 'BelowNormal'].includes(body.priority) ||
+        !(
+          body.gameCores === null ||
+          (Number.isInteger(body.gameCores) && body.gameCores >= 1 && body.gameCores < cpuCount)
+        ) ||
+        !validNames(body.games) ||
+        !validNames(body.ignore)
+      )
+        throw error(400, API_MESSAGES.badGaming);
+      const stamp = new Date(now()).toISOString();
+      let host = hostRow();
+      if (!host) {
+        const id = Number(
+          db.prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'local')").run(stamp, stamp)
+            .lastInsertRowid,
+        );
+        host = { id };
+      }
+      db.prepare(
+        'UPDATE hosts SET updated_at = ?, gaming_mode = ?, gaming_priority = ?, gaming_game_cores = ?, gaming_games_json = ?, gaming_ignore_json = ? WHERE id = ?',
+      ).run(
+        stamp,
+        body.enabled ? 1 : 0,
+        body.priority,
+        body.gameCores,
+        JSON.stringify(body.games),
+        JSON.stringify(body.ignore),
+        host.id,
+      );
+      await gaming.refresh();
+      return gaming.status();
+    }),
+  );
   // Network Service may not be allowed to list firewall rules. The page then still shows the whole
   // script, which is safe to run because it only replaces ARK Overseer's own rules.
   const readFirewallRules = async () => {

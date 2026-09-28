@@ -11,6 +11,7 @@ import './components/ao-server-network.js';
 import './components/ao-server-automation.js';
 import './components/ao-jobs-panel.js';
 import './components/ao-account.js';
+import './components/ao-host-settings.js';
 import './components/ao-setup-wizard.js';
 
 class AoApp extends HTMLElement {
@@ -176,6 +177,7 @@ class AoApp extends HTMLElement {
       // On a narrow screen the tab strip scrolls, and the current tab may start out of sight.
       nav.querySelector('[aria-current]').scrollIntoView({ block: 'nearest', inline: 'nearest' });
     } else if (route.screen === 'account') this.view.replaceChildren(document.createElement('ao-account'));
+    else if (route.screen === 'host') this.view.replaceChildren(document.createElement('ao-host-settings'));
     else if (route.screen === 'jobs') {
       this.jobsDrawer.hidden = true;
       this.view.replaceChildren(this.jobsPanel);

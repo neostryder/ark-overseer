@@ -162,6 +162,15 @@ export const MIGRATIONS = [
       ALTER TABLE schedules ADD COLUMN last_job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL;
       CREATE UNIQUE INDEX idx_schedules_server_kind ON schedules(server_id, kind);`,
   },
+  {
+    version: 5,
+    name: 'gaming_mode',
+    up: `ALTER TABLE hosts ADD COLUMN gaming_priority TEXT NOT NULL DEFAULT 'BelowNormal' CHECK (gaming_priority IN ('Idle', 'BelowNormal'));
+      ALTER TABLE hosts ADD COLUMN gaming_game_cores INTEGER;
+      ALTER TABLE hosts ADD COLUMN gaming_games_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(gaming_games_json));
+      ALTER TABLE hosts ADD COLUMN gaming_ignore_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(gaming_ignore_json));
+      ALTER TABLE hosts ADD COLUMN gaming_applied_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(gaming_applied_json));`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

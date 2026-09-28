@@ -74,6 +74,9 @@ export class AoFleetRail extends HTMLElement {
     const account = document.createElement('a');
     account.href = '#/account';
     account.append(icon('account'), STRINGS.fleet.account);
+    const host = document.createElement('a');
+    host.href = '#/host';
+    host.append(icon('settings'), STRINGS.fleet.host);
     const signOut = document.createElement('button');
     signOut.className = 'button quiet';
     signOut.append(icon('sign-out'), STRINGS.fleet.signOut);
@@ -84,7 +87,7 @@ export class AoFleetRail extends HTMLElement {
         window.location.assign('/login.html');
       }
     });
-    bottom.append(account, signOut);
+    bottom.append(host, account, signOut);
     this.append(bottom);
   }
 }

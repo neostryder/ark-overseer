@@ -481,6 +481,52 @@ test('a PUT with a text body is refused as not JSON', async (t) => {
   assert.equal(response.status, 415);
 });
 
+test('gaming settings read and write through the protected API and reject invalid values', async (t) => {
+  const dbState = {
+    enabled: false,
+    priority: 'BelowNormal',
+    gameCores: 4,
+    gamesList: [],
+    ignoreList: [],
+    cpuCount: 8,
+    state: 'off',
+    games: [],
+    checkedAt: null,
+    servers: [],
+  };
+  const gaming = { status: () => ({ ...dbState }), refresh: async () => ({ ...dbState }) };
+  const { url, cookie, db } = await fixtureWith(t, { gaming });
+  const get = await fetch(`${url}/api/gaming`, { headers: { Cookie: cookie } });
+  assert.equal(get.status, 200);
+  const good = { enabled: true, priority: 'Idle', gameCores: null, games: ['MyGame.exe'], ignore: ['Ignore.exe'] };
+  const saved = await fetch(`${url}/api/gaming`, put(good, cookie));
+  assert.equal(saved.status, 200);
+  assert.equal(db.prepare("SELECT gaming_mode FROM hosts WHERE name='local'").get().gaming_mode, 1);
+  for (const bad of [
+    { ...good, enabled: 1 },
+    { ...good, priority: 'High' },
+    { ...good, gameCores: 0 },
+    { ...good, gameCores: 8 },
+    { ...good, games: ['C:\\\\path.exe'] },
+    { ...good, ignore: ['bad.exe\\nnext.exe'] },
+    { ...good, games: Array(51).fill('a.exe') },
+    { ...good, games: [' spaced.exe'] },
+    { ...good, games: [null] },
+    { ...good, games: [`${'x'.repeat(61)}.exe`] },
+    { ...good, ignore: undefined },
+  ]) {
+    const response = await fetch(`${url}/api/gaming`, put(bad, cookie));
+    assert.equal(response.status, 400, JSON.stringify(bad));
+    assert.equal((await response.json()).error, API_MESSAGES.badGaming);
+  }
+});
+
+test('gaming routes are unavailable when no engine is supplied', async (t) => {
+  const { url, cookie } = await fixtureWith(t);
+  assert.equal((await fetch(`${url}/api/gaming`, { headers: { Cookie: cookie } })).status, 503);
+  assert.equal((await fetch(`${url}/api/gaming`, put({ enabled: false }, cookie))).status, 503);
+});
+
 // A fixture that is already signed in, with a few collaborators replaced.
 async function fixtureWith(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-app-'));

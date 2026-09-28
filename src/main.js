@@ -20,6 +20,7 @@ import { parseFirewallRules } from './network/firewall.js';
 import { rankFields } from './settings/semantic-search.js';
 import { SETTINGS_FIELDS } from './settings/fields.js';
 import { createApp } from './app.js';
+import { createGamingMode } from './gaming/gaming-mode.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
 // 20 s, which leaves time to close everything else.
@@ -42,6 +43,13 @@ export async function start() {
       const ini = serverPaths(server.install_path).gameUserSettingsPath;
       return getIniKey(readIniLines(ini), SERVER_SETTINGS, 'ServerAdminPassword') || '';
     },
+  });
+  const gaming = createGamingMode({
+    db,
+    platform,
+    supervisor,
+    cpuCount: os.availableParallelism(),
+    log: console.error,
   });
   const getRconPassword = (server) => {
     const ini = serverPaths(server.install_path).gameUserSettingsPath;
@@ -80,6 +88,7 @@ export async function start() {
     publicDir: path.join(root, 'public'),
     jobs,
     supervisor,
+    gaming,
     scheduler,
     rcon: rconCommand,
     getRconPassword,
@@ -101,6 +110,7 @@ export async function start() {
     scheduler.start();
     await supervisor.recover();
     supervisor.startPolling();
+    await gaming.start();
     await new Promise((resolve, reject) => {
       app.server.once('error', reject);
       app.server.listen(port, host, resolve);
@@ -109,6 +119,7 @@ export async function start() {
     await jobs.stop({ abort: true, timeoutMs: JOB_STOP_MS });
     scheduler.stop();
     await supervisor.stopPolling();
+    await gaming.stop();
     if (app.server.listening) await app.close();
     db.close();
     throw error;
@@ -117,6 +128,7 @@ export async function start() {
   const shutdown = async () => {
     if (closing) return;
     closing = true;
+    await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),
     );

@@ -14,6 +14,10 @@ Run `npm install`, then `npm start`, and open http://localhost:3310 on the same 
 
 The database, backups and SteamCMD live in the `data` folder next to the code. Set `OVERSEER_DATA` to keep them somewhere else, or `OVERSEER_PORT` to use another port.
 
+## Gaming mode
+
+If you play games on the same PC, turn on gaming mode on the This computer page. While a game runs, the servers drop to a lower priority and stay off the CPU cores set aside for the game, then go back to normal once it closes. Games started from Steam, Epic, GOG and similar launchers are found on their own, and you can list any others by program name.
+
 ## Running as a Windows service
 
 As a service, ARK Overseer starts with Windows and keeps running when nobody is signed in. It runs as the built-in Network Service account through [shawl](https://github.com/mtkennerly/shawl), from its own copy of the app and its own Node and PowerShell under `C:\ProgramData\ARK Overseer`. The installer copies the checkout's last commit, so uncommitted changes never reach the service.

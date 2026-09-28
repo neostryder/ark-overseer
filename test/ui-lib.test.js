@@ -1,5 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { parseGameNames, validGameNames } from '../public/js/lib/gaming.js';
+
+test('gaming textarea helper parses and validates executable names', () => {
+  assert.deepEqual(parseGameNames(' one.exe \r\n\nTwo.EXE '), ['one.exe', 'Two.EXE']);
+  assert.equal(validGameNames(['one.exe', 'Two.EXE']), true);
+  assert.equal(validGameNames(['../bad.exe']), false);
+});
 import { SETTINGS_FIELDS } from '../src/settings/fields.js';
 import { parseRoute, buildRoute } from '../public/js/lib/route.js';
 import {
