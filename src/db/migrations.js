@@ -147,6 +147,13 @@ export const MIGRATIONS = [
     name: 'install_source',
     up: "ALTER TABLE installs ADD COLUMN source TEXT NOT NULL DEFAULT 'steamcmd' CHECK (source IN ('steamcmd', 'steam-client'));",
   },
+  {
+    version: 3,
+    name: 'auth',
+    up: `ALTER TABLE users ADD COLUMN session_secret BLOB;
+      ALTER TABLE users ADD COLUMN webauthn_id TEXT;
+      ALTER TABLE user_passkeys ADD COLUMN rp_id TEXT NOT NULL DEFAULT '';`,
+  },
 ];
 
 // Versions run 1, 2, 3 with no gaps, so a typo in a version number fails at startup rather than

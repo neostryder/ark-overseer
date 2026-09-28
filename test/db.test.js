@@ -63,7 +63,7 @@ test('fresh database applies the initial migration once', () => {
       'audit_events',
       'schema_migrations',
     ];
-    assert.deepEqual(migrate(db), [1, 2]);
+    assert.deepEqual(migrate(db), [1, 2, 3]);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
@@ -76,7 +76,7 @@ test('fresh database applies the initial migration once', () => {
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2],
+      [1, 2, 3],
     );
   } finally {
     db.close();
@@ -91,7 +91,7 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
       'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
     );
     db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
-    assert.deepEqual(migrate(db), [2]);
+    assert.deepEqual(migrate(db), [2, 3]);
     const hostId = Number(
       db.prepare('INSERT INTO hosts (name, created_at, updated_at) VALUES (?, ?, ?)').run('h', timestamp, timestamp)
         .lastInsertRowid,
@@ -99,7 +99,36 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
     addInstall(db, hostId);
     assert.equal(db.prepare('SELECT source FROM installs').get().source, 'steamcmd');
     assert.throws(() => db.prepare("UPDATE installs SET source = 'other'").run(), /CHECK constraint failed/);
-    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 2);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 3);
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 3 adds auth columns and upgrades a version 2 database', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(MIGRATIONS[0].up);
+    db.exec(MIGRATIONS[1].up);
+    db.exec(
+      'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
+    );
+    db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
+    db.prepare('INSERT INTO schema_migrations VALUES (2, ?, ?)').run('install_source', timestamp);
+    assert.deepEqual(migrate(db), [3]);
+    const userColumns = db
+      .prepare('PRAGMA table_info(users)')
+      .all()
+      .map((row) => row.name);
+    const passkey = db
+      .prepare('PRAGMA table_info(user_passkeys)')
+      .all()
+      .find((row) => row.name === 'rp_id');
+    assert.ok(userColumns.includes('session_secret'));
+    assert.ok(userColumns.includes('webauthn_id'));
+    assert.equal(passkey.notnull, 1);
+    assert.equal(passkey.dflt_value, "''");
+    assert.equal(db.prepare('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1').get().version, 3);
   } finally {
     db.close();
   }
@@ -245,11 +274,11 @@ test('transaction commits results and rolls back the same thrown error', () => {
 test('migration refuses a recorded schema version newer than this app', () => {
   withDatabase((db) => {
     db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-      3,
+      4,
       'future',
       timestamp,
     );
-    assert.throws(() => migrate(db), /version 3 is newer than supported version 2/);
+    assert.throws(() => migrate(db), /version 4 is newer than supported version 3/);
   });
 });
 
@@ -340,7 +369,7 @@ test('several processes opening a new database file at once all succeed', async 
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2],
+      [1, 2, 3],
     );
   } finally {
     db.close();

@@ -1,0 +1,478 @@
+import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { createRouter, SECURITY_HEADERS } from './http/router.js';
+import { serveStatic } from './http/static.js';
+import { createAuth, AUTH_MESSAGES, originAllowed, hostAllowed } from './auth/auth.js';
+import { transaction } from './db/transaction.js';
+import { allocatePorts, assignPorts, findConflicts } from './network/ports.js';
+import { streamJobEvents } from './jobs/sse.js';
+import { firewallPreview, applyFirewallScript } from './network/firewall.js';
+import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
+import { createSettingsStore } from './settings/store.js';
+import { serverPaths } from './supervisor/launch.js';
+import { redact } from './util/redact.js';
+
+export const API_MESSAGES = {
+  firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
+  previewExpired: 'That preview has expired. Run it again.',
+  notFound: 'Not found.',
+  badJson: 'The request body must be JSON.',
+  tooLarge: 'The request is too large.',
+  steamLibraryPath: 'That folder is inside a Steam library. Pick a folder outside Steam, so SteamCMD can manage it.',
+  relativePath: 'Use a full folder path, such as D:\\ARK\\Server.',
+  serverError: 'Something went wrong in ARK Overseer. The details are in its log.',
+  installExists: 'That folder is already an install.',
+  portsInUse: 'Some of those ports are already in use.',
+  badMap: 'Use a map name made of letters, numbers and underscores.',
+  badPlayers: 'The player limit must be a whole number from 1 to 1000.',
+  badName: 'Give the server a name of up to 64 characters.',
+  nameTaken: 'A server with this name already exists.',
+  badSessionName:
+    'The session name can be up to 128 characters, without a question mark, a double quote or a line break.',
+};
+const PREVIEW_MS = 10 * 60 * 1000;
+const pathKey = (value) =>
+  path.win32
+    .normalize(String(value))
+    .replace(/[\\/]+$/, '')
+    .toLowerCase();
+const absolute = (value) =>
+  typeof value === 'string' && path.win32.isAbsolute(value) && /^[A-Za-z]:[\\/]|^\\\\/.test(value);
+function error(status, message, extra = {}) {
+  return Object.assign(new Error(message), { status, ...extra });
+}
+function audit(db, user, action, targetKind, targetId, detail = {}) {
+  db.prepare(
+    'INSERT INTO audit_events (created_at, user_id, actor, action, target_kind, target_id, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).run(new Date().toISOString(), user.id, 'user', action, targetKind, targetId, JSON.stringify(detail));
+}
+function must(value) {
+  if (!value) throw error(404, API_MESSAGES.notFound);
+  return value;
+}
+function serverRow(db, id) {
+  return db
+    .prepare(
+      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+    )
+    .get(id);
+}
+function shapeServer(row, supervisor) {
+  const settings = JSON.parse(row.settings_json || '{}');
+  return {
+    ...row,
+    settings_json: { mods: settings.mods ?? [], disableBattlEye: settings.disableBattlEye ?? false },
+    status: supervisor.status(row.id),
+    install: {
+      path: row.install_path,
+      state: row.install_state,
+      source: row.install_source,
+      build_id: row.install_build_id,
+    },
+  };
+}
+export function createApp({
+  db,
+  dataDir,
+  publicDir,
+  jobs,
+  supervisor,
+  steamcmd,
+  runner,
+  platform,
+  listListeners,
+  firewallRules,
+  isElevated,
+  pwshPath = 'pwsh',
+  rankFields,
+  allowedHosts = [],
+  log = console.error,
+  now = () => Date.now(),
+}) {
+  const auth = createAuth({ db, now }),
+    router = createRouter({ log }),
+    previews = new Map();
+  const hostRow = () => db.prepare("SELECT * FROM hosts WHERE name = 'local'").get();
+  function record(user, action, kind, id, detail) {
+    if (user) audit(db, user, action, kind, id, detail);
+  }
+  const protectedRoute =
+    (action, kind, handler, detail = (ctx) => ({})) =>
+    async (ctx) => {
+      const result = await handler(ctx);
+      record(ctx.user, action, kind, ctx.params.id ?? result?.id ?? null, detail(ctx));
+      return result;
+    };
+  for (const [key, route] of Object.entries(auth.routes)) {
+    const urls = {
+      state: 'GET /api/auth/state',
+      setup: 'POST /api/auth/setup',
+      login: 'POST /api/auth/login',
+      logout: 'POST /api/auth/logout',
+      password: 'POST /api/auth/password',
+      passkey_register_options: 'POST /api/auth/passkey/register/options',
+      passkey_register_verify: 'POST /api/auth/passkey/register/verify',
+      passkey_login_options: 'POST /api/auth/passkey/login/options',
+      passkey_login_verify: 'POST /api/auth/passkey/login/verify',
+      passkeys: 'GET /api/auth/passkeys',
+      passkey_remove: 'POST /api/auth/passkey/remove',
+    };
+    const [method, url] = urls[key].split(' ');
+    router.add(method, url, async (ctx) => {
+      const result = await route(ctx);
+      if (method !== 'GET') {
+        const actor = ctx.user ?? db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+        if (actor) audit(db, actor, `auth.${key.replaceAll('_', '.')}`, 'user', actor.id, {});
+      }
+      return result;
+    });
+  }
+  router.add('GET', '/api/host', async () => ({
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    hostname: (await import('node:os')).hostname(),
+    cpuCount: (await import('node:os')).availableParallelism(),
+    memoryBytes: (await import('node:os')).totalmem(),
+    dataDir,
+    freeDiskBytes: (await fs.statfs(dataDir)).bavail * (await fs.statfs(dataDir)).bsize,
+    steamcmd: { installed: steamcmd.isInstalled(), path: steamcmd.exePath ?? null },
+    elevated: await isElevated(),
+  }));
+  router.add('GET', '/api/installs', () => db.prepare('SELECT * FROM installs ORDER BY id').all());
+  router.add(
+    'POST',
+    '/api/installs',
+    protectedRoute(
+      'install.create',
+      'install',
+      async ({ body }) => {
+        const installPath = body.path;
+        if (!absolute(installPath)) throw error(400, API_MESSAGES.relativePath);
+        if (/[\\/]steamapps[\\/]common[\\/]/i.test(installPath)) throw error(400, API_MESSAGES.steamLibraryPath);
+        const stamp = new Date(now()).toISOString();
+        const id = transaction(db, () => {
+          let host = hostRow();
+          if (!host) {
+            const result = db
+              .prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'local')")
+              .run(stamp, stamp);
+            host = { id: Number(result.lastInsertRowid) };
+          }
+          const existing = db
+            .prepare('SELECT path FROM installs WHERE host_id = ?')
+            .all(host.id)
+            .some((row) => pathKey(row.path) === pathKey(installPath));
+          if (existing) throw error(409, API_MESSAGES.installExists);
+          return Number(
+            db
+              .prepare(
+                "INSERT INTO installs (created_at, updated_at, host_id, path, state) VALUES (?, ?, ?, ?, 'missing')",
+              )
+              .run(stamp, stamp, host.id, installPath).lastInsertRowid,
+          );
+        });
+        const job = jobs.enqueue('install.install', {}, { installId: id });
+        return { id, jobId: job.id };
+      },
+      (ctx) => ({ path: ctx.body.path }),
+    ),
+  );
+  for (const [verb, action] of [
+    ['update', 'install.update'],
+    ['validate', 'install.validate'],
+  ])
+    router.add(
+      'POST',
+      `/api/installs/:id/${verb}`,
+      protectedRoute(action, 'install', ({ params }) => {
+        must(db.prepare('SELECT id FROM installs WHERE id = ?').get(params.id));
+        return jobs.enqueue(`install.${verb}`, {}, { installId: params.id });
+      }),
+    );
+  router.add(
+    'POST',
+    '/api/steamcmd/setup',
+    protectedRoute('steamcmd.setup', 'steamcmd', () => jobs.enqueue('steamcmd.setup')),
+  );
+  const listServers = () =>
+    db
+      .prepare(
+        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id FROM servers s JOIN installs i ON i.id = s.install_id ORDER BY s.id',
+      )
+      .all()
+      .map((row) => shapeServer(row, supervisor));
+  router.add('GET', '/api/servers', listServers);
+  router.add('GET', '/api/servers/:id', ({ params }) => shapeServer(must(serverRow(db, params.id)), supervisor));
+  router.add(
+    'POST',
+    '/api/servers',
+    protectedRoute(
+      'server.create',
+      'server',
+      async ({ body }) => {
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        if (!name || name.length > 64 || /[\x00-\x1f]/.test(name)) throw error(400, API_MESSAGES.badName);
+        // The launch line carries the session name, so it may not hold what would end or split it.
+        if (
+          typeof body.sessionName !== 'string' ||
+          !body.sessionName.trim() ||
+          body.sessionName.length > 128 ||
+          /[?"\r\n]/.test(body.sessionName)
+        )
+          throw error(400, API_MESSAGES.badSessionName);
+        if (typeof body.map !== 'string' || !/^[A-Za-z0-9_]+$/.test(body.map)) throw error(400, API_MESSAGES.badMap);
+        if (!Number.isInteger(body.maxPlayers) || body.maxPlayers < 1 || body.maxPlayers > 1000)
+          throw error(400, API_MESSAGES.badPlayers);
+        const listeners = await listListeners();
+        let result;
+        result = transaction(db, () => {
+          const install = must(db.prepare('SELECT * FROM installs WHERE id = ?').get(body.installId));
+          const host = install.host_id;
+          const clashes = findConflicts(db, {
+            hostId: host,
+            proposal: { gamePort: body.gamePort, queryPort: body.queryPort, rconPort: body.rconPort },
+            listeners,
+          });
+          if (clashes.length) throw error(409, API_MESSAGES.portsInUse, { conflicts: clashes });
+          if (db.prepare('SELECT 1 FROM servers WHERE name = ? COLLATE NOCASE').get(name))
+            throw error(409, API_MESSAGES.nameTaken);
+          const stamp = new Date(now()).toISOString();
+          const id = Number(
+            db
+              .prepare(
+                "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port, query_port, rcon_port, max_players, settings_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}')",
+              )
+              .run(
+                stamp,
+                stamp,
+                host,
+                install.id,
+                name,
+                body.map,
+                body.sessionName,
+                body.gamePort,
+                body.queryPort ?? null,
+                body.rconPort ?? null,
+                body.maxPlayers,
+              ).lastInsertRowid,
+          );
+          return serverRow(db, id);
+        });
+        return shapeServer(result, supervisor);
+      },
+      (ctx) => ({ name: ctx.body.name, map: ctx.body.map }),
+    ),
+  );
+  router.add(
+    'PUT',
+    '/api/servers/:id/ports',
+    protectedRoute(
+      'server.ports',
+      'server',
+      async ({ params, body }) => {
+        const row = must(serverRow(db, params.id)),
+          listeners = await listListeners();
+        try {
+          assignPorts(db, params.id, body, { listeners, ignorePids: row.pid == null ? [] : [row.pid] });
+        } catch (e) {
+          if (e.conflicts) e.status = 409;
+          throw e;
+        }
+        return shapeServer(serverRow(db, params.id), supervisor);
+      },
+      (ctx) => ({ ports: ctx.body }),
+    ),
+  );
+  router.add('GET', '/api/ports/suggest', async () =>
+    allocatePorts(db, { hostId: hostRow()?.id ?? 0, listeners: await listListeners() }),
+  );
+  for (const verb of ['start', 'stop', 'restart'])
+    router.add(
+      'POST',
+      `/api/servers/:id/${verb}`,
+      protectedRoute(`server.${verb}`, 'server', async ({ params }) => {
+        must(serverRow(db, params.id));
+        return supervisor[verb](params.id);
+      }),
+    );
+  router.add('GET', '/api/settings/fields', async () => (await import('./settings/fields.js')).SETTINGS_FIELDS);
+  router.add('GET', '/api/settings/search', async ({ query }) =>
+    rankFields(query.q ?? '', (await import('./settings/fields.js')).SETTINGS_FIELDS),
+  );
+  const storeFor = (id) => {
+    const row = must(serverRow(db, id));
+    const paths = serverPaths(row.install_path);
+    return createSettingsStore(paths);
+  };
+  router.add('GET', '/api/servers/:id/settings', ({ params }) => storeFor(params.id).readSettings());
+  router.add(
+    'PUT',
+    '/api/servers/:id/settings',
+    protectedRoute(
+      'server.settings',
+      'server',
+      ({ params, body }) => {
+        must(serverRow(db, params.id));
+        try {
+          return storeFor(params.id).writeSettings(body);
+        } catch (e) {
+          if (e.errors) e.status = 400;
+          throw e;
+        }
+      },
+      (ctx) => ({ keys: Object.keys(ctx.body) }),
+    ),
+  );
+  router.add('GET', '/api/jobs', ({ query }) =>
+    jobs.list({
+      ...(query.state ? { state: query.state } : {}),
+      ...(query.serverId ? { serverId: Number(query.serverId) } : {}),
+    }),
+  );
+  router.add('GET', '/api/jobs/events', ({ req, res }) => streamJobEvents(jobs, req, res));
+  router.add(
+    'POST',
+    '/api/jobs/:id/cancel',
+    protectedRoute('job.cancel', 'job', ({ params }) => {
+      if (!jobs.get(params.id)) throw error(404, API_MESSAGES.notFound);
+      return { cancelled: jobs.cancel(params.id) };
+    }),
+  );
+  router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
+    const row = must(serverRow(db, params.id));
+    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await firewallRules());
+    return {
+      ...preview,
+      token: preview.script ? crypto.createHash('sha256').update(preview.script).digest('hex') : null,
+    };
+  });
+  router.add(
+    'POST',
+    '/api/servers/:id/firewall/apply',
+    protectedRoute(
+      'server.firewall.apply',
+      'server',
+      async ({ params, body }) => {
+        const row = must(serverRow(db, params.id)),
+          preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await firewallRules());
+        if (!preview.script) return { applied: false };
+        const token = crypto.createHash('sha256').update(preview.script).digest('hex');
+        if (token !== body.token) throw error(409, API_MESSAGES.firewallChanged);
+        const result = await applyFirewallScript(preview.script, {
+          runner,
+          elevated: await isElevated(),
+          dir: path.join(dataDir, 'firewall', String(now())),
+          pwshPath,
+        });
+        return { applied: result.ok, ...result };
+      },
+      (ctx) => ({ token: ctx.body.token }),
+    ),
+  );
+  router.add(
+    'POST',
+    '/api/import/preview',
+    protectedRoute('import.preview', 'import', async ({ body }) => {
+      // A relative folder would be read against whatever folder ARK Overseer runs in.
+      if (!absolute(body.dashboardDir)) throw error(400, API_MESSAGES.relativePath);
+      const detection = await detectPhase0(body.dashboardDir);
+      const result = previewImport(db, detection, { listeners: await listListeners() });
+      const token = crypto.randomBytes(24).toString('base64url');
+      for (const [key, entry] of previews) if (entry.expires < now()) previews.delete(key);
+      previews.set(token, { detection, expires: now() + PREVIEW_MS });
+      return { token, servers: result.servers };
+    }),
+  );
+  router.add(
+    'POST',
+    '/api/import/apply',
+    protectedRoute(
+      'import.apply',
+      'server',
+      async ({ body }) => {
+        const entry = previews.get(body.token);
+        previews.delete(body.token);
+        if (!entry || entry.expires < now()) throw error(410, API_MESSAGES.previewExpired);
+        try {
+          return await applyImport(db, entry.detection, body.profileId, {
+            snapshotRoot: path.join(dataDir, 'snapshots'),
+            listeners: await listListeners(),
+          });
+        } catch (e) {
+          if (e.code === 'CHANGED_SINCE_PREVIEW') e.status = 409;
+          if (e.conflicts) e.status = 409;
+          throw e;
+        }
+      },
+      (ctx) => ({ profileId: ctx.body.profileId }),
+    ),
+  );
+  const publicFiles = new Set(['/login.html', '/login.js', '/webauthn.js', '/style.css', '/favicon.svg']);
+  const sendJson = (res, status, value) => {
+    if (res.headersSent) return res.end();
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(value));
+  };
+  const server = http.createServer((req, res) => {
+    handleRequest(req, res).catch((e) => {
+      try {
+        log(redact(e?.stack || String(e)));
+      } catch {
+        /* logging cannot prevent the response */
+      }
+      sendJson(res, 500, { error: API_MESSAGES.serverError });
+    });
+  });
+  async function handleRequest(req, res) {
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
+    if (!hostAllowed(req.headers.host, allowedHosts)) return sendJson(res, 421, { error: AUTH_MESSAGES.unknownHost });
+    // A request line such as "GET //" is not a URL the parser accepts, and it answers 400 before
+    // anything else looks at it.
+    let pathname;
+    try {
+      pathname = new URL(req.url, 'http://localhost').pathname;
+    } catch {
+      return sendJson(res, 400, { error: API_MESSAGES.notFound });
+    }
+    const unsafe = ['POST', 'PUT', 'DELETE'].includes(req.method);
+    if (
+      unsafe &&
+      !originAllowed({
+        origin: req.headers.origin,
+        secFetchSite: req.headers['sec-fetch-site'],
+        host: req.headers.host,
+      })
+    ) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: AUTH_MESSAGES.crossSite }));
+      return;
+    }
+    const authRoute = pathname.startsWith('/api/auth/');
+    const user = await auth.identify(req, res);
+    if (!authRoute && !publicFiles.has(pathname) && !pathname.startsWith('/icons/')) {
+      if (!user) {
+        if (pathname.startsWith('/api/')) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: AUTH_MESSAGES.signedOut }));
+        } else {
+          res.writeHead(302, { Location: '/login.html' });
+          res.end();
+        }
+        return;
+      }
+    }
+    if (await router.handle(req, res, user)) return;
+    if (
+      (publicFiles.has(pathname) || pathname.startsWith('/icons/') || (user && !pathname.startsWith('/api/'))) &&
+      (await serveStatic(publicDir, req, res))
+    )
+      return;
+    if (pathname.startsWith('/api/')) return sendJson(res, 404, { error: API_MESSAGES.notFound });
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(API_MESSAGES.notFound);
+  }
+  return { server, close: () => new Promise((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))) };
+}

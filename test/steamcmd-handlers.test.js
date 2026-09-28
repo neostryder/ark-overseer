@@ -15,7 +15,7 @@ function setup(t) {
   db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
     stamp,
     stamp,
-    'C:\\ARK',
+    path.join(process.cwd(), '.missing-steam-install-test-path'),
   );
   t.after(() => db.close());
   const manifest = { buildId: '123', fullyInstalled: true };
