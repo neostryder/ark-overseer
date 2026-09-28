@@ -627,6 +627,50 @@ test('the firewall apply runs the previewed script with elevation taken from the
   assert.equal(fs.readFileSync(scriptPath, 'utf8'), preview.script);
 });
 
+test('service mode reports itself and refuses firewall apply with the preview script', async (t) => {
+  const calls = [];
+  const { url, cookie } = await fixtureWith(t, {
+    serviceMode: true,
+    isElevated: async () => {
+      throw new Error('must not check elevation in service mode');
+    },
+    runner: async (...args) => {
+      calls.push(args);
+      return { code: 0 };
+    },
+  });
+  assert.equal((await (await fetch(`${url}/api/host`, { headers: { Cookie: cookie } })).json()).service, true);
+  const post = (route, body = {}) => fetch(`${url}${route}`, json(body, cookie));
+  const install = await (await post('/api/installs', { path: 'C:\\Games\\ARK' })).json();
+  const server = await (
+    await post('/api/servers', {
+      name: 'Service server',
+      map: 'TheIsland',
+      sessionName: 'Service server',
+      installId: install.id,
+      gamePort: 7777,
+      queryPort: 27015,
+      rconPort: 27020,
+      maxPlayers: 70,
+    })
+  ).json();
+  const preview = await (
+    await fetch(`${url}/api/servers/${server.id}/firewall`, { headers: { Cookie: cookie } })
+  ).json();
+  const response = await post(`/api/servers/${server.id}/firewall/apply`, { token: preview.token });
+  assert.equal(response.status, 409);
+  const payload = await response.json();
+  assert.equal(payload.error, API_MESSAGES.firewallService);
+  assert.equal(payload.script, preview.script);
+  assert.deepEqual(calls, []);
+});
+
+test('non-service mode host response has no service flag', async (t) => {
+  const { url, cookie } = await fixtureWith(t);
+  const host = await (await fetch(`${url}/api/host`, { headers: { Cookie: cookie } })).json();
+  assert.equal(Object.hasOwn(host, 'service'), false);
+});
+
 // One install and one server, inserted directly, for the automation routes.
 function seedServer(db, { source = 'steamcmd' } = {}) {
   const t = '2026-01-01T00:00:00.000Z';
@@ -717,4 +761,38 @@ test('a manual backup is queued with the backup schedule limit, and update check
   assert.equal((await fetch(`${url}/api/installs/9/check-update`, json({}, cookie))).status, 404);
   const list = await (await fetch(`${url}/api/servers/1/backups`, { headers: { Cookie: cookie } })).json();
   assert.deepEqual(list, []);
+});
+
+test('in service mode a failed firewall read still shows the whole script', async (t) => {
+  const logged = [];
+  const { url, cookie, db } = await fixtureWith(t, {
+    serviceMode: true,
+    firewallRules: async () => {
+      throw new Error('access denied');
+    },
+    log: (line) => logged.push(line),
+  });
+  seedServer(db);
+  const response = await fetch(`${url}/api/servers/1/firewall`, { headers: { Cookie: cookie } });
+  assert.equal(response.status, 200);
+  assert.match((await response.json()).script, /netsh advfirewall firewall add rule/);
+  assert.match(logged.join('\n'), /Reading firewall rules failed: access denied/);
+});
+
+test('closing the server does not wait for a browser holding the live jobs feed open', async (t) => {
+  const { url, app } = await fixture(t);
+  const { cookie } = await setup(url);
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const stream = await fetch(`${url}/api/jobs/events`, { headers: { Cookie: cookie }, signal: controller.signal });
+  assert.equal(stream.status, 200);
+  let timer;
+  await Promise.race([
+    app.close(),
+    new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('close waited on the open feed')), 3000);
+    }),
+  ]);
+  clearTimeout(timer);
+  await app.close();
 });

@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rankFields, MIN_SCORE, SCORE_WINDOW, RESULT_LIMIT } from '../src/settings/semantic-search.js';
+import path from 'node:path';
+import { rankFields, MIN_SCORE, SCORE_WINDOW, RESULT_LIMIT, modelCachePath } from '../src/settings/semantic-search.js';
+
+test('model cache path honors OVERSEER_MODEL_CACHE', () => {
+  const previous = process.env.OVERSEER_MODEL_CACHE;
+  process.env.OVERSEER_MODEL_CACHE = 'C:\\service-model-cache';
+  try {
+    assert.equal(modelCachePath(), path.resolve('C:\\service-model-cache'));
+  } finally {
+    if (previous === undefined) delete process.env.OVERSEER_MODEL_CACHE;
+    else process.env.OVERSEER_MODEL_CACHE = previous;
+  }
+});
 
 // A fake extractor: each text maps to a 2-D unit vector whose angle from the query sets its score.
 // Corpus texts start with the field label, so the label picks the score.

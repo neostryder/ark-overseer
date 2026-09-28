@@ -117,6 +117,12 @@ export const STRINGS = {
     confirmApply: 'Windows will ask for administrator approval, then add the rules shown above.',
     applied: 'The firewall rules were added.',
     notApplied: 'The firewall rules were not added.',
+    serviceInstruction:
+      "ARK Overseer runs as a Windows service here, and a service can't ask for administrator approval. Download the script, then right-click it and choose Run as administrator.",
+    download: 'Download script',
+    copy: 'Copy',
+    copied: 'Copied.',
+    copyFailed: 'Copying was blocked. Select the script and copy it yourself.',
   },
   automation: {
     title: 'Automation',

@@ -34,6 +34,7 @@ export async function backupServer({
   isRunning,
   now = () => Date.now(),
   jobId = null,
+  signal,
 }) {
   const skipped = [];
   if (await isRunning(server.id)) {
@@ -57,7 +58,7 @@ export async function backupServer({
   let snapshot;
   for (let attempt = 0; !snapshot; attempt++) {
     try {
-      snapshot = await snapshotFiles(sources, attempt ? `${base}-${attempt + 1}` : base);
+      snapshot = await snapshotFiles(sources, attempt ? `${base}-${attempt + 1}` : base, { signal });
     } catch (error) {
       if (attempt >= 9 || !/already exists/.test(error.message)) throw error;
     }

@@ -85,7 +85,8 @@ export function createRouter({ log = console.error } = {}) {
     } catch (error) {
       if (error.status) {
         const payload = { error: error.message };
-        for (const key of ['code', 'errors', 'conflicts']) if (error[key] !== undefined) payload[key] = error[key];
+        for (const key of ['code', 'errors', 'conflicts', 'script'])
+          if (error[key] !== undefined) payload[key] = error[key];
         if (!res.headersSent) send(res, error.status, payload);
       } else {
         try {

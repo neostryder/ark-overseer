@@ -12,7 +12,12 @@ import { fileURLToPath } from 'node:url';
 // current, small (97M params, 384-dim, runs comfortably on CPU) and already benchmarked as the
 // strongest sub-100M open embedding model available at the time this was written.
 export const MODEL_ID = 'onnx-community/granite-embedding-97m-multilingual-r2-ONNX';
-const CACHE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.model-cache');
+export function modelCachePath() {
+  return path.resolve(
+    process.env.OVERSEER_MODEL_CACHE ||
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.model-cache'),
+  );
+}
 
 // Measured directly against this model on the dashboard's own 325-field corpus (see
 // tools/tune-semantic-search.js): a pure-gibberish query still scored 0.64 against the best-fitting
@@ -34,7 +39,7 @@ function getExtractor() {
   if (!extractorPromise) {
     extractorPromise = (async () => {
       const { pipeline, env } = await import('@huggingface/transformers');
-      env.cacheDir = CACHE_DIR;
+      env.cacheDir = modelCachePath();
       return pipeline('feature-extraction', MODEL_ID, { dtype: 'q8' });
     })();
     extractorPromise.catch(() => {

@@ -16,3 +16,6 @@ CLAUDE.md
 
 # Downloaded embedding model.
 .model-cache/
+
+# Downloaded runtime zips for the Windows service.
+vendor/

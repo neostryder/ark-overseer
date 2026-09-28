@@ -18,6 +18,8 @@ import { parseCron, describeCron } from './scheduler/cron.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
+  firewallService:
+    "A Windows service can't ask for administrator approval. Download the script and run it as an administrator.",
   previewExpired: 'That preview has expired. Run it again.',
   notFound: 'Not found.',
   badJson: 'The request body must be JSON.',
@@ -100,6 +102,7 @@ export function createApp({
   scheduler,
   rcon,
   getRconPassword,
+  serviceMode = false,
 }) {
   const auth = createAuth({ db, now }),
     router = createRouter({ log }),
@@ -149,8 +152,20 @@ export function createApp({
     dataDir,
     freeDiskBytes: (await fs.statfs(dataDir)).bavail * (await fs.statfs(dataDir)).bsize,
     steamcmd: { installed: steamcmd.isInstalled(), path: steamcmd.exePath ?? null },
-    elevated: await isElevated(),
+    elevated: serviceMode ? false : await isElevated(),
+    ...(serviceMode ? { service: true } : {}),
   }));
+  // Network Service may not be allowed to list firewall rules. The page then still shows the whole
+  // script, which is safe to run because it only replaces ARK Overseer's own rules.
+  const readFirewallRules = async () => {
+    try {
+      return await firewallRules();
+    } catch (cause) {
+      if (!serviceMode) throw cause;
+      log(`Reading firewall rules failed: ${cause.message}`);
+      return [];
+    }
+  };
   router.add('GET', '/api/installs', () => db.prepare('SELECT * FROM installs ORDER BY id').all());
   router.add(
     'POST',
@@ -468,7 +483,7 @@ export function createApp({
   );
   router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
     const row = must(serverRow(db, params.id));
-    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await firewallRules());
+    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await readFirewallRules());
     return {
       ...preview,
       token: preview.script ? crypto.createHash('sha256').update(preview.script).digest('hex') : null,
@@ -482,8 +497,9 @@ export function createApp({
       'server',
       async ({ params, body }) => {
         const row = must(serverRow(db, params.id)),
-          preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await firewallRules());
+          preview = firewallPreview([{ server: row, install: { path: row.install_path } }], await readFirewallRules());
         if (!preview.script) return { applied: false };
+        if (serviceMode) throw error(409, API_MESSAGES.firewallService, { script: preview.script });
         const token = crypto.createHash('sha256').update(preview.script).digest('hex');
         if (token !== body.token) throw error(409, API_MESSAGES.firewallChanged);
         const result = await applyFirewallScript(preview.script, {
@@ -600,5 +616,13 @@ export function createApp({
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(API_MESSAGES.notFound);
   }
-  return { server, close: () => new Promise((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))) };
+  // server.close waits for every open connection, and a browser on the Jobs page holds one open for
+  // live updates, so shutting down closes them too.
+  const close = () =>
+    new Promise((resolve, reject) => {
+      if (!server.listening) return resolve();
+      server.close((e) => (e ? reject(e) : resolve()));
+      server.closeAllConnections();
+    });
+  return { server, close };
 }

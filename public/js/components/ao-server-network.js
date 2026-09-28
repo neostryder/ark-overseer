@@ -14,6 +14,8 @@ export class AoServerNetwork extends HTMLElement {
         api.get(`/api/servers/${this.id}`),
         api.get(`/api/servers/${this.id}/firewall`),
       ]);
+      // Only service mode changes this page, so a failed host check falls back to the normal Apply.
+      this.host = await api.get('/api/host').catch(() => null);
       this.render();
     } catch (error) {
       this.replaceChildren();
@@ -123,39 +125,71 @@ export class AoServerNetwork extends HTMLElement {
     if (this.firewall.script) {
       const pre = document.createElement('pre');
       pre.textContent = this.firewall.script;
-      section.append(pre);
-      const apply = document.createElement('button');
-      apply.className = 'button primary';
-      apply.append(icon('shield'), STRINGS.network.apply);
-      const outcome = document.createElement('p');
-      outcome.setAttribute('aria-live', 'polite');
-      apply.addEventListener('click', async () => {
-        if (!(await document.querySelector('ao-dialog').ask(STRINGS.network.firewall, STRINGS.network.confirmApply)))
-          return;
-        apply.disabled = true;
-        outcome.textContent = '';
-        try {
-          const result = await api.post(`/api/servers/${this.id}/firewall/apply`, { token: this.firewall.token });
-          if (result.applied) {
-            await this.load();
-            document.querySelector('ao-toast').show(STRINGS.network.applied);
+      if (this.host?.service) {
+        // A service cannot show the administrator prompt, so the script is handed over as a .cmd file
+        // to run by hand. It is a cmd script, not PowerShell.
+        pre.className = 'service-firewall-script';
+        const instruction = document.createElement('p');
+        instruction.textContent = STRINGS.network.serviceInstruction;
+        const row = document.createElement('div');
+        row.className = 'button-row';
+        const download = document.createElement('a');
+        download.className = 'button primary';
+        download.append(icon('shield'), STRINGS.network.download);
+        download.download = `ark-overseer-firewall-${this.id}.cmd`;
+        if (this.scriptUrl) URL.revokeObjectURL(this.scriptUrl);
+        this.scriptUrl = URL.createObjectURL(new Blob([this.firewall.script], { type: 'application/octet-stream' }));
+        download.href = this.scriptUrl;
+        const copy = document.createElement('button');
+        copy.className = 'button secondary';
+        copy.textContent = STRINGS.network.copy;
+        const outcome = document.createElement('p');
+        outcome.setAttribute('aria-live', 'polite');
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(this.firewall.script);
+            outcome.textContent = STRINGS.network.copied;
+          } catch {
+            outcome.textContent = STRINGS.network.copyFailed;
+          }
+        });
+        row.append(download, copy);
+        section.append(instruction, pre, row, outcome);
+      } else {
+        section.append(pre);
+        const apply = document.createElement('button');
+        apply.className = 'button primary';
+        apply.append(icon('shield'), STRINGS.network.apply);
+        const outcome = document.createElement('p');
+        outcome.setAttribute('aria-live', 'polite');
+        apply.addEventListener('click', async () => {
+          if (!(await document.querySelector('ao-dialog').ask(STRINGS.network.firewall, STRINGS.network.confirmApply)))
             return;
+          apply.disabled = true;
+          outcome.textContent = '';
+          try {
+            const result = await api.post(`/api/servers/${this.id}/firewall/apply`, { token: this.firewall.token });
+            if (result.applied) {
+              await this.load();
+              document.querySelector('ao-toast').show(STRINGS.network.applied);
+              return;
+            }
+            outcome.textContent = STRINGS.network.notApplied;
+            if (result.log) {
+              const log = document.createElement('pre');
+              log.textContent = result.log;
+              outcome.append(log);
+            }
+          } catch (error) {
+            if (error.status === 409) {
+              await this.load();
+              document.querySelector('ao-toast').show(STRINGS.network.changed);
+            } else outcome.textContent = error.message;
           }
-          outcome.textContent = STRINGS.network.notApplied;
-          if (result.log) {
-            const log = document.createElement('pre');
-            log.textContent = result.log;
-            outcome.append(log);
-          }
-        } catch (error) {
-          if (error.status === 409) {
-            await this.load();
-            document.querySelector('ao-toast').show(STRINGS.network.changed);
-          } else outcome.textContent = error.message;
-        }
-        apply.disabled = false;
-      });
-      section.append(apply, outcome);
+          apply.disabled = false;
+        });
+        section.append(apply, outcome);
+      }
     }
     const note = document.createElement('p');
     note.textContent = STRINGS.network.rconNote;

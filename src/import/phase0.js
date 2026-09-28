@@ -246,7 +246,7 @@ async function copyHashed(source, target) {
   return { size, sha256: hash.digest('hex') };
 }
 
-export async function snapshotFiles(files, destDir, { copy = copyHashed } = {}) {
+export async function snapshotFiles(files, destDir, { copy = copyHashed, signal } = {}) {
   await fsp.mkdir(path.dirname(destDir), { recursive: true });
   // A plain mkdir fails if the folder exists, so two imports can never write into one snapshot, and a
   // snapshot this call did not create is never removed by it.
@@ -259,6 +259,8 @@ export async function snapshotFiles(files, destDir, { copy = copyHashed } = {}) 
   try {
     const copied = [];
     for (const file of files) {
+      // A cancelled job stops between files, and the catch below removes the partial snapshot.
+      if (signal?.aborted) throw signal.reason;
       const target = path.join(destDir, ...file.relPath.split('/'));
       await fsp.mkdir(path.dirname(target), { recursive: true });
       // A running server saves every few minutes. A copy is kept only if the source still hashes the

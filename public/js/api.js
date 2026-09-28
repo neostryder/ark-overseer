@@ -17,7 +17,7 @@ async function request(method, path, body) {
   if (!response.ok) {
     const error = new Error(data.error || `Request failed (${response.status})`);
     error.status = response.status;
-    for (const key of ['code', 'errors', 'conflicts']) if (data[key] !== undefined) error[key] = data[key];
+    for (const key of ['code', 'errors', 'conflicts', 'script']) if (data[key] !== undefined) error[key] = data[key];
     throw error;
   }
   return data;

@@ -140,3 +140,11 @@ test('pruning never deletes a folder outside the backup folder', async (t) => {
   assert.ok(fs.existsSync(outside));
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM backups').get().n, 3);
 });
+
+test('a cancelled backup stops between files and leaves no folder or row behind', async (t) => {
+  const { db, run, dataDir } = setup(t);
+  await assert.rejects(run({ signal: AbortSignal.abort(new Error('cancelled')) }), /cancelled/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM backups').get().n, 0);
+  const serverDir = path.join(dataDir, 'backups', 'server-1');
+  assert.deepEqual(fs.existsSync(serverDir) ? fs.readdirSync(serverDir) : [], []);
+});

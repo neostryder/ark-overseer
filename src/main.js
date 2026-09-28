@@ -13,6 +13,7 @@ import { createJobEngine } from './jobs/engine.js';
 import { createSupervisor } from './supervisor/supervisor.js';
 import { serverPaths } from './supervisor/launch.js';
 import { rconCommand } from './supervisor/rcon.js';
+import { saveAllWorlds } from './supervisor/save-all.js';
 import { readIniLines, getIniKey, SERVER_SETTINGS } from './settings/ini.js';
 import { listListeners as readListeners } from './network/listeners.js';
 import { parseFirewallRules } from './network/firewall.js';
@@ -20,13 +21,19 @@ import { rankFields } from './settings/semantic-search.js';
 import { SETTINGS_FIELDS } from './settings/fields.js';
 import { createApp } from './app.js';
 
+// shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
+// 20 s, which leaves time to close everything else.
+const SAVE_ALL_MS = 25000;
+const JOB_STOP_MS = 20000;
+
 export async function start() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const dataDir = path.resolve(process.env.OVERSEER_DATA || path.join(root, 'data'));
   fs.mkdirSync(dataDir, { recursive: true });
   const db = openDatabase(path.join(dataDir, 'overseer.db'));
   const runner = createProcessRunner(),
-    platform = createWindowsPlatform();
+    pwshPath = process.env.OVERSEER_PWSH || 'pwsh',
+    platform = createWindowsPlatform({ pwshPath });
   const steamcmd = createSteamCmd({ root: path.join(dataDir, 'steamcmd'), runner });
   const supervisor = createSupervisor({
     db,
@@ -82,31 +89,53 @@ export async function start() {
     listListeners,
     firewallRules,
     isElevated,
+    pwshPath,
+    serviceMode: process.env.OVERSEER_SERVICE === '1',
     allowedHosts,
     rankFields: (query, fields) => rankFields(query, fields || SETTINGS_FIELDS),
   });
-  jobs.start();
-  scheduler.start();
-  await supervisor.recover();
-  supervisor.startPolling();
   const port = Number(process.env.OVERSEER_PORT || 3310),
     host = process.env.OVERSEER_HOST || '0.0.0.0';
-  await new Promise((resolve, reject) => {
-    app.server.once('error', reject);
-    app.server.listen(port, host, resolve);
-  });
+  try {
+    jobs.start();
+    scheduler.start();
+    await supervisor.recover();
+    supervisor.startPolling();
+    await new Promise((resolve, reject) => {
+      app.server.once('error', reject);
+      app.server.listen(port, host, resolve);
+    });
+  } catch (error) {
+    await jobs.stop({ abort: true, timeoutMs: JOB_STOP_MS });
+    scheduler.stop();
+    await supervisor.stopPolling();
+    if (app.server.listening) await app.close();
+    db.close();
+    throw error;
+  }
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
     closing = true;
-    await jobs.stop({ abort: true });
+    await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
+      console.error(`World saves before shutdown failed: ${error.message}`),
+    );
+    await jobs.stop({ abort: true, timeoutMs: JOB_STOP_MS });
     scheduler.stop();
     await supervisor.stopPolling();
     await app.close();
     db.close();
   };
-  process.once('SIGINT', () => shutdown().then(() => process.exit(0)));
-  process.once('SIGTERM', () => shutdown().then(() => process.exit(0)));
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGBREAK'])
+    process.once(signal, () =>
+      shutdown().then(
+        () => process.exit(0),
+        (error) => {
+          console.error(error);
+          process.exit(1);
+        },
+      ),
+    );
   return { ...app, db, jobs, supervisor, scheduler, shutdown };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)

@@ -123,7 +123,7 @@ export function createScheduleHandlers({
       return { restarted: true };
     },
 
-    'server.backup': async ({ job, params = {} }) => {
+    'server.backup': async ({ job, params = {}, signal }) => {
       const server = serverRow(job.serverId);
       if (!server) throw new Error(MESSAGES.noServer);
       const result = await backupServer({
@@ -136,6 +136,7 @@ export function createScheduleHandlers({
         isRunning: async (id) => isRunning(id),
         now,
         jobId: job.id,
+        signal,
       });
       pruneBackups({ db, serverId: server.id, keep: params.keep ?? 10, dataDir });
       return result;
@@ -181,6 +182,7 @@ export function createScheduleHandlers({
             isRunning: async () => false,
             now,
             jobId: job.id,
+            signal,
           });
         await runInstall({ db, steamcmd }, ctx, 'update');
       } catch (error) {
