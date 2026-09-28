@@ -431,6 +431,7 @@ ao-setup-wizard :focus-visible {
   font-weight: 600;
 }
 .field-label input,
+.field-label select,
 .setting-field input,
 .settings-screen > input,
 .form-grid input,

@@ -8,6 +8,7 @@ import './components/ao-fleet-rail.js';
 import './components/ao-server-overview.js';
 import './components/ao-server-settings.js';
 import './components/ao-server-network.js';
+import './components/ao-server-automation.js';
 import './components/ao-jobs-panel.js';
 import './components/ao-account.js';
 import './components/ao-setup-wizard.js';
@@ -141,14 +142,17 @@ class AoApp extends HTMLElement {
       route.id = this.servers[0].id;
       window.history.replaceState(null, '', `#/servers/${route.id}/overview`);
     }
-    if (['overview', 'settings', 'network'].includes(route.screen)) {
+    if (['overview', 'settings', 'network', 'automation'].includes(route.screen)) {
       if (this.servers && !this.servers.some((s) => s.id === route.id)) {
         this.view.textContent = STRINGS.app.emptyServers;
         return;
       }
-      const tag = { overview: 'ao-server-overview', settings: 'ao-server-settings', network: 'ao-server-network' }[
-        route.screen
-      ];
+      const tag = {
+        overview: 'ao-server-overview',
+        settings: 'ao-server-settings',
+        network: 'ao-server-network',
+        automation: 'ao-server-automation',
+      }[route.screen];
       const page = document.createElement(tag);
       page.setAttribute('server-id', route.id);
       const nav = document.createElement('nav');
@@ -157,14 +161,20 @@ class AoApp extends HTMLElement {
         ['overview', STRINGS.overview.title],
         ['settings', STRINGS.settings.title],
         ['network', STRINGS.network.title],
+        ['automation', STRINGS.automation.title],
       ]) {
         const a = document.createElement('a');
         a.href = `#/servers/${route.id}/${screen}`;
-        a.append(icon({ overview: 'server', settings: 'settings', network: 'network' }[screen]), label);
+        a.append(
+          icon({ overview: 'server', settings: 'settings', network: 'network', automation: 'jobs' }[screen]),
+          label,
+        );
         if (screen === route.screen) a.setAttribute('aria-current', 'page');
         nav.append(a);
       }
       this.view.replaceChildren(nav, page);
+      // On a narrow screen the tab strip scrolls, and the current tab may start out of sight.
+      nav.querySelector('[aria-current]').scrollIntoView({ block: 'nearest', inline: 'nearest' });
     } else if (route.screen === 'account') this.view.replaceChildren(document.createElement('ao-account'));
     else if (route.screen === 'jobs') {
       this.jobsDrawer.hidden = true;

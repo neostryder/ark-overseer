@@ -91,6 +91,60 @@ export class AoServerOverview extends HTMLElement {
       cards.append(card);
     }
     this.append(cards);
+    if (install.latest_build_id && install.build_id !== install.latest_build_id) {
+      const notice = document.createElement('p');
+      notice.className = 'card restart-banner';
+      notice.setAttribute('role', 'status');
+      notice.textContent = `${STRINGS.overview.updateAvailable} ${install.latest_build_id}.`;
+      this.append(notice);
+    }
+    if (install.update_checked_at) {
+      const checked = document.createElement('p');
+      checked.className = 'muted';
+      checked.textContent = `${STRINGS.overview.checkedAt} ${new Date(install.update_checked_at).toLocaleString()}.`;
+      this.append(checked);
+    }
+    if (install.source !== 'steam-client') {
+      const check = document.createElement('button');
+      check.className = 'button secondary';
+      check.textContent = STRINGS.overview.checkUpdates;
+      check.disabled = Boolean(this.pollTimer);
+      check.addEventListener('click', async () => {
+        check.disabled = true;
+        this.message.textContent = '';
+        try {
+          const job = await api.post(`/api/installs/${s.install_id}/check-update`, {});
+          this.follow(job.id);
+        } catch (error) {
+          this.message.textContent = error.message;
+          check.disabled = false;
+        }
+      });
+      this.append(check);
+    }
+  }
+  disconnectedCallback() {
+    clearTimeout(this.pollTimer);
+    this.pollTimer = null;
+  }
+  // Polls the update check until it ends, then reloads to show the result, or the reason it failed.
+  follow(jobId) {
+    const tick = async () => {
+      this.pollTimer = null;
+      if (!this.isConnected) return;
+      try {
+        const job = (await api.get('/api/jobs')).find((item) => item.id === jobId);
+        if (job && !['queued', 'running'].includes(job.state)) {
+          await this.load();
+          if (job.state !== 'succeeded') this.message.textContent = job.error || STRINGS.overview.checkFailed;
+          return;
+        }
+      } catch (error) {
+        this.message.textContent = error.message;
+      }
+      this.pollTimer = setTimeout(tick, 2000);
+    };
+    this.pollTimer = setTimeout(tick, 2000);
   }
   async action(action, button) {
     if (

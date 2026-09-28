@@ -14,6 +14,7 @@ import { createSettingsStore } from './settings/store.js';
 import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
 import { serverPaths } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
+import { parseCron, describeCron } from './scheduler/cron.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -32,6 +33,9 @@ export const API_MESSAGES = {
   nameTaken: 'A server with this name already exists.',
   badSessionName:
     'The session name can be up to 60 characters, without a question mark, a double quote or a line break.',
+  badSchedule: 'Choose a supported schedule kind and a valid cron time.',
+  badScheduleOptions: 'Check the schedule options.',
+  steamSchedule: 'This install is kept up to date by Steam.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -56,7 +60,7 @@ function must(value) {
 function serverRow(db, id) {
   return db
     .prepare(
-      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
     )
     .get(id);
 }
@@ -71,6 +75,8 @@ function shapeServer(row, supervisor) {
       state: row.install_state,
       source: row.install_source,
       build_id: row.install_build_id,
+      latest_build_id: row.latest_build_id,
+      update_checked_at: row.update_checked_at,
     },
   };
 }
@@ -91,6 +97,9 @@ export function createApp({
   allowedHosts = [],
   log = console.error,
   now = () => Date.now(),
+  scheduler,
+  rcon,
+  getRconPassword,
 }) {
   const auth = createAuth({ db, now }),
     router = createRouter({ log }),
@@ -201,12 +210,127 @@ export function createApp({
   const listServers = () =>
     db
       .prepare(
-        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id FROM servers s JOIN installs i ON i.id = s.install_id ORDER BY s.id',
+        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at FROM servers s JOIN installs i ON i.id = s.install_id ORDER BY s.id',
       )
       .all()
       .map((row) => shapeServer(row, supervisor));
   router.add('GET', '/api/servers', listServers);
   router.add('GET', '/api/servers/:id', ({ params }) => shapeServer(must(serverRow(db, params.id)), supervisor));
+  router.add('GET', '/api/servers/:id/schedules', ({ params }) => {
+    must(serverRow(db, params.id));
+    return db
+      .prepare(
+        'SELECT s.*, j.state AS job_state FROM schedules s LEFT JOIN jobs j ON j.id = s.last_job_id WHERE s.server_id = ? ORDER BY s.kind',
+      )
+      .all(params.id)
+      .map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        cron: row.cron,
+        enabled: Boolean(row.enabled),
+        options: JSON.parse(row.options_json),
+        lastRunAt: row.last_run_at,
+        nextRunAt: row.next_run_at,
+        lastJobState: row.job_state,
+        describe: describeCron(row.cron),
+      }));
+  });
+  router.add(
+    'PUT',
+    '/api/servers/:id/schedules/:kind',
+    protectedRoute('schedule.save', 'schedule', ({ params, body }) => {
+      const server = must(serverRow(db, params.id));
+      if (!['restart', 'backup', 'update_check', 'auto_update'].includes(params.kind))
+        throw error(400, API_MESSAGES.badSchedule);
+      try {
+        parseCron(body.cron);
+      } catch (cause) {
+        throw error(400, cause.message);
+      }
+      const options = body.options ?? {};
+      if (!options || typeof options !== 'object' || Array.isArray(options))
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      const allowedOptions = {
+        restart: ['countdownMinutes', 'announce'],
+        backup: ['keep'],
+        update_check: [],
+        auto_update: ['countdownMinutes', 'announce', 'keep'],
+      }[params.kind];
+      if (Object.keys(options).some((key) => !allowedOptions.includes(key)))
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      const countdown = options.countdownMinutes;
+      if (
+        countdown !== undefined &&
+        (!Array.isArray(countdown) ||
+          countdown.length < 1 ||
+          countdown.length > 5 ||
+          countdown.some((n, i) => !Number.isInteger(n) || n < 1 || n > 60 || (i && countdown[i - 1] <= n)))
+      )
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      if (options.announce !== undefined && !['chat', 'broadcast'].includes(options.announce))
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      if (options.keep !== undefined && (!Number.isInteger(options.keep) || options.keep < 1 || options.keep > 100))
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      if (['update_check', 'auto_update'].includes(params.kind) && server.install_source === 'steam-client')
+        throw error(400, API_MESSAGES.steamSchedule);
+      const enabled = body.enabled === undefined ? true : body.enabled;
+      if (typeof enabled !== 'boolean') throw error(400, API_MESSAGES.badScheduleOptions);
+      const stamp = new Date(now()).toISOString();
+      db.prepare(
+        `INSERT INTO schedules (created_at, updated_at, server_id, kind, cron, enabled, options_json, next_run_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(server_id, kind) DO UPDATE SET updated_at = excluded.updated_at, cron = excluded.cron, enabled = excluded.enabled, options_json = excluded.options_json, next_run_at = NULL`,
+      ).run(stamp, stamp, params.id, params.kind, body.cron, enabled ? 1 : 0, JSON.stringify(options));
+      const row = db.prepare('SELECT id FROM schedules WHERE server_id = ? AND kind = ?').get(params.id, params.kind);
+      scheduler?.reschedule(row.id);
+      return { id: row.id };
+    }),
+  );
+  router.add(
+    'DELETE',
+    '/api/servers/:id/schedules/:kind',
+    protectedRoute('schedule.delete', 'schedule', ({ params }) => {
+      must(serverRow(db, params.id));
+      db.prepare('DELETE FROM schedules WHERE server_id = ? AND kind = ?').run(params.id, params.kind);
+      return { deleted: true };
+    }),
+  );
+  router.add('GET', '/api/servers/:id/backups', async ({ params }) => {
+    must(serverRow(db, params.id));
+    return Promise.all(
+      db
+        .prepare('SELECT * FROM backups WHERE server_id = ? ORDER BY created_at DESC, id DESC')
+        .all(params.id)
+        .map(async (row) => {
+          let files = 0;
+          try {
+            files = JSON.parse(await fs.readFile(path.join(row.path, 'snapshot.json'), 'utf8')).files.length;
+          } catch {}
+          return { ...row, files };
+        }),
+    );
+  });
+  router.add(
+    'POST',
+    '/api/servers/:id/backups',
+    protectedRoute('backup.create', 'server', ({ params }) => {
+      must(serverRow(db, params.id));
+      // A manual backup prunes to the backup schedule's own limit, so it never removes backups that
+      // schedule means to keep.
+      const scheduled = db
+        .prepare("SELECT options_json FROM schedules WHERE server_id = ? AND kind = 'backup'")
+        .get(params.id);
+      const keep = scheduled ? JSON.parse(scheduled.options_json).keep : undefined;
+      return jobs.enqueue('server.backup', { reason: 'manual', ...(keep ? { keep } : {}) }, { serverId: params.id });
+    }),
+  );
+  router.add(
+    'POST',
+    '/api/installs/:id/check-update',
+    protectedRoute('install.check_update', 'install', ({ params }) => {
+      must(db.prepare('SELECT id FROM installs WHERE id = ?').get(params.id));
+      return jobs.enqueue('install.check_update', {}, { installId: params.id });
+    }),
+  );
   router.add(
     'POST',
     '/api/servers',

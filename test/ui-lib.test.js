@@ -12,12 +12,14 @@ import {
 } from '../public/js/lib/settings.js';
 import { stateName, relativeTime, byteSize, jobSummary, jobState } from '../public/js/lib/format.js';
 import { STRINGS } from '../public/js/strings.js';
+import { cronToPicker, pickerToCron, parseCountdown } from '../public/js/lib/cron-picker.js';
 
 test('route parsing and building covers supported routes', () => {
   for (const route of [
     { screen: 'overview', id: 3 },
     { screen: 'settings', id: 4 },
     { screen: 'network', id: 5 },
+    { screen: 'automation', id: 5 },
     { screen: 'jobs' },
     { screen: 'account' },
     { screen: 'setup' },
@@ -29,6 +31,14 @@ test('route parsing and building covers supported routes', () => {
   assert.deepEqual(parseRoute('#/not-a-route'), { screen: 'unknown' });
   assert.deepEqual(parseRoute('#/servers/nope/settings'), { screen: 'unknown' });
   assert.equal(buildRoute({ screen: 'overview', id: 'x' }), '#/');
+});
+
+test('automation cron picker converts supported forms and leaves other cron text raw', () => {
+  assert.deepEqual(cronToPicker('15 2 * * *'), { type: 'daily', minute: 15, hour: 2 });
+  assert.deepEqual(cronToPicker('0 */6 * * *'), { type: 'hourly', minute: 0, hours: 6 });
+  assert.deepEqual(cronToPicker('30 4 * * 2'), { type: 'weekly', minute: 30, hour: 4, weekday: 2 });
+  assert.equal(cronToPicker('0 0 1 * *'), null);
+  assert.equal(pickerToCron({ type: 'hourly', minute: 10, hours: 3 }), '10 */3 * * *');
 });
 
 test('settings group in catalog order and filter all searchable text case-insensitively', () => {
@@ -102,4 +112,23 @@ test('format helpers render states, relative time, bytes and job summaries', () 
   assert.equal(jobSummary({ kind: 'future.kind', serverId: 2 }), 'future.kind - Server 2');
   assert.equal(jobState('succeeded'), 'Finished');
   assert.equal(jobState('interrupted'), 'Interrupted');
+});
+
+test('the cron picker rejects values out of range in both directions', () => {
+  for (const cron of ['60 2 * * *', '0 25 * * *', '0 */0 * * *', '0 */24 * * *', '0 2 * * 8', '0 2 * * 1-5'])
+    assert.equal(cronToPicker(cron), null, cron);
+  assert.equal(cronToPicker('30 4 * * 7').weekday, 0);
+  assert.equal(pickerToCron({ type: 'daily', hour: 24, minute: 0 }), null);
+  assert.equal(pickerToCron({ type: 'daily', hour: 3, minute: Number.NaN }), null);
+  assert.equal(pickerToCron({ type: 'hourly', minute: 0, hours: 0 }), null);
+  assert.equal(pickerToCron({ type: 'weekly', hour: 3, minute: 0, weekday: 7 }), null);
+  assert.equal(pickerToCron({ type: 'monthly', hour: 3, minute: 0 }), null);
+  assert.equal(pickerToCron({ type: 'weekly', hour: 3, minute: 5, weekday: 6 }), '5 3 * * 6');
+});
+
+test('countdown text becomes descending whole minutes or null', () => {
+  assert.deepEqual(parseCountdown('10, 5, 1'), [10, 5, 1]);
+  assert.deepEqual(parseCountdown(' 60 ,30,'), [60, 30]);
+  for (const text of ['', '5, 10', '5, 5', '61', '0', '1.5', 'ten', '6,5,4,3,2,1', '-1'])
+    assert.equal(parseCountdown(text), null, text);
 });

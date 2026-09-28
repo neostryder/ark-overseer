@@ -487,7 +487,14 @@ async function fixtureWith(t, overrides = {}) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const db = openDatabase(':memory:');
   // The engine is never started, so queued jobs stay queued and nothing runs.
-  const kinds = ['install.install', 'install.update', 'install.validate', 'steamcmd.setup'];
+  const kinds = [
+    'install.install',
+    'install.update',
+    'install.validate',
+    'steamcmd.setup',
+    'server.backup',
+    'install.check_update',
+  ];
   const jobs = createJobEngine({ db, handlers: Object.fromEntries(kinds.map((kind) => [kind, async () => ({})])) });
   fs.mkdirSync(path.join(root, 'public'), { recursive: true });
   fs.mkdirSync(path.join(root, 'data'), { recursive: true });
@@ -618,4 +625,96 @@ test('the firewall apply runs the previewed script with elevation taken from the
   assert.equal(calls[0].command, 'C:\\Tools\\pwsh.exe');
   const scriptPath = path.join(calls[0].options.cwd, 'apply.cmd');
   assert.equal(fs.readFileSync(scriptPath, 'utf8'), preview.script);
+});
+
+// One install and one server, inserted directly, for the automation routes.
+function seedServer(db, { source = 'steamcmd' } = {}) {
+  const t = '2026-01-01T00:00:00.000Z';
+  db.prepare("INSERT INTO hosts (id, name, created_at, updated_at) VALUES (1, 'h', ?, ?)").run(t, t);
+  db.prepare(
+    "INSERT INTO installs (id, host_id, path, state, source, created_at, updated_at) VALUES (1, 1, 'C:/ark', 'installed', ?, ?, ?)",
+  ).run(source, t, t);
+  db.prepare(
+    "INSERT INTO servers (id, host_id, install_id, name, map, session_name, game_port, created_at, updated_at) VALUES (1, 1, 1, 'One', 'TheIsland_WP', 's', 7777, ?, ?)",
+  ).run(t, t);
+}
+const put = (value, cookie) => ({ ...json(value, cookie), method: 'PUT' });
+
+test('a schedule is saved, listed, rescheduled and deleted', async (t) => {
+  const rescheduled = [];
+  const { url, cookie, db } = await fixtureWith(t, { scheduler: { reschedule: (id) => rescheduled.push(id) } });
+  seedServer(db);
+  const body = { cron: '0 5 * * *', enabled: true, options: { countdownMinutes: [10, 5, 1], announce: 'broadcast' } };
+  const saved = await fetch(`${url}/api/servers/1/schedules/restart`, put(body, cookie));
+  assert.equal(saved.status, 200);
+  const { id } = await saved.json();
+  assert.deepEqual(rescheduled, [id]);
+  const again = await fetch(`${url}/api/servers/1/schedules/restart`, put({ ...body, enabled: false }, cookie));
+  assert.equal((await again.json()).id, id);
+  const list = await (await fetch(`${url}/api/servers/1/schedules`, { headers: { Cookie: cookie } })).json();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].enabled, false);
+  assert.deepEqual(list[0].options, body.options);
+  const gone = await fetch(`${url}/api/servers/1/schedules/restart`, { ...json({}, cookie), method: 'DELETE' });
+  assert.equal(gone.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM schedules').get().n, 0);
+});
+
+test('a bad schedule is refused with a 400 and nothing is stored', async (t) => {
+  const { url, cookie, db } = await fixtureWith(t);
+  seedServer(db);
+  const cases = [
+    ['reboot', { cron: '0 5 * * *' }],
+    ['restart', { cron: '61 5 * * *' }],
+    ['restart', { cron: '0 5 * * *', options: [] }],
+    ['restart', { cron: '0 5 * * *', options: { keep: 3 } }],
+    ['restart', { cron: '0 5 * * *', options: { countdownMinutes: [5, 10] } }],
+    ['restart', { cron: '0 5 * * *', options: { countdownMinutes: [61] } }],
+    ['restart', { cron: '0 5 * * *', options: { countdownMinutes: [6, 5, 4, 3, 2, 1] } }],
+    ['restart', { cron: '0 5 * * *', options: { announce: 'shout' } }],
+    ['backup', { cron: '0 5 * * *', options: { keep: 0 } }],
+    ['backup', { cron: '0 5 * * *', options: { keep: 1.5 } }],
+    ['backup', { cron: '0 5 * * *', enabled: 'yes' }],
+  ];
+  for (const [kind, body] of cases) {
+    const response = await fetch(`${url}/api/servers/1/schedules/${kind}`, put(body, cookie));
+    assert.equal(response.status, 400, `${kind} ${JSON.stringify(body)}`);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM schedules').get().n, 0);
+  assert.equal((await fetch(`${url}/api/servers/9/schedules/restart`, put(cases[1][1], cookie))).status, 404);
+});
+
+test('update schedules are refused for a Steam library install', async (t) => {
+  const { url, cookie, db } = await fixtureWith(t);
+  seedServer(db, { source: 'steam-client' });
+  for (const kind of ['update_check', 'auto_update']) {
+    const response = await fetch(`${url}/api/servers/1/schedules/${kind}`, put({ cron: '0 5 * * *' }, cookie));
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, API_MESSAGES.steamSchedule);
+  }
+  assert.equal((await fetch(`${url}/api/servers/1/schedules/backup`, put({ cron: '0 5 * * *' }, cookie))).status, 200);
+});
+
+test('a manual backup is queued with the backup schedule limit, and update checks are queued', async (t) => {
+  const { url, cookie, db } = await fixtureWith(t);
+  seedServer(db);
+  const first = await (await fetch(`${url}/api/servers/1/backups`, json({}, cookie))).json();
+  assert.deepEqual(JSON.parse(db.prepare('SELECT params_json FROM jobs WHERE id = ?').get(first.id).params_json), {
+    reason: 'manual',
+  });
+  await fetch(`${url}/api/servers/1/schedules/backup`, put({ cron: '0 5 * * *', options: { keep: 4 } }, cookie));
+  const second = await (await fetch(`${url}/api/servers/1/backups`, json({}, cookie))).json();
+  assert.deepEqual(JSON.parse(db.prepare('SELECT params_json FROM jobs WHERE id = ?').get(second.id).params_json), {
+    reason: 'manual',
+    keep: 4,
+  });
+  const check = await fetch(`${url}/api/installs/1/check-update`, json({}, cookie));
+  assert.equal(check.status, 200);
+  assert.equal(
+    db.prepare('SELECT kind FROM jobs WHERE id = ?').get((await check.json()).id).kind,
+    'install.check_update',
+  );
+  assert.equal((await fetch(`${url}/api/installs/9/check-update`, json({}, cookie))).status, 404);
+  const list = await (await fetch(`${url}/api/servers/1/backups`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(list, []);
 });

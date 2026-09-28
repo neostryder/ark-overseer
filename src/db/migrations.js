@@ -154,14 +154,24 @@ export const MIGRATIONS = [
       ALTER TABLE users ADD COLUMN webauthn_id TEXT;
       ALTER TABLE user_passkeys ADD COLUMN rp_id TEXT NOT NULL DEFAULT '';`,
   },
+  {
+    version: 4,
+    name: 'automation',
+    up: `ALTER TABLE installs ADD COLUMN latest_build_id TEXT;
+      ALTER TABLE installs ADD COLUMN update_checked_at TEXT;
+      ALTER TABLE schedules ADD COLUMN last_job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL;
+      CREATE UNIQUE INDEX idx_schedules_server_kind ON schedules(server_id, kind);`,
+  },
 ];
 
-// Versions run 1, 2, 3 with no gaps, so a typo in a version number fails at startup rather than
+// Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than
 // recording a schema no other install can reproduce.
 function validateMigrations() {
   MIGRATIONS.forEach((migration, index) => {
     if (migration.version !== index + 1) {
-      throw new Error(`MIGRATIONS must be numbered 1, 2, 3 in order; entry ${index} has version ${migration.version}`);
+      throw new Error(
+        `MIGRATIONS versions must start at 1 with no gaps; entry ${index} has version ${migration.version}`,
+      );
     }
   });
 }
