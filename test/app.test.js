@@ -48,6 +48,10 @@ async function fixture(t) {
   fs.mkdirSync(path.join(root, 'public'), { recursive: true });
   fs.writeFileSync(path.join(root, 'public', 'login.html'), 'login');
   fs.writeFileSync(path.join(root, 'public', 'index.html'), 'app');
+  fs.mkdirSync(path.join(root, 'public', 'js'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'public', 'icons'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'public', 'js', 'login.js'), 'export {};');
+  fs.writeFileSync(path.join(root, 'public', 'icons', 'sprite.svg'), '<svg/>');
   await fs.promises.mkdir(path.join(root, 'data'), { recursive: true });
   await new Promise((resolve) => app.server.listen(0, '127.0.0.1', resolve));
   t.after(async () => {
@@ -103,6 +107,13 @@ test('sign in, cookie flags, lockout, sign out, protected API and page access wo
   assert.equal((await fetch(`${url}/api/host`)).status, 401);
   assert.equal((await fetch(url, { redirect: 'manual' })).headers.get('location'), '/login.html');
   assert.equal(await (await fetch(`${url}/login.html`)).text(), 'login');
+  // The sign-in page needs its scripts and icons before there is a session; the app page does not get them.
+  const script = await fetch(`${url}/js/login.js`, { redirect: 'manual' });
+  assert.equal(script.status, 200);
+  assert.equal(script.headers.get('content-type'), 'text/javascript; charset=utf-8');
+  assert.equal((await fetch(`${url}/icons/sprite.svg`, { redirect: 'manual' })).status, 200);
+  assert.equal((await fetch(`${url}/index.html`, { redirect: 'manual' })).status, 302);
+  assert.equal((await fetch(`${url}/js/missing.js`, { redirect: 'manual' })).status, 404);
   const cross = await fetch(`${url}/api/installs`, {
     ...json({ path: 'C:\\ARK' }, cookie),
     headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://evil.test' },
