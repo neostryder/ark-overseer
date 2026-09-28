@@ -1,0 +1,159 @@
+Rule Name:                            ARK: Survival Ascended Dedicated Server
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended Dedicated Server\ShooterGame\Binaries\Win64\ArkAscendedServer.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK: Survival Ascended Dedicated Server
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             TCP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended Dedicated Server\ShooterGame\Binaries\Win64\ArkAscendedServer.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK Query Port 27015 UDP
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            27015
+RemotePort:                           Any
+Edge traversal:                       No
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK Peer Port 7778 UDP
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            7778
+RemotePort:                           Any
+Edge traversal:                       No
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK Game Port 7777 UDP
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            7777
+RemotePort:                           Any
+Edge traversal:                       No
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK: Survival Ascended
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             TCP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended\ShooterGame\Binaries\Win64\ArkAscended_BE.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK: Survival Ascended
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended\ShooterGame\Binaries\Win64\ArkAscended_BE.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK: Survival Ascended
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             TCP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended\ShooterGame\Binaries\Win64\ArkAscended.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
+Rule Name:                            ARK: Survival Ascended
+----------------------------------------------------------------------
+Enabled:                              Yes
+Direction:                            In
+Profiles:                             Domain,Private,Public
+Grouping:                             
+LocalIP:                              Any
+RemoteIP:                             Any
+Protocol:                             UDP
+LocalPort:                            Any
+RemotePort:                           Any
+Edge traversal:                       No
+Program:                              C:\Program Files (x86)\Steam\steamapps\common\ARK Survival Ascended\ShooterGame\Binaries\Win64\ArkAscended.exe
+InterfaceTypes:                       Any
+Security:                             NotRequired
+Rule source:                          Local Setting
+Action:                               Allow
+
