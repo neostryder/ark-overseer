@@ -32,6 +32,16 @@ export async function serveStatic(publicDir, req, res) {
   }
   if (!stat.isFile()) return false;
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
+  // The browser checks back on every load, so an updated ARK Overseer never runs yesterday's scripts.
+  // An unchanged file answers 304 with no body.
+  const etag = `"${stat.size.toString(36)}-${Math.trunc(stat.mtimeMs).toString(36)}"`;
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('ETag', etag);
+  if (req.headers['if-none-match'] === etag) {
+    res.statusCode = 304;
+    res.end();
+    return true;
+  }
   res.statusCode = 200;
   res.setHeader('Content-Type', TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream');
   res.setHeader('Content-Length', stat.size);

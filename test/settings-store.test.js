@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createSettingsStore } from '../src/settings/store.js';
+import { createSettingsStore, decodeSetting } from '../src/settings/store.js';
 
 const USER_INI =
   '; kept comment\r\n[ServerSettings]\r\nUnknown=abc\r\nServerPVE=False\r\nServerAdminPassword=secret\r\nRCONPort=27020\r\n';
@@ -17,14 +17,32 @@ function setup(t, userIni = USER_INI) {
   return { user, game, store: createSettingsStore({ gameUserSettingsPath: user, gameIniPath: game }) };
 }
 
-test('an absent key reads as null, a present key as its raw string', (t) => {
+test('an absent key reads as null, a present key as its typed value', (t) => {
   const { store } = setup(t);
   const settings = store.readSettings();
   assert.equal(settings.TamingSpeedMultiplier, null);
   assert.equal(settings.MaxPlayers, null);
   assert.equal(settings.ServerHardcore, null);
-  assert.equal(settings.ServerPVE, 'False');
+  assert.equal(settings.ServerPVE, false);
+  assert.equal(settings.RCONPort, 27020);
   assert.equal(settings.sessionName, '');
+});
+
+test('decodeSetting turns bool and number text into values and leaves anything else alone', () => {
+  const bool = { type: 'bool' },
+    int = { type: 'int' },
+    float = { type: 'float' },
+    text = { type: 'string' };
+  assert.equal(decodeSetting(bool, 'False'), false);
+  assert.equal(decodeSetting(bool, 'true'), true);
+  assert.equal(decodeSetting(bool, '0'), false);
+  assert.equal(decodeSetting(bool, 'maybe'), 'maybe');
+  assert.equal(decodeSetting(int, '20'), 20);
+  assert.equal(decodeSetting(float, '0.5'), 0.5);
+  assert.equal(decodeSetting(float, ''), '');
+  assert.equal(decodeSetting(float, 'fast'), 'fast');
+  assert.equal(decodeSetting(text, '123'), '123');
+  assert.equal(decodeSetting(int, null), null);
 });
 
 test('missing files read as empty settings', (t) => {

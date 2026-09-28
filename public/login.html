@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0a" />
+    <title>Sign in - ARK Overseer</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/js/login.js"></script>
+  </head>
+  <body class="login-page">
+    <main class="login-wrap">
+      <a class="brand" href="/" aria-label="ARK Overseer"><span class="brand-mark">A</span><span>ARK Overseer</span></a>
+      <section class="card auth-card" id="auth-card">
+        <h1 id="auth-title">Loading</h1>
+        <p class="muted" id="auth-help"></p>
+        <form id="auth-form"></form>
+        <p class="error-message" id="auth-error" role="alert" aria-live="polite"></p>
+        <button class="button secondary full" id="passkey-button" type="button" hidden>Sign in with a passkey</button>
+      </section>
+    </main>
+  </body>
+</html>

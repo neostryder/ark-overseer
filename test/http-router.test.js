@@ -91,10 +91,20 @@ test('static serving applies content types, security headers and refuses travers
   assert.equal(home.headers.get('x-frame-options'), 'DENY');
   assert.equal(
     home.headers.get('content-security-policy'),
-    "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
   );
   assert.equal((await fetch(`${base}/app.mjs`)).headers.get('content-type'), 'text/javascript; charset=utf-8');
   assert.equal((await fetch(`${base}/..%2f..%2fpackage.json`)).status, 404);
   assert.equal((await fetch(`${base}/..%5c..%5cpackage.json`)).status, 404);
   assert.equal((await fetch(`${base}/missing.js`)).status, 404);
+  assert.equal(home.headers.get('cache-control'), 'no-cache');
+  const etag = home.headers.get('etag');
+  assert.ok(etag);
+  const unchanged = await fetch(base, { headers: { 'If-None-Match': etag } });
+  assert.equal(unchanged.status, 304);
+  assert.equal(await unchanged.text(), '');
+  await fs.writeFile(path.join(dir, 'index.html'), '<h1>home, updated</h1>');
+  const changed = await fetch(base, { headers: { 'If-None-Match': etag } });
+  assert.equal(changed.status, 200);
+  assert.equal(await changed.text(), '<h1>home, updated</h1>');
 });

@@ -11,8 +11,8 @@
     "start": "node src/main.js",
     "test": "node --test test/",
     "check": "node tools/check-coverage.js",
-    "format": "prettier --write src test tools",
-    "format:check": "prettier --check src test tools"
+    "format": "prettier --write src test tools public",
+    "format:check": "prettier --check src test tools public"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",

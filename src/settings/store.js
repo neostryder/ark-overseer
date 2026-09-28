@@ -11,6 +11,20 @@ import {
 } from './ini.js';
 import { validateSettings } from './validate.js';
 
+const BOOL_WORDS = { true: true, false: false, 1: true, 0: false };
+
+// The INI holds text. A bool or number is handed out as its real type, so "False" never reads as a
+// true string. Text that does not parse is handed out unchanged rather than guessed at.
+export function decodeSetting(field, raw) {
+  if (raw === null || raw === undefined) return null;
+  if (field.type === 'bool') return BOOL_WORDS[String(raw).trim().toLowerCase()] ?? raw;
+  if (field.type === 'int' || field.type === 'float') {
+    const number = Number(raw);
+    return String(raw).trim() !== '' && Number.isFinite(number) ? number : raw;
+  }
+  return raw;
+}
+
 export function createSettingsStore({ gameUserSettingsPath, gameIniPath }) {
   const paths = { gameusersettings: gameUserSettingsPath, game: gameIniPath };
 
@@ -26,7 +40,7 @@ export function createSettingsStore({ gameUserSettingsPath, gameIniPath }) {
     const settings = { sessionName: getIniKey(files.gameusersettings.lines, SESSION_SETTINGS, 'SessionName') ?? '' };
     for (const field of SETTINGS_FIELDS) {
       if (field.launchFlag) continue;
-      settings[field.key] = getIniKey(files[fileFor(field)].lines, sectionFor(field), field.key);
+      settings[field.key] = decodeSetting(field, getIniKey(files[fileFor(field)].lines, sectionFor(field), field.key));
     }
     return settings;
   }

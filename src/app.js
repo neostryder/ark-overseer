@@ -11,6 +11,7 @@ import { streamJobEvents } from './jobs/sse.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
+import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
 import { serverPaths } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
 
@@ -30,7 +31,7 @@ export const API_MESSAGES = {
   badName: 'Give the server a name of up to 64 characters.',
   nameTaken: 'A server with this name already exists.',
   badSessionName:
-    'The session name can be up to 128 characters, without a question mark, a double quote or a line break.',
+    'The session name can be up to 60 characters, without a question mark, a double quote or a line break.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -219,7 +220,7 @@ export function createApp({
         if (
           typeof body.sessionName !== 'string' ||
           !body.sessionName.trim() ||
-          body.sessionName.length > 128 ||
+          body.sessionName.length > SESSION_NAME_MAX_LENGTH ||
           /[?"\r\n]/.test(body.sessionName)
         )
           throw error(400, API_MESSAGES.badSessionName);
@@ -410,7 +411,11 @@ export function createApp({
       (ctx) => ({ profileId: ctx.body.profileId }),
     ),
   );
-  const publicFiles = new Set(['/login.html', '/login.js', '/webauthn.js', '/style.css', '/favicon.svg']);
+  // Scripts, styles and icons hold nothing private, and the sign-in page needs them before anyone is
+  // signed in. Only the app page itself and the API wait for a session.
+  const publicFiles = new Set(['/login.html', '/style.css', '/favicon.svg']);
+  const isPublic = (pathname) =>
+    publicFiles.has(pathname) || pathname.startsWith('/icons/') || pathname.startsWith('/js/');
   const sendJson = (res, status, value) => {
     if (res.headersSent) return res.end();
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -452,7 +457,7 @@ export function createApp({
     }
     const authRoute = pathname.startsWith('/api/auth/');
     const user = await auth.identify(req, res);
-    if (!authRoute && !publicFiles.has(pathname) && !pathname.startsWith('/icons/')) {
+    if (!authRoute && !isPublic(pathname)) {
       if (!user) {
         if (pathname.startsWith('/api/')) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -465,10 +470,7 @@ export function createApp({
       }
     }
     if (await router.handle(req, res, user)) return;
-    if (
-      (publicFiles.has(pathname) || pathname.startsWith('/icons/') || (user && !pathname.startsWith('/api/'))) &&
-      (await serveStatic(publicDir, req, res))
-    )
+    if ((isPublic(pathname) || (user && !pathname.startsWith('/api/'))) && (await serveStatic(publicDir, req, res)))
       return;
     if (pathname.startsWith('/api/')) return sendJson(res, 404, { error: API_MESSAGES.notFound });
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });

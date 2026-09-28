@@ -1,11 +1,14 @@
 import { URL } from 'node:url';
 import { redact } from '../util/redact.js';
 
+// Only the app's own files run. The one outside source is Google Fonts: its stylesheet and the font
+// files it points to.
 export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
-  'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'",
+  'Content-Security-Policy':
+    "default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
 };
 function send(res, status, value) {
   if (res.writableEnded) return;
