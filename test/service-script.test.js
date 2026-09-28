@@ -62,6 +62,7 @@ test('service script install dry run validates hashes and prints all planned ste
     'OVERSEER_PWSH=',
     'OVERSEER_MODEL_CACHE=',
     'OVERSEER_PORT=3310',
+    'OVERSEER_LOGS=',
   ])
     assert.ok(shawlLine.includes(bit), bit);
   assert.ok(shawlLine.includes(`"${path.join(serviceRoot, 'runtime', 'node', 'node.exe')}"`));
@@ -92,6 +93,16 @@ test('service script install dry run validates hashes and prints all planned ste
       steps.some((line) => line.includes(folder) && line.includes('/inheritance:r') && !line.includes('*S-1-5-32-545')),
       folder,
     );
+  // The update link and its options: a test service name gets its own link, never the real one.
+  const scheme = `ark-overseer-update-arkoverseertest${process.pid}`;
+  const options = steps.find((line) => line.startsWith('STEP: Record the update options'));
+  assert.ok(options.includes(path.join(serviceRoot, 'data', 'updater.json')));
+  assert.ok(options.includes(`"link":"${scheme}"`));
+  const link = steps.find((line) => line.startsWith('STEP: Register the update link'));
+  assert.ok(link.includes('HKCU:\\Software\\Classes\\' + scheme));
+  assert.ok(link.includes('conhost.exe" --headless'));
+  assert.ok(link.includes(path.join(appDir, 'tools', 'update.ps1')));
+  assert.ok(!link.includes('%1'), 'nothing from the link reaches the updater');
   assert.ok(steps.length >= 13);
   assert.deepEqual(fs.readdirSync(root), ['ARK Install', 'repo']);
   assert.deepEqual(fs.readdirSync(path.join(appDir, 'vendor')).sort(), ['pwsh.zip', 'shawl.zip']);

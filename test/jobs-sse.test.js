@@ -130,11 +130,15 @@ test('filter limits snapshot and live events to one server', async (t) => {
   const stamp = new Date().toISOString();
   db.prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'host')").run(stamp, stamp);
   db.prepare("INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, 'path')").run(stamp, stamp);
+  db.prepare("INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, 'path2')").run(
+    stamp,
+    stamp,
+  );
   db.prepare(
     "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'one', 'map', 'one', 7777)",
   ).run(stamp, stamp);
   db.prepare(
-    "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, 'two', 'map', 'two', 7778)",
+    "INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 2, 'two', 'map', 'two', 7778)",
   ).run(stamp, stamp);
   const add = db.prepare(
     "INSERT INTO jobs (created_at, updated_at, kind, server_id, state, params_json) VALUES (?, ?, 'x', ?, 'queued', '{}')",

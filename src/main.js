@@ -21,6 +21,9 @@ import { rankFields } from './settings/semantic-search.js';
 import { SETTINGS_FIELDS } from './settings/fields.js';
 import { createApp } from './app.js';
 import { createGamingMode } from './gaming/gaming-mode.js';
+import { createCatalog, scheduleCatalogRefresh } from './maps/catalog.js';
+import { createArtResolver } from './maps/art.js';
+import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
 // 20 s, which leaves time to close everything else.
@@ -72,9 +75,16 @@ export async function start() {
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
+  const catalog = createCatalog({ dataDir, log: console.error });
+  const startedAt = new Date().toISOString();
+  const serviceMode = process.env.OVERSEER_SERVICE === '1';
+  const logsDir = path.resolve(process.env.OVERSEER_LOGS || path.join(dataDir, '..', 'logs'));
   const app = createApp({
+    updateInfo: () => readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode }),
     db,
     dataDir,
+    catalog,
+    artResolver: createArtResolver({ dataDir, log: console.error }),
     publicDir: path.join(root, 'public'),
     jobs,
     supervisor,
@@ -89,7 +99,7 @@ export async function start() {
     firewallRules,
     isElevated,
     pwshPath,
-    serviceMode: process.env.OVERSEER_SERVICE === '1',
+    serviceMode,
     allowedHosts,
     rankFields: (query, fields) => rankFields(query, fields || SETTINGS_FIELDS),
   });
@@ -114,10 +124,13 @@ export async function start() {
     db.close();
     throw error;
   }
+  // A newer map list is fetched now and then daily; without OVERSEER_CATALOG_URL this does nothing.
+  const stopCatalogRefresh = scheduleCatalogRefresh(catalog);
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
     closing = true;
+    stopCatalogRefresh();
     await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),

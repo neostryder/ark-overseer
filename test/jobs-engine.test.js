@@ -435,15 +435,15 @@ test('a job whose final write fails keeps its server busy and raises no unhandle
   const db = openDatabase(':memory:');
   const stamp = new Date().toISOString();
   db.prepare('INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, ?)').run(stamp, stamp, 'host');
-  db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
-    stamp,
-    stamp,
-    'install',
-  );
-  for (const port of [7777, 7787]) {
+  for (const [index, port] of [7777, 7787].entries()) {
+    db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
+      stamp,
+      stamp,
+      `install-${index}`,
+    );
     db.prepare(
-      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, 1, ?, ?, ?, ?)',
-    ).run(stamp, stamp, `s${port}`, 'TheIsland', `s${port}`, port);
+      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port) VALUES (?, ?, 1, ?, ?, ?, ?, ?)',
+    ).run(stamp, stamp, index + 1, `s${port}`, 'TheIsland', `s${port}`, port);
   }
   let failWrites = true;
   const prepare = db.prepare.bind(db);

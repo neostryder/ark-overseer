@@ -105,6 +105,10 @@ $Runtime = Join-Path $Root 'runtime'
 $App = Join-Path $Root 'app'
 $Data = Join-Path $Root 'data'
 $Logs = Join-Path $Root 'logs'
+# The link is registered under the installing account's own classes, so it needs no machine-wide change.
+# A service under another name (as in the tests) gets its own link, so it never replaces the real one.
+$LinkScheme = if ($ServiceName -eq 'ArkOverseer') { 'ark-overseer-update' } else { "ark-overseer-update-$($ServiceName.ToLowerInvariant())" }
+$UpdateLink = "HKCU:\Software\Classes\$LinkScheme"
 
 if ($Action -eq 'install') {
   foreach ($zip in @($ShawlZip, $PwshZip)) {
@@ -191,13 +195,29 @@ if ($Action -eq 'install') {
     '--stop-timeout', '60000', '--restart-if-not', '0', '--restart-delay', '10000', '--log-dir', $Logs,
     '--env', "OVERSEER_DATA=$Data", '--env', 'OVERSEER_SERVICE=1',
     '--env', "OVERSEER_PWSH=$(Join-Path $pwshDir 'pwsh.exe')",
-    '--env', "OVERSEER_MODEL_CACHE=$modelCache", '--env', "OVERSEER_PORT=$Port",
+    '--env', "OVERSEER_MODEL_CACHE=$modelCache", '--env', "OVERSEER_PORT=$Port", '--env', "OVERSEER_LOGS=$Logs",
     '--', $nodeExe, (Join-Path $App 'src\main.js')
   )
   Invoke-Native 'Create the service' (Join-Path $shawlDir 'shawl.exe') $shawlArguments
   Invoke-Native 'Run it as Network Service, started after boot' $Sc @('config', $ServiceName, 'obj=', 'NT AUTHORITY\NetworkService', 'password=', '', 'start=', 'delayed-auto', 'DisplayName=', 'ARK Overseer')
   Invoke-Native 'Describe the service' $Sc @('description', $ServiceName, 'Runs ARK Overseer, the web manager for ARK: Survival Ascended servers.')
   Invoke-Native 'Restart it if it fails' $Sc @('failure', $ServiceName, 'reset=', '86400', 'actions=', 'restart/60000/restart/60000//0')
+
+  # The Update button on the This computer page opens the update link, which runs tools\update.ps1 from the
+  # checkout in this Windows account's session. It replays this install with the options recorded here.
+  $updaterFile = Join-Path $Data 'updater.json'
+  $updater = [ordered]@{ appDir = $AppDir; port = $Port; grantFolder = @($GrantFolder); link = $LinkScheme } | ConvertTo-Json -Compress
+  Invoke-Step 'Record the update options' "Set-Content $(Quote $updaterFile) $updater" {
+    Set-Content -LiteralPath $updaterFile -Value $updater -Encoding utf8NoBOM
+  }
+  $linkCommand = '"{0}" --headless "{1}" -NoProfile -ExecutionPolicy Bypass -File "{2}" -Root "{3}"' -f `
+  (Join-Path $env:SystemRoot 'System32\conhost.exe'), (Join-Path $pwshDir 'pwsh.exe'), (Join-Path $AppDir 'tools\update.ps1'), $Root
+  Invoke-Step 'Register the update link for this Windows account' "$UpdateLink :: $linkCommand" {
+    New-Item -Path "$UpdateLink\shell\open\command" -Force | Out-Null
+    Set-ItemProperty -LiteralPath $UpdateLink -Name '(default)' -Value 'URL:ARK Overseer update'
+    Set-ItemProperty -LiteralPath $UpdateLink -Name 'URL Protocol' -Value ''
+    Set-ItemProperty -LiteralPath "$UpdateLink\shell\open\command" -Name '(default)' -Value $linkCommand
+  }
 
   if ($Start) {
     Invoke-Step 'Start the service' "Start-Service $ServiceName, then GET http://127.0.0.1:$Port/api/auth/state" {
@@ -222,6 +242,9 @@ elseif ($Action -eq 'uninstall') {
   # Installs made before the app was deployed under Root granted Network Service on the checkout itself.
   Invoke-Native "Remove any old Network Service grant from $AppDir" $Icacls @($AppDir, '/remove:g', $NetworkService)
   Write-Output 'NOTE: Server install folders keep their Network Service grant.'
+  if ($DryRun -or (Test-Path -LiteralPath $UpdateLink)) {
+    Invoke-Step 'Remove the update link' "Remove-Item $UpdateLink -Recurse" { Remove-Item -LiteralPath $UpdateLink -Recurse -Force }
+  }
   foreach ($dir in @($App, $Runtime, $Logs)) {
     if ($DryRun -or (Test-Path -LiteralPath $dir)) {
       Invoke-Step "Remove $dir" "Remove-Item $(Quote $dir) -Recurse -Force" { Remove-Item -LiteralPath $dir -Recurse -Force }

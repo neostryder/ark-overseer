@@ -28,6 +28,8 @@ As a service, ARK Overseer starts with Windows and keeps running when nobody is 
 
 `install -DryRun` prints every step without changing anything. `status` shows the service, and `uninstall` removes it and its runtime but keeps the database. The service writes its logs to `C:\ProgramData\ARK Overseer\logs`.
 
+To update the service later, open ARK Overseer in a browser on the computer it runs on, go to This computer, and choose Update. Windows asks for administrator approval, the service installs the checkout's last commit again, and the page reloads once it's back. If the update fails, the page says why, and the full log is in the service's logs folder. A service installed before this button existed needs one more install from an administrator PowerShell before the button appears.
+
 A service can't show the Windows administrator prompt, so in service mode the Network page gives you the firewall script as a file to run as an administrator. Stopping the service tells each running ARK server to save the world and leaves it running, and the service picks those servers back up when it starts again.
 
 ## Development

@@ -63,7 +63,7 @@ test('fresh database applies the initial migration once', () => {
       'audit_events',
       'schema_migrations',
     ];
-    assert.deepEqual(migrate(db), [1, 2, 3, 4, 5]);
+    assert.deepEqual(migrate(db), [1, 2, 3, 4, 5, 6]);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
@@ -76,7 +76,7 @@ test('fresh database applies the initial migration once', () => {
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2, 3, 4, 5],
+      [1, 2, 3, 4, 5, 6],
     );
   } finally {
     db.close();
@@ -91,7 +91,7 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
       'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
     );
     db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
-    assert.deepEqual(migrate(db), [2, 3, 4, 5]);
+    assert.deepEqual(migrate(db), [2, 3, 4, 5, 6]);
     const hostId = Number(
       db.prepare('INSERT INTO hosts (name, created_at, updated_at) VALUES (?, ?, ?)').run('h', timestamp, timestamp)
         .lastInsertRowid,
@@ -99,7 +99,7 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
     addInstall(db, hostId);
     assert.equal(db.prepare('SELECT source FROM installs').get().source, 'steamcmd');
     assert.throws(() => db.prepare("UPDATE installs SET source = 'other'").run(), /CHECK constraint failed/);
-    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 5);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 6);
   } finally {
     db.close();
   }
@@ -115,7 +115,7 @@ test('migration 3 adds auth columns and upgrades a version 2 database', () => {
     );
     db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
     db.prepare('INSERT INTO schema_migrations VALUES (2, ?, ?)').run('install_source', timestamp);
-    assert.deepEqual(migrate(db), [3, 4, 5]);
+    assert.deepEqual(migrate(db), [3, 4, 5, 6]);
     const userColumns = db
       .prepare('PRAGMA table_info(users)')
       .all()
@@ -128,7 +128,7 @@ test('migration 3 adds auth columns and upgrades a version 2 database', () => {
     assert.ok(userColumns.includes('webauthn_id'));
     assert.equal(passkey.notnull, 1);
     assert.equal(passkey.dflt_value, "''");
-    assert.equal(db.prepare('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1').get().version, 5);
+    assert.equal(db.prepare('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1').get().version, 6);
   } finally {
     db.close();
   }
@@ -153,7 +153,7 @@ test('migration 4 adds automation columns and indexes while keeping version 3 ro
     db.prepare(
       "INSERT INTO schedules (server_id, kind, cron, created_at, updated_at) VALUES (?, 'backup', '0 2 * * *', ?, ?)",
     ).run(serverId, timestamp, timestamp);
-    assert.deepEqual(migrate(db), [4, 5]);
+    assert.deepEqual(migrate(db), [4, 5, 6]);
     assert.equal(db.prepare('SELECT count(*) AS count FROM schedules').get().count, 1);
     assert.equal(
       db.prepare('SELECT source, latest_build_id, update_checked_at FROM installs').get().source,
@@ -313,11 +313,11 @@ test('transaction commits results and rolls back the same thrown error', () => {
 test('migration refuses a recorded schema version newer than this app', () => {
   withDatabase((db) => {
     db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-      6,
+      7,
       'future',
       timestamp,
     );
-    assert.throws(() => migrate(db), /version 6 is newer than supported version 5/);
+    assert.throws(() => migrate(db), /version 7 is newer than supported version 6/);
   });
 });
 
@@ -408,7 +408,7 @@ test('several processes opening a new database file at once all succeed', async 
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2, 3, 4, 5],
+      [1, 2, 3, 4, 5, 6],
     );
   } finally {
     db.close();
@@ -439,6 +439,72 @@ test('migration 5 adds the gaming mode settings with their defaults and checks',
     assert.equal(row.gaming_applied_json, '[]');
     assert.throws(() => db.prepare("UPDATE hosts SET gaming_priority = 'High'").run(), /CHECK/);
     assert.throws(() => db.prepare("UPDATE hosts SET gaming_games_json = 'nope'").run(), /CHECK/);
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 6 adds the map picture setting and one server per install', () => {
+  const db = openDatabase(':memory:');
+  try {
+    db.prepare("INSERT INTO hosts (name, created_at, updated_at) VALUES ('local', 'x', 'x')").run();
+    assert.equal(db.prepare('SELECT show_map_art FROM hosts').get().show_map_art, 1);
+    db.prepare('UPDATE hosts SET show_map_art = 0').run();
+    assert.throws(() => db.prepare('UPDATE hosts SET show_map_art = 2').run(), /CHECK/);
+    const installId = addInstall(db, 1);
+    addServer(db, 1, installId, 'one', 7777);
+    assert.throws(() => addServer(db, 1, installId, 'two', 7779), /UNIQUE constraint failed: servers.install_id/);
+    addServer(db, 1, addInstall(db, addHost(db, 'second')), 'three', 7779);
+  } finally {
+    db.close();
+  }
+});
+
+// A database as version 5 left it. Each entry says which install its server sits on.
+function versionFive(pairs) {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)');
+  for (const migration of MIGRATIONS.slice(0, 5)) {
+    db.exec(migration.up);
+    db.prepare('INSERT INTO schema_migrations VALUES (?, ?, ?)').run(migration.version, migration.name, timestamp);
+  }
+  const hostId = addHost(db);
+  const newInstall = (index) =>
+    Number(
+      db
+        .prepare('INSERT INTO installs (host_id, path, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(hostId, `C:/servers/${index}`, timestamp, timestamp).lastInsertRowid,
+    );
+  pairs.forEach((install, index) =>
+    addServer(db, hostId, install(newInstall, index), `server${index}`, 7777 + index * 2),
+  );
+  return db;
+}
+
+test('migration 6 on an existing database indexes install_id when every install has one server', () => {
+  const db = versionFive([(make, index) => make(index), (make, index) => make(index)]);
+  try {
+    assert.deepEqual(migrate(db), [6]);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM servers').get().n, 2);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM sqlite_master WHERE name = ?').get('idx_servers_install').n, 1);
+    // The index enforces the rule on the upgraded database, not just exists.
+    assert.throws(() => addServer(db, 1, 1, 'second on install 1', 7901), /UNIQUE/);
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 6 keeps an existing database with two servers on one install, without the index', () => {
+  let shared;
+  const db = versionFive([(make, index) => (shared = make(index)), () => shared]);
+  try {
+    assert.deepEqual(migrate(db), [6]);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM servers WHERE install_id = ?').get(shared).n, 2);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM sqlite_master WHERE name = ?').get('idx_servers_install').n, 0);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 6);
+    assert.equal(db.prepare('SELECT show_map_art FROM hosts').get().show_map_art, 1);
+    assert.deepEqual(migrate(db), []);
   } finally {
     db.close();
   }

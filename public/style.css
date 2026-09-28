@@ -702,6 +702,83 @@ pre {
 .host-form .error-message {
   margin: 6px 0 0;
 }
+/* Map pictures keep Steam's 460:215 shape whether or not the picture has loaded. */
+.map-current,
+.map-saves,
+.map-others {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-bottom: 18px;
+}
+.map-current .map-art {
+  max-width: 460px;
+}
+.map-art {
+  aspect-ratio: 460 / 215;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: #10120e;
+}
+.map-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.map-art-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  text-align: center;
+  font: 700 0.95rem var(--font-display);
+  color: var(--gold);
+  overflow-wrap: anywhere;
+}
+.map-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.map-name {
+  overflow-wrap: anywhere;
+}
+.map-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.map-row {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+}
+.map-row:not(:has(.map-thumb)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+}
+.map-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  align-content: start;
+}
+.map-text span,
+.map-others p {
+  overflow-wrap: anywhere;
+}
 @media (max-width: 900px) {
   .app-frame {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -785,6 +862,10 @@ pre {
   }
 }
 @media (max-width: 420px) {
+  .map-row {
+    grid-template-columns: minmax(0, 104px) minmax(0, 1fr);
+    gap: 10px;
+  }
   .button {
     padding: 9px 11px;
   }

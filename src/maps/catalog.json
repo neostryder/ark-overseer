@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "maps": [
+    { "id": "TheIsland_WP", "name": "The Island", "kind": "official", "steamAppId": 2399830 },
+    { "id": "TheCenter_WP", "name": "The Center", "kind": "official", "steamAppId": 2827030 },
+    { "id": "ScorchedEarth_WP", "name": "Scorched Earth", "kind": "official", "steamAppId": 2849450 },
+    { "id": "Aberration_WP", "name": "Aberration", "kind": "official", "steamAppId": 3059650 },
+    { "id": "Extinction_WP", "name": "Extinction", "kind": "official", "steamAppId": 3349320 },
+    { "id": "Ragnarok_WP", "name": "Ragnarok", "kind": "official", "steamAppId": 3675020 },
+    { "id": "Valguero_WP", "name": "Valguero", "kind": "official", "steamAppId": 3982310 },
+    { "id": "Genesis_WP", "name": "Genesis: Part 1", "kind": "official", "steamAppId": 4558470 },
+    { "id": "Astraeos_WP", "name": "Astraeos", "kind": "official", "steamAppId": 3483400 },
+    { "id": "LostColony_WP", "name": "Lost Colony", "kind": "official", "steamAppId": 3583650 },
+    { "id": "BobsMissions_WP", "name": "Club ARK", "kind": "official", "steamAppId": 2881150 }
+  ]
+}

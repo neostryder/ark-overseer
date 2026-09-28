@@ -20,6 +20,9 @@ function world(t, { source = 'steamcmd', build = '100', running = [1] } = {}) {
   }
   const db = openDatabase(':memory:');
   t.after(() => db.close());
+  // A database that predates the one-server-per-install rule can still hold two servers on one install,
+  // and the update handlers cover every server on it. The rule's index is dropped to build that case.
+  db.exec('DROP INDEX idx_servers_install');
   db.prepare("INSERT INTO hosts (id, name, created_at, updated_at) VALUES (1, 'h', ?, ?)").run(T, T);
   db.prepare(
     "INSERT INTO installs (id, host_id, path, state, source, build_id, created_at, updated_at) VALUES (1, 1, ?, 'installed', ?, ?, ?, ?)",

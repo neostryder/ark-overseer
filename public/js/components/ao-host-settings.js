@@ -1,8 +1,12 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
+import { relativeTime } from '../lib/format.js';
+import { isLocalPage, shortCommit, updateFinished } from '../lib/update.js';
 
 const POLL_MS = 15000;
+const UPDATE_POLL_MS = 3000;
+const UPDATE_WAIT_MINUTES = 10;
 
 function el(tag, text, className = '') {
   const node = document.createElement(tag);
@@ -30,16 +34,27 @@ export class AoHostSettings extends HTMLElement {
   }
   disconnectedCallback() {
     clearInterval(this.timer);
+    clearInterval(this.updateTimer);
   }
   async load() {
     this.replaceChildren(el('p', STRINGS.app.loading));
+    // A failed read leaves the picture setting on, which is what a new install has. These two are read
+    // apart from gaming mode, so the update and picture cards still show when gaming mode can't load.
+    this.showArt = (await api.get('/api/maps').catch(() => null))?.showArt ?? true;
+    this.version = await api.get('/api/version').catch(() => null);
     try {
       this.data = await api.get('/api/gaming');
       this.render();
     } catch (error) {
       const retry = el('button', STRINGS.app.retry, 'button secondary');
       retry.addEventListener('click', () => this.load());
-      this.replaceChildren(el('p', error.message, 'error-message'), retry);
+      this.replaceChildren(
+        el('h1', STRINGS.host.title),
+        ...this.updateCards(),
+        this.mapArtCard(),
+        el('p', error.message, 'error-message'),
+        retry,
+      );
     }
   }
   // The timer only redraws the status block, so it never wipes what someone is typing in the form.
@@ -137,8 +152,101 @@ export class AoHostSettings extends HTMLElement {
 
     this.statusBlock = el('section', undefined, 'card host-status');
     this.statusBlock.setAttribute('aria-live', 'polite');
-    this.replaceChildren(el('h1', s.title), card, this.statusBlock);
+    this.replaceChildren(el('h1', s.title), ...this.updateCards(), card, this.mapArtCard(), this.statusBlock);
     this.renderStatus();
+  }
+  // Saved the moment it is toggled, since it is one switch with nothing to review.
+  mapArtCard() {
+    const s = STRINGS.host;
+    const card = el('section', undefined, 'card host-card');
+    const art = document.createElement('input');
+    art.type = 'checkbox';
+    art.checked = this.showArt;
+    const row = el('label', undefined, 'check-row');
+    row.append(art, el('span', s.mapArt));
+    const message = el('p', '', 'error-message');
+    message.setAttribute('aria-live', 'polite');
+    art.addEventListener('change', async () => {
+      message.textContent = '';
+      art.disabled = true;
+      try {
+        await api.put('/api/host/map-art', { enabled: art.checked });
+        this.showArt = art.checked;
+        document.querySelector('ao-toast')?.show(s.mapArtSaved);
+      } catch (error) {
+        art.checked = !art.checked;
+        message.textContent = error.message;
+      } finally {
+        art.disabled = false;
+      }
+    });
+    card.append(el('h2', s.mapArtTitle), row, el('p', s.mapArtHelp, 'muted'), message);
+    return card;
+  }
+  updateCards() {
+    const s = STRINGS.host,
+      v = this.version;
+    if (!v) return [];
+    const card = el('section', undefined, 'card host-card');
+    card.append(el('h2', s.updateTitle));
+    const time = v.startedAt ? relativeTime(v.startedAt) : '';
+    card.append(
+      el(
+        'p',
+        v.commit
+          ? s.version.replace('{commit}', shortCommit(v.commit)).replace('{time}', time)
+          : s.versionUnknown.replace('{time}', time),
+      ),
+    );
+    const last = v.lastUpdate;
+    if (last?.endedAt)
+      card.append(
+        el(
+          'p',
+          last.ok
+            ? s.lastUpdateOk.replace('{time}', relativeTime(last.endedAt))
+            : s.lastUpdateFailed.replace('{time}', relativeTime(last.endedAt)).replace('{message}', last.message ?? ''),
+          last.ok ? 'muted' : 'error-message',
+        ),
+      );
+    if (v.available && !isLocalPage(location.hostname)) card.append(el('p', s.updateRemote, 'muted'));
+    else if (v.available) {
+      const button = el('button', s.updateButton.replace('{folder}', v.appDir), 'button primary');
+      button.type = 'button';
+      const note = el('p', '', 'muted');
+      note.setAttribute('aria-live', 'polite');
+      button.addEventListener('click', () => this.startUpdate(button, note));
+      card.append(button, el('p', s.updateHelp, 'muted'), note);
+    }
+    return [card];
+  }
+  // The link starts tools/update.ps1 on this computer. The page then waits for the service to come back
+  // as a new process and reloads; while it restarts, a failed check is expected and just tried again.
+  startUpdate(button, note) {
+    const s = STRINGS.host,
+      before = this.version;
+    button.disabled = true;
+    note.className = 'muted';
+    note.textContent = s.updateWaiting;
+    location.href = `${before.link}:`;
+    const deadline = Date.now() + UPDATE_WAIT_MINUTES * 60000;
+    clearInterval(this.updateTimer);
+    this.updateTimer = setInterval(async () => {
+      if (Date.now() > deadline) {
+        clearInterval(this.updateTimer);
+        button.disabled = false;
+        note.className = 'error-message';
+        note.textContent = s.updateTimeout
+          .replace('{minutes}', String(UPDATE_WAIT_MINUTES))
+          .replace('{folder}', before.logsDir ?? '');
+        return;
+      }
+      const after = await api.get('/api/version').catch(() => null);
+      if (updateFinished(before, after)) {
+        clearInterval(this.updateTimer);
+        location.reload();
+      }
+    }, UPDATE_POLL_MS);
   }
   renderStatus() {
     const s = STRINGS.host,

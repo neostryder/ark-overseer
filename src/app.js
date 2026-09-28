@@ -15,6 +15,9 @@ import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
 import { serverPaths } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
 import { parseCron, describeCron } from './scheduler/cron.js';
+import { createCatalog } from './maps/catalog.js';
+import { createArtResolver, findModPreview } from './maps/art.js';
+import { saveInventory } from './maps/inventory.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -41,6 +44,8 @@ export const API_MESSAGES = {
   badGaming:
     'Gaming mode needs a priority of Below normal or Lowest, fewer cores set aside than this PC has, and program names that end in .exe.',
   gamingUnavailable: 'Gaming mode did not start with ARK Overseer, so its settings cannot be read or saved.',
+  installHasServer: 'This install already runs {name}. Each server needs its own install.',
+  badMapArt: 'Send enabled as true or false.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -99,6 +104,7 @@ export function createApp({
   isElevated,
   pwshPath = 'pwsh',
   rankFields,
+  updateInfo = () => ({ commit: null, startedAt: null, available: false, lastUpdate: null }),
   allowedHosts = [],
   log = console.error,
   now = () => Date.now(),
@@ -107,6 +113,9 @@ export function createApp({
   rcon,
   getRconPassword,
   serviceMode = false,
+  // Tests pass stand-ins; the real app passes ones that may fetch from the network.
+  catalog = createCatalog({ dataDir, url: null, log }),
+  artResolver = createArtResolver({ dataDir, log }),
 }) {
   const auth = createAuth({ db, now }),
     router = createRouter({ log }),
@@ -122,6 +131,7 @@ export function createApp({
       record(ctx.user, action, kind, ctx.params.id ?? result?.id ?? null, detail(ctx));
       return result;
     };
+  const showArt = () => Boolean(hostRow()?.show_map_art ?? 1);
   for (const [key, route] of Object.entries(auth.routes)) {
     const urls = {
       state: 'GET /api/auth/state',
@@ -146,6 +156,7 @@ export function createApp({
       return result;
     });
   }
+  router.add('GET', '/api/version', () => updateInfo());
   router.add('GET', '/api/host', async () => ({
     platform: process.platform,
     arch: process.arch,
@@ -227,6 +238,53 @@ export function createApp({
       return { rules: [], checked: false, localRulesIgnored: false };
     }
   };
+  router.add(
+    'PUT',
+    '/api/host/map-art',
+    protectedRoute(
+      'host.map_art',
+      'host',
+      ({ body }) => {
+        if (typeof body.enabled !== 'boolean') throw error(400, API_MESSAGES.badMapArt);
+        const stamp = new Date(now()).toISOString();
+        let host = hostRow();
+        if (!host)
+          host = {
+            id: Number(
+              db.prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'local')").run(stamp, stamp)
+                .lastInsertRowid,
+            ),
+          };
+        db.prepare('UPDATE hosts SET updated_at = ?, show_map_art = ? WHERE id = ?').run(
+          stamp,
+          body.enabled ? 1 : 0,
+          host.id,
+        );
+        return { enabled: body.enabled };
+      },
+      (ctx) => ({ enabled: ctx.body.enabled }),
+    ),
+  );
+  router.add('GET', '/api/maps', () => ({ ...catalog.get(), showArt: showArt() }));
+  // A redirect to Steam's own picture, so the browser fetches it and this app never proxies the bytes.
+  router.add('GET', '/api/maps/:id/art', async ({ params, res }) => {
+    const map = catalog.get().maps.find((item) => item.id === String(params.id));
+    if (!showArt() || map?.kind !== 'official') throw error(404, API_MESSAGES.notFound);
+    const url = await artResolver.resolve(map.steamAppId);
+    if (!url) throw error(404, API_MESSAGES.notFound);
+    res.writeHead(302, { Location: url, 'Cache-Control': 'private, max-age=3600' });
+    res.end();
+  });
+  router.add('GET', '/api/servers/:id/maps/:mapId/art', async ({ params, res }) => {
+    const row = must(serverRow(db, params.id));
+    const map = catalog.get().maps.find((item) => item.id === String(params.mapId));
+    if (map?.kind !== 'mod') throw error(404, API_MESSAGES.notFound);
+    const file = findModPreview(row.install_path, map.modId);
+    if (!file) throw error(404, API_MESSAGES.notFound);
+    const data = await fs.readFile(file);
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=3600', 'Content-Length': data.length });
+    res.end(data);
+  });
   router.add('GET', '/api/installs', () => db.prepare('SELECT * FROM installs ORDER BY id').all());
   router.add(
     'POST',
@@ -370,6 +428,21 @@ export function createApp({
       return { deleted: true };
     }),
   );
+  router.add('GET', '/api/servers/:id/maps', ({ params }) => {
+    const row = must(serverRow(db, params.id)),
+      current = catalog.get();
+    const saves = saveInventory({ installPath: row.install_path, currentMap: row.map, catalog: current });
+    const saved = new Set(saves.map((save) => save.mapId.toLowerCase()));
+    return {
+      current: row.map,
+      saves,
+      catalog: {
+        version: current.version,
+        maps: current.maps.map((map) => ({ ...map, hasSave: saved.has(map.id.toLowerCase()) })),
+      },
+      showArt: showArt(),
+    };
+  });
   router.add('GET', '/api/servers/:id/backups', async ({ params }) => {
     must(serverRow(db, params.id));
     return Promise.all(
@@ -440,6 +513,13 @@ export function createApp({
           if (clashes.length) throw error(409, API_MESSAGES.portsInUse, { conflicts: clashes });
           if (db.prepare('SELECT 1 FROM servers WHERE name = ? COLLATE NOCASE').get(name))
             throw error(409, API_MESSAGES.nameTaken);
+          // ASA keeps a server's settings and saves inside its install, so a second server would overwrite them.
+          const holder = db.prepare('SELECT name FROM servers WHERE install_id = ? LIMIT 1').get(install.id);
+          if (holder)
+            throw error(
+              409,
+              API_MESSAGES.installHasServer.replace('{name}', () => holder.name),
+            );
           const stamp = new Date(now()).toISOString();
           const id = Number(
             db

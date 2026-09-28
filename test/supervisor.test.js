@@ -7,15 +7,17 @@ function setup(t, overrides = {}) {
   const db = openDatabase(':memory:');
   const stamp = new Date().toISOString();
   db.prepare('INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, ?)').run(stamp, stamp, 'host');
-  db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
-    stamp,
-    stamp,
-    'C:\\ARK',
-  );
-  for (let i = 1; i <= 2; i += 1)
+  // Each server has its own install, as the API requires.
+  for (let i = 1; i <= 2; i += 1) {
+    db.prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, 1, ?)').run(
+      stamp,
+      stamp,
+      i === 1 ? 'C:\\ARK' : `C:\\ARK${i}`,
+    );
     db.prepare(
-      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port, rcon_port) VALUES (?, ?, 1, 1, ?, ?, ?, ?, ?)',
-    ).run(stamp, stamp, `server${i}`, 'TheIsland', `Server ${i}`, 7776 + i, 27020 + i);
+      'INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port, rcon_port) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)',
+    ).run(stamp, stamp, i, `server${i}`, 'TheIsland', `Server ${i}`, 7776 + i, 27020 + i);
+  }
   const live = new Map();
   const spawns = [];
   const kills = [];

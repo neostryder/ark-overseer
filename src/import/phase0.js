@@ -18,6 +18,7 @@ export const MESSAGES = {
   changedSincePreview: 'A settings file changed after the preview. Run the preview again before importing.',
   nameTaken: 'A server with this name already exists.',
   alreadyImported: 'This server has already been imported.',
+  installHasServer: 'This install already runs {name}. Each server needs its own install.',
   steamClient:
     'This server runs from a Steam library, so Steam keeps it up to date. ARK Overseer will not update or validate it.',
   noAdminPassword: 'No admin password is set, so saving before a shutdown and in-game warnings will not work.',
@@ -183,13 +184,13 @@ function analyze(db, server, options) {
   }));
   if (db.prepare('SELECT 1 FROM servers WHERE name = ? COLLATE NOCASE').get(server.name))
     conflicts.push({ code: 'name', message: MESSAGES.nameTaken });
-  if (
-    install &&
-    db
-      .prepare('SELECT 1 FROM servers WHERE install_id = ? AND name = ? AND map = ?')
-      .get(install.id, server.name, server.map)
-  )
+  // One server per install: ASA keeps a server's settings and saves inside its install. The same server
+  // imported twice gets its own message, since that is the more useful thing to tell someone.
+  const holders = install ? db.prepare('SELECT name, map FROM servers WHERE install_id = ?').all(install.id) : [];
+  if (holders.some((row) => row.name === server.name && row.map === server.map))
     conflicts.push({ code: 'imported', message: MESSAGES.alreadyImported });
+  else if (holders.length)
+    conflicts.push({ code: 'install', message: MESSAGES.installHasServer.replace('{name}', () => holders[0].name) });
   const warnings = [];
   if (server.installSource === 'steam-client') warnings.push({ code: 'steamClient', message: MESSAGES.steamClient });
   if (!server.hasAdminPassword) warnings.push({ code: 'noAdminPassword', message: MESSAGES.noAdminPassword });

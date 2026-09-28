@@ -2,11 +2,13 @@ import { api } from './api.js';
 import { STRINGS } from './strings.js';
 import { parseRoute } from './lib/route.js';
 import { icon } from './lib/icon.js';
+import { setCatalogMaps } from './lib/wizard.js';
 import './components/ao-dialog.js';
 import './components/ao-toast.js';
 import './components/ao-fleet-rail.js';
 import './components/ao-server-overview.js';
 import './components/ao-server-settings.js';
+import './components/ao-server-maps.js';
 import './components/ao-server-network.js';
 import './components/ao-server-automation.js';
 import './components/ao-jobs-panel.js';
@@ -26,6 +28,7 @@ class AoApp extends HTMLElement {
     window.addEventListener('beforeunload', this.onUnload);
     this.route();
     this.loadServers();
+    this.loadCatalog();
     this.serverTimer = setInterval(() => {
       if (!document.hidden) this.loadServers();
     }, 5000);
@@ -104,6 +107,18 @@ class AoApp extends HTMLElement {
   closeDrawer() {
     this.classList.remove('drawer-open');
   }
+  // Map names follow the catalog once it has loaded; until then, or if it can't be reached, the built-in
+  // list names them.
+  async loadCatalog() {
+    try {
+      setCatalogMaps((await api.get('/api/maps')).maps);
+      this.dispatchEvent(
+        new CustomEvent('servers-loaded', { detail: { servers: this.servers, error: this.serversError ?? '' } }),
+      );
+    } catch {
+      /* the built-in list stays in use */
+    }
+  }
   // The one poll of the server list; the fleet rail draws from the event it sends.
   async loadServers() {
     let error = '';
@@ -113,6 +128,8 @@ class AoApp extends HTMLElement {
     } catch (cause) {
       error = cause.message;
     }
+    this.serversError = error;
+    this.serversError = error;
     this.dispatchEvent(new CustomEvent('servers-loaded', { detail: { servers: this.servers, error } }));
   }
   route() {
@@ -148,7 +165,7 @@ class AoApp extends HTMLElement {
       route.id = this.servers[0].id;
       window.history.replaceState(null, '', `#/servers/${route.id}/overview`);
     }
-    if (['overview', 'settings', 'network', 'automation'].includes(route.screen)) {
+    if (['overview', 'settings', 'maps', 'network', 'automation'].includes(route.screen)) {
       if (this.servers && !this.servers.some((s) => s.id === route.id)) {
         this.view.textContent = STRINGS.app.emptyServers;
         return;
@@ -156,6 +173,7 @@ class AoApp extends HTMLElement {
       const tag = {
         overview: 'ao-server-overview',
         settings: 'ao-server-settings',
+        maps: 'ao-server-maps',
         network: 'ao-server-network',
         automation: 'ao-server-automation',
       }[route.screen];
@@ -166,13 +184,16 @@ class AoApp extends HTMLElement {
       for (const [screen, label] of [
         ['overview', STRINGS.overview.title],
         ['settings', STRINGS.settings.title],
+        ['maps', STRINGS.maps.title],
         ['network', STRINGS.network.title],
         ['automation', STRINGS.automation.title],
       ]) {
         const a = document.createElement('a');
         a.href = `#/servers/${route.id}/${screen}`;
         a.append(
-          icon({ overview: 'server', settings: 'settings', network: 'network', automation: 'jobs' }[screen]),
+          icon(
+            { overview: 'server', settings: 'settings', maps: 'map', network: 'network', automation: 'jobs' }[screen],
+          ),
           label,
         );
         if (screen === route.screen) a.setAttribute('aria-current', 'page');

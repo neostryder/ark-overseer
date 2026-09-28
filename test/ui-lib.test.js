@@ -19,12 +19,15 @@ import {
 } from '../public/js/lib/settings.js';
 import { stateName, relativeTime, byteSize, jobSummary, jobState } from '../public/js/lib/format.js';
 import { STRINGS } from '../public/js/strings.js';
+import { MAPS, mapName, setCatalogMaps } from '../public/js/lib/wizard.js';
+import { mapPictureUrl } from '../public/js/lib/map-art.js';
 import { cronToPicker, pickerToCron, parseCountdown } from '../public/js/lib/cron-picker.js';
 
 test('route parsing and building covers supported routes', () => {
   for (const route of [
     { screen: 'overview', id: 3 },
     { screen: 'settings', id: 4 },
+    { screen: 'maps', id: 4 },
     { screen: 'network', id: 5 },
     { screen: 'automation', id: 5 },
     { screen: 'jobs' },
@@ -35,6 +38,10 @@ test('route parsing and building covers supported routes', () => {
     const hash = buildRoute(route);
     assert.deepEqual(parseRoute(hash), route.screen === 'home' ? { screen: 'home' } : route);
   }
+  assert.equal(buildRoute({ screen: 'maps', id: 7 }), '#/servers/7/maps');
+  assert.deepEqual(parseRoute('#/servers/7/maps'), { screen: 'maps', id: 7 });
+  assert.deepEqual(parseRoute('#/servers/7/maps/extra'), { screen: 'unknown' });
+  assert.equal(buildRoute({ screen: 'maps', id: 0 }), '#/');
   assert.deepEqual(parseRoute('#/not-a-route'), { screen: 'unknown' });
   assert.deepEqual(parseRoute('#/servers/nope/settings'), { screen: 'unknown' });
   assert.equal(buildRoute({ screen: 'overview', id: 'x' }), '#/');
@@ -138,4 +145,36 @@ test('countdown text becomes descending whole minutes or null', () => {
   assert.deepEqual(parseCountdown(' 60 ,30,'), [60, 30]);
   for (const text of ['', '5, 10', '5, 5', '61', '0', '1.5', 'ten', '6,5,4,3,2,1', '-1'])
     assert.equal(parseCountdown(text), null, text);
+});
+
+test('map names come from the built-in list until the catalog has loaded, then from the catalog', () => {
+  try {
+    assert.equal(mapName('TheIsland_WP'), 'The Island');
+    assert.equal(mapName('Homebrew_WP'), 'Homebrew_WP');
+    assert.ok(MAPS.length > 0);
+    setCatalogMaps([
+      { id: 'TheIsland_WP', name: 'Island Renamed' },
+      { id: 'NewMap_WP', name: 'A New Map' },
+    ]);
+    assert.equal(mapName('TheIsland_WP'), 'Island Renamed');
+    assert.equal(mapName('NewMap_WP'), 'A New Map');
+    // Once loaded, the catalog is the whole list; the built-in one no longer fills gaps.
+    assert.equal(mapName('Ragnarok_WP'), 'Ragnarok_WP');
+    setCatalogMaps(undefined);
+    assert.equal(mapName('Ragnarok_WP'), 'Ragnarok');
+  } finally {
+    setCatalogMaps(null);
+  }
+});
+
+test('an official picture is requested only when the setting is on, and a mod picture always', () => {
+  const official = { id: 'TheIsland_WP', kind: 'official' };
+  const mod = { id: 'ModMap', kind: 'mod' };
+  assert.equal(mapPictureUrl(official, 3, true), '/api/maps/TheIsland_WP/art');
+  assert.equal(mapPictureUrl(official, 3, false), null);
+  assert.equal(mapPictureUrl(mod, 3, false), '/api/servers/3/maps/ModMap/art');
+  assert.equal(mapPictureUrl(mod, '3', true), '/api/servers/3/maps/ModMap/art');
+  assert.equal(mapPictureUrl(mod, 'x', true), null);
+  assert.equal(mapPictureUrl({ id: 'Unknown', kind: null }, 3, true), null);
+  assert.equal(mapPictureUrl(undefined, 3, true), null);
 });

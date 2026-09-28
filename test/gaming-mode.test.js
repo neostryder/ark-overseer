@@ -7,7 +7,9 @@ function fixture(t, cpuCount = 16) {
   const db = openDatabase(':memory:');
   t.after(() => db.close());
   db.prepare("INSERT INTO hosts (name,created_at,updated_at) VALUES ('local','x','x')").run();
-  db.prepare("INSERT INTO installs (host_id,path,created_at,updated_at) VALUES (1,'x','x','x')").run();
+  // One install per server, as the API requires.
+  for (const path of ['x', 'y', 'z'])
+    db.prepare('INSERT INTO installs (host_id,path,created_at,updated_at) VALUES (1,?,?,?)').run(path, 'x', 'x');
   const states = new Map([
     [1, { pid: 10, observedState: 'running' }],
     [2, { pid: 20, observedState: 'running' }],
@@ -38,7 +40,7 @@ function fixture(t, cpuCount = 16) {
   };
   const supervisor = { status: (id) => states.get(id) || {} };
   db.prepare(
-    "INSERT INTO servers (id,host_id,install_id,name,map,session_name,game_port,created_at,updated_at) VALUES (1,1,1,'One','m','s',7777,'x','x'),(2,1,1,'Two','m','s',7778,'x','x')",
+    "INSERT INTO servers (id,host_id,install_id,name,map,session_name,game_port,created_at,updated_at) VALUES (1,1,1,'One','m','s',7777,'x','x'),(2,1,2,'Two','m','s',7778,'x','x')",
   ).run();
   const engine = createGamingMode({ db, platform, supervisor, clock, cpuCount, log: () => {} });
   return {
@@ -113,7 +115,7 @@ test('custom core count, late servers, isolated access errors and gone pids', as
   f.states.set(3, { pid: 30, observedState: 'running' });
   f.db
     .prepare(
-      "INSERT INTO servers (id,host_id,install_id,name,map,session_name,game_port,created_at,updated_at) VALUES (3,1,1,'Three','m','s',7779,'x','x')",
+      "INSERT INTO servers (id,host_id,install_id,name,map,session_name,game_port,created_at,updated_at) VALUES (3,1,3,'Three','m','s',7779,'x','x')",
     )
     .run();
   await f.engine.refresh();

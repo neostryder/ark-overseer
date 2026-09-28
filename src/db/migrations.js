@@ -171,6 +171,18 @@ export const MIGRATIONS = [
       ALTER TABLE hosts ADD COLUMN gaming_ignore_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(gaming_ignore_json));
       ALTER TABLE hosts ADD COLUMN gaming_applied_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(gaming_applied_json));`,
   },
+  {
+    version: 6,
+    name: 'maps',
+    up: 'ALTER TABLE hosts ADD COLUMN show_map_art INTEGER NOT NULL DEFAULT 1 CHECK (show_map_art IN (0, 1));',
+    // ASA keeps a server's settings and saves inside its install, so two servers on one install would
+    // overwrite each other. A database that already holds such a pair keeps working without the index,
+    // and the API check still refuses a new one.
+    after(db) {
+      if (!db.prepare('SELECT 1 FROM servers GROUP BY install_id HAVING count(*) > 1 LIMIT 1').get())
+        db.exec('CREATE UNIQUE INDEX idx_servers_install ON servers(install_id)');
+    },
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than
@@ -211,6 +223,8 @@ export function migrate(db) {
       }
       if (hasVersion.get(migration.version)) return;
       db.exec(migration.up);
+      // For a step SQL alone cannot express, such as an index that depends on the data already there.
+      migration.after?.(db);
       insertVersion.run(migration.version, migration.name, new Date().toISOString());
       applied.push(migration.version);
     });

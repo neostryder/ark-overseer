@@ -328,6 +328,37 @@ test('the preview reports a port conflict, a taken name and an already imported 
   assert.equal(again.conflicts.at(-1).message, MESSAGES.alreadyImported);
 });
 
+test('an install that already runs another server is refused by the preview and by the apply', async (t) => {
+  const f = fixture(t);
+  const hostId = addServer(f.db);
+  const now = new Date().toISOString();
+  const installId = Number(
+    f.db
+      .prepare('INSERT INTO installs (created_at, updated_at, host_id, path) VALUES (?, ?, ?, ?)')
+      .run(now, now, hostId, f.install).lastInsertRowid,
+  );
+  f.db
+    .prepare(
+      `INSERT INTO servers (created_at, updated_at, host_id, install_id, name, map, session_name, game_port)
+       VALUES (?, ?, ?, ?, 'Holder $1', 'TheIsland', 'Holder', 7801)`,
+    )
+    .run(now, now, hostId, installId);
+  const detection = await detectPhase0(f.dashboard);
+  const [item] = previewImport(f.db, detection).servers;
+  assert.deepEqual(
+    item.conflicts.map((c) => c.code),
+    ['install'],
+  );
+  assert.equal(item.conflicts[0].message, 'This install already runs Holder $1. Each server needs its own install.');
+  assert.equal(item.ok, false);
+  const before = count(f.db, 'servers');
+  await assert.rejects(
+    applyImport(f.db, detection, 'neo-olympus', { snapshotRoot: f.snapshots }),
+    (error) => error.conflicts?.[0].code === 'install',
+  );
+  assert.equal(count(f.db, 'servers'), before);
+});
+
 test('applyImport creates the host, install, stopped server, pre_import backup and audit rows', async (t) => {
   const f = fixture(t);
   const detection = await detectPhase0(f.dashboard);

@@ -13,8 +13,14 @@ export const MAPS = [
   { id: 'LostColony_WP', name: 'Lost Colony' },
   { id: 'BobsMissions_WP', name: 'Club ARK', note: 'wizard.clubArkNote' },
 ];
+// The catalog the server sends (GET /api/maps) replaces this built-in list once it has loaded, so a map
+// added to the catalog shows its name everywhere. Until then the list above is used.
+let loadedMaps = null;
+export function setCatalogMaps(maps) {
+  loadedMaps = Array.isArray(maps) ? maps : null;
+}
 // A custom map keeps its own id as its name.
-export const mapName = (id) => MAPS.find((item) => item.id === id)?.name ?? id;
+export const mapName = (id) => (loadedMaps ?? MAPS).find((item) => item.id === id)?.name ?? id;
 export const PRESETS = [
   { id: 'default', settings: {} },
   { id: 'relaxed', settings: { XPMultiplier: 2, TamingSpeedMultiplier: 3, HarvestAmountMultiplier: 2 } },

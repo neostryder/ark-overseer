@@ -91,7 +91,7 @@ test('static serving applies content types, security headers and refuses travers
   assert.equal(home.headers.get('x-frame-options'), 'DENY');
   assert.equal(
     home.headers.get('content-security-policy'),
-    "default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self' data: https://*.steamstatic.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
   );
   assert.equal((await fetch(`${base}/app.mjs`)).headers.get('content-type'), 'text/javascript; charset=utf-8');
   assert.equal((await fetch(`${base}/..%2f..%2fpackage.json`)).status, 404);

@@ -11,11 +11,13 @@ function setup(t) {
   const h = db.prepare('INSERT INTO hosts(created_at,updated_at,name) VALUES(?,?,?)');
   const host = Number(h.run(now, now, 'local').lastInsertRowid);
   const other = Number(h.run(now, now, 'remote').lastInsertRowid);
-  const install = Number(
-    db
-      .prepare('INSERT INTO installs(created_at,updated_at,host_id,path) VALUES(?,?,?,?)')
-      .run(now, now, host, 'C:\\ASA').lastInsertRowid,
-  );
+  // Each server gets its own install, as the API requires.
+  const newInstall = (hostId, name) =>
+    Number(
+      db
+        .prepare('INSERT INTO installs(created_at,updated_at,host_id,path) VALUES(?,?,?,?)')
+        .run(now, now, hostId, `C:\\ASA\\${name}`).lastInsertRowid,
+    );
   const add = (name, { hostId = host, game = 7777, query = 27015, rcon = 27020 } = {}) =>
     Number(
       db
@@ -23,8 +25,19 @@ function setup(t) {
           `INSERT INTO servers(created_at,updated_at,host_id,install_id,name,map,session_name,game_port,query_port,rcon_port,settings_json)
            VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
         )
-        .run(now, now, hostId, install, name, 'TheIsland', name, game, query, rcon, '{"ServerAdminPassword":"hunter2"}')
-        .lastInsertRowid,
+        .run(
+          now,
+          now,
+          hostId,
+          newInstall(hostId, name),
+          name,
+          'TheIsland',
+          name,
+          game,
+          query,
+          rcon,
+          '{"ServerAdminPassword":"hunter2"}',
+        ).lastInsertRowid,
     );
   const ports = (id) => ({
     ...db.prepare('SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?').get(id),

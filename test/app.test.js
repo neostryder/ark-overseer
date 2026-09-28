@@ -9,6 +9,7 @@ import { openDatabase } from '../src/db/index.js';
 import { createJobEngine } from '../src/jobs/engine.js';
 import { createApp, API_MESSAGES } from '../src/app.js';
 import { createAuth, AUTH_MESSAGES } from '../src/auth/auth.js';
+import { modsFolder } from '../src/maps/art.js';
 
 async function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-app-'));
@@ -571,7 +572,7 @@ async function fixtureWith(t, overrides = {}) {
   });
   const url = `http://127.0.0.1:${app.server.address().port}`;
   const { cookie } = await setup(url);
-  return { url, cookie, db };
+  return { url, cookie, db, root };
 }
 
 test('a request line that is not a URL is a 400 and the server keeps answering', async (t) => {
@@ -847,4 +848,205 @@ test('closing the server does not wait for a browser holding the live jobs feed 
   ]);
   clearTimeout(timer);
   await app.close();
+});
+
+// Maps: the install guard, the catalog, map pictures and the save inventory.
+const ART_URL = 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2399830/header.jpg';
+const MOD_MAP = { id: 'ModMap', name: 'A mod map', kind: 'mod', modId: '928102' };
+const bundledMaps = JSON.parse(fs.readFileSync(new URL('../src/maps/catalog.json', import.meta.url), 'utf8')).maps;
+const serverBody = (installId, name, base = 7777) => ({
+  name,
+  map: 'TheIsland_WP',
+  sessionName: name,
+  installId,
+  gamePort: base,
+  queryPort: base + 20000,
+  rconPort: base + 20005,
+  maxPlayers: 70,
+});
+async function addServer(url, cookie, installPath, name, base) {
+  const install = await (await fetch(`${url}/api/installs`, json({ path: installPath }, cookie))).json();
+  const response = await fetch(`${url}/api/servers`, json(serverBody(install.id, name, base), cookie));
+  assert.equal(response.status, 200);
+  return { installId: install.id, server: await response.json() };
+}
+const mapsCatalog = (extra = []) => ({
+  get: () => ({ version: 1, maps: [...bundledMaps, ...extra] }),
+  refresh: async () => {},
+});
+
+test('a second server on an install is refused with the name of the first', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const installPath = path.join(root, 'ASA');
+  const { installId } = await addServer(url, cookie, installPath, 'Odd $& name', 7777);
+  const again = await fetch(`${url}/api/servers`, json(serverBody(installId, 'Second', 7779), cookie));
+  assert.equal(again.status, 409);
+  assert.equal(
+    (await again.json()).error,
+    API_MESSAGES.installHasServer.replace('{name}', () => 'Odd $& name'),
+  );
+  assert.equal(db.prepare('SELECT count(*) AS n FROM servers').get().n, 1);
+  // A different install is fine.
+  await addServer(url, cookie, path.join(root, 'ASA2'), 'Second', 7779);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM servers').get().n, 2);
+});
+
+test('the Phase 0 import refuses an install that already has a server', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const dashboardDir = path.join(root, 'dashboard'),
+    installRoot = path.win32.join(root, 'legacy-install');
+  fs.mkdirSync(path.join(dashboardDir, 'profile-data', 'one'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dashboardDir, 'profiles.json'),
+    JSON.stringify([
+      {
+        id: 'one',
+        name: 'Legacy One',
+        map: 'TheIsland',
+        serverRoot: installRoot,
+        gamePort: 7777,
+        queryPort: 27015,
+        rconPort: 27020,
+      },
+    ]),
+  );
+  const paths = serverPaths(installRoot);
+  fs.mkdirSync(paths.exeDir, { recursive: true });
+  fs.writeFileSync(paths.exePath, '');
+  fs.mkdirSync(paths.configDir, { recursive: true });
+  fs.writeFileSync(paths.gameUserSettingsPath, '[SessionSettings]\r\nSessionName=Legacy\r\n');
+  await addServer(url, cookie, installRoot, 'Existing', 7801);
+  const post = (route, body) => fetch(`${url}${route}`, json(body, cookie));
+  const preview = await (await post('/api/import/preview', { dashboardDir })).json();
+  const [entry] = preview.servers;
+  assert.equal(entry.ok, false);
+  assert.deepEqual(
+    entry.conflicts.map((conflict) => [conflict.code, conflict.message]),
+    [['install', 'This install already runs Existing. Each server needs its own install.']],
+  );
+  const apply = await post('/api/import/apply', { token: preview.token, profileId: 'one' });
+  assert.equal(apply.status, 409);
+  assert.match((await apply.json()).error, /already runs Existing/);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM servers').get().n, 1);
+});
+
+test('the map catalog is served to signed-in users, with the picture setting', async (t) => {
+  const { url, cookie } = await fixtureWith(t);
+  assert.equal((await fetch(`${url}/api/maps`)).status, 401);
+  const body = await (await fetch(`${url}/api/maps`, { headers: { Cookie: cookie } })).json();
+  assert.equal(body.version, 1);
+  assert.equal(body.showArt, true);
+  assert.deepEqual(body.maps, bundledMaps);
+});
+
+test('the map picture setting is saved, audited and reported, and refuses anything but true or false', async (t) => {
+  const { url, cookie, db } = await fixtureWith(t);
+  const read = async () => (await (await fetch(`${url}/api/maps`, { headers: { Cookie: cookie } })).json()).showArt;
+  assert.equal((await fetch(`${url}/api/host/map-art`, put({ enabled: false }))).status, 401);
+  const off = await fetch(`${url}/api/host/map-art`, put({ enabled: false }, cookie));
+  assert.equal(off.status, 200);
+  assert.deepEqual(await off.json(), { enabled: false });
+  assert.equal(await read(), false);
+  assert.equal(db.prepare("SELECT show_map_art FROM hosts WHERE name = 'local'").get().show_map_art, 0);
+  assert.equal((await fetch(`${url}/api/host/map-art`, put({ enabled: true }, cookie))).status, 200);
+  assert.equal(await read(), true);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events WHERE action = 'host.map_art'").get().n, 2);
+  for (const bad of [{}, { enabled: 'yes' }, { enabled: 1 }, { enabled: null }]) {
+    const response = await fetch(`${url}/api/host/map-art`, put(bad, cookie));
+    assert.equal(response.status, 400, JSON.stringify(bad));
+    assert.equal((await response.json()).error, API_MESSAGES.badMapArt);
+  }
+  assert.equal(await read(), true);
+});
+
+test('an official map picture redirects to the resolved Steam address, and otherwise is a 404', async (t) => {
+  const asked = [];
+  const artResolver = {
+    resolve: async (id) => {
+      asked.push(id);
+      return id === 2399830 ? ART_URL : null;
+    },
+  };
+  const { url, cookie } = await fixtureWith(t, { artResolver, catalog: mapsCatalog([MOD_MAP]) });
+  const get = (id) => fetch(`${url}/api/maps/${id}/art`, { headers: { Cookie: cookie }, redirect: 'manual' });
+  assert.equal((await fetch(`${url}/api/maps/TheIsland_WP/art`, { redirect: 'manual' })).status, 401);
+  const found = await get('TheIsland_WP');
+  assert.equal(found.status, 302);
+  assert.equal(found.headers.get('location'), ART_URL);
+  assert.match(found.headers.get('content-security-policy'), /img-src 'self' data: https:\/\/\*\.steamstatic\.com;/);
+  assert.equal((await get('Ragnarok_WP')).status, 404);
+  assert.equal((await get('NoSuchMap')).status, 404);
+  assert.equal((await get('ModMap')).status, 404);
+  assert.deepEqual(asked, [2399830, 3675020]);
+  // With the setting off Steam is not asked at all.
+  await fetch(`${url}/api/host/map-art`, put({ enabled: false }, cookie));
+  asked.length = 0;
+  assert.equal((await get('TheIsland_WP')).status, 404);
+  assert.deepEqual(asked, []);
+});
+
+test('a mod picture is read from the server install, whatever the picture setting', async (t) => {
+  const artResolver = { resolve: async () => assert.fail('mod pictures never ask Steam') };
+  const { url, cookie, root } = await fixtureWith(t, { artResolver, catalog: mapsCatalog([MOD_MAP]) });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  const get = (id, map, headers = { Cookie: cookie }) => fetch(`${url}/api/servers/${id}/maps/${map}/art`, { headers });
+  assert.equal((await get(server.id, 'ModMap', {})).status, 401);
+  assert.equal((await get(server.id, 'ModMap')).status, 404);
+  const png = Buffer.from('89504e470d0a1a0a00', 'hex');
+  const file = path.join(modsFolder(path.join(root, 'ASA')), '928102_555', 'Game', 'Preview', 'preview_image.png');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, png);
+  await fetch(`${url}/api/host/map-art`, put({ enabled: false }, cookie));
+  const found = await get(server.id, 'ModMap');
+  assert.equal(found.status, 200);
+  assert.equal(found.headers.get('content-type'), 'image/png');
+  assert.equal(found.headers.get('cache-control'), 'max-age=3600');
+  assert.deepEqual(Buffer.from(await found.arrayBuffer()), png);
+  assert.equal((await get(server.id, 'TheIsland_WP')).status, 404);
+  assert.equal((await get(server.id, 'NoSuchMap')).status, 404);
+  assert.equal((await get(999, 'ModMap')).status, 404);
+});
+
+test('the save inventory lists the install folders next to the catalog', async (t) => {
+  const { url, cookie, root } = await fixtureWith(t);
+  const installPath = path.join(root, 'ASA');
+  const { server } = await addServer(url, cookie, installPath, 'Main', 7777);
+  const get = (id) => fetch(`${url}/api/servers/${id}/maps`, { headers: { Cookie: cookie } });
+  assert.equal((await fetch(`${url}/api/servers/${server.id}/maps`)).status, 401);
+  assert.equal((await get(999)).status, 404);
+  const empty = await (await get(server.id)).json();
+  assert.equal(empty.current, 'TheIsland_WP');
+  assert.deepEqual(empty.saves, []);
+  assert.equal(empty.showArt, true);
+  assert.ok(empty.catalog.maps.every((map) => map.hasSave === false));
+  const saved = path.join(installPath, 'ShooterGame', 'Saved', 'SavedArks');
+  fs.mkdirSync(path.join(saved, 'TheIsland_WP'), { recursive: true });
+  fs.writeFileSync(path.join(saved, 'TheIsland_WP', 'TheIsland_WP.ark'), '12345');
+  fs.writeFileSync(path.join(saved, 'TheIsland_WP', '1.arkprofile'), '');
+  fs.mkdirSync(path.join(saved, 'ragnarok_wp'), { recursive: true });
+  fs.mkdirSync(path.join(saved, 'Homebrew_WP'), { recursive: true });
+  const body = await (await get(server.id)).json();
+  assert.deepEqual(
+    body.saves.map((save) => [save.mapId, save.name, save.current, save.worldBytes, save.profiles]),
+    [
+      ['TheIsland_WP', 'The Island', true, 5, 1],
+      ['Homebrew_WP', 'Homebrew_WP', false, null, 0],
+      ['ragnarok_wp', 'Ragnarok', false, null, 0],
+    ],
+  );
+  assert.equal(body.catalog.version, 1);
+  assert.deepEqual(
+    body.catalog.maps.filter((map) => map.hasSave).map((map) => map.id),
+    ['TheIsland_WP', 'Ragnarok_WP'],
+  );
+  assert.equal(body.catalog.maps.length, bundledMaps.length);
+  await fetch(`${url}/api/host/map-art`, put({ enabled: false }, cookie));
+  assert.equal((await (await get(server.id)).json()).showArt, false);
+});
+
+test('the version route reports what updateInfo gives, and needs a signed-in session', async (t) => {
+  const info = { commit: 'abc1234', startedAt: '2026-09-28T20:00:00.000Z', available: true, lastUpdate: null };
+  const { url, cookie } = await fixtureWith(t, { updateInfo: () => info });
+  assert.equal((await fetch(`${url}/api/version`)).status, 401);
+  assert.deepEqual(await (await fetch(`${url}/api/version`, { headers: { Cookie: cookie } })).json(), info);
 });
