@@ -36,4 +36,6 @@ Run the tests with `npm test`, check formatting with `npm run format:check`, and
 
 ## License
 
-GPL-3.0. The full text is in [LICENSE](LICENSE).
+ARK Overseer is free software under the GNU Affero General Public License, version 3 (AGPL-3.0). The full text is in [LICENSE](LICENSE). You can use it, change it and share it at no cost, for your own servers or anyone else's. If you change it and let other people use your changed version over a network, such as a hosting panel your customers sign in to, the AGPL requires you to offer those people your changed source code.
+
+Commercial licenses are also available for anyone who wants to run a changed version without publishing the changes, such as a game hosting company building ARK Overseer into its own panel. To ask about one, contact neostryder on GitHub.
