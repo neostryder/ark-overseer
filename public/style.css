@@ -272,6 +272,110 @@ small {
   gap: 12px;
   margin-top: 24px;
 }
+.wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 18px;
+  list-style-position: inside;
+}
+.wizard-steps li {
+  flex: 1 1 110px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.wizard-steps li[aria-current='step'] {
+  color: var(--text);
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.wizard-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.wizard-panel h2,
+.wizard-panel p {
+  margin: 0;
+}
+.wizard-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.wizard-choice {
+  min-height: 64px;
+  justify-content: flex-start;
+  width: 100%;
+}
+.wizard-field {
+  min-width: 0;
+}
+.wizard-field input,
+.wizard-panel select,
+.wizard-password input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(201, 164, 90, 0.32);
+  background: #10120e;
+  color: var(--text);
+}
+.wizard-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.wizard-radio input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--gold);
+}
+.wizard-password {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.wizard-password .wizard-field {
+  grid-column: 1 / -1;
+}
+.wizard-warning {
+  padding: 10px;
+  border-left: 3px solid var(--gold);
+}
+.wizard-issue {
+  display: block;
+  margin-top: 4px;
+}
+.wizard-import-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--card-border);
+  overflow-wrap: anywhere;
+}
+ao-setup-wizard {
+  display: block;
+  min-width: 0;
+}
+ao-setup-wizard :focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
 .detail-card {
   display: grid;
   gap: 8px;

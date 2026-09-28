@@ -10,6 +10,7 @@ import './components/ao-server-settings.js';
 import './components/ao-server-network.js';
 import './components/ao-jobs-panel.js';
 import './components/ao-account.js';
+import './components/ao-setup-wizard.js';
 
 class AoApp extends HTMLElement {
   connectedCallback() {
@@ -78,14 +79,21 @@ class AoApp extends HTMLElement {
     });
   }
   unsaved() {
-    return Boolean(this.view.querySelector('ao-server-settings')?.hasChanges());
+    return Boolean(
+      this.view.querySelector('ao-server-settings')?.hasChanges() ||
+      this.view.querySelector('ao-setup-wizard')?.hasChanges(),
+    );
   }
   async leaveGuarded() {
     if (this.unsaved()) {
       const target = location.hash;
       // Put the address back while asking, so a refusal leaves the page as it was.
       history.replaceState(null, '', this.shownHash);
-      const leave = await this.querySelector('ao-dialog').ask(STRINGS.settings.title, STRINGS.settings.confirmLeave);
+      const wizard = this.view.querySelector('ao-setup-wizard')?.hasChanges();
+      const leave = await this.querySelector('ao-dialog').ask(
+        wizard ? STRINGS.wizard.title : STRINGS.settings.title,
+        wizard ? STRINGS.wizard.confirmLeave : STRINGS.settings.confirmLeave,
+      );
       if (!leave) return;
       history.replaceState(null, '', target);
     }
@@ -162,11 +170,7 @@ class AoApp extends HTMLElement {
       this.jobsDrawer.hidden = true;
       this.view.replaceChildren(this.jobsPanel);
     } else if (route.screen === 'setup') {
-      const h = document.createElement('h1');
-      h.textContent = STRINGS.app.setupTitle;
-      const p = document.createElement('p');
-      p.textContent = STRINGS.app.setupSoon;
-      this.view.replaceChildren(h, p);
+      this.view.replaceChildren(document.createElement('ao-setup-wizard'));
     }
     this.closeDrawer();
   }
