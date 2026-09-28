@@ -534,8 +534,15 @@ ao-setup-wizard :focus-visible {
   align-items: center;
   margin-bottom: 16px;
 }
-.related-fields {
-  margin-top: 16px;
+.search-status {
+  min-height: 1.4em;
+  margin: 6px 0 12px;
+}
+.setting-category {
+  margin: 0 0 2px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .pending-bar {
   position: sticky;
@@ -777,6 +784,19 @@ pre {
 }
 .map-text span,
 .map-others p {
+  overflow-wrap: anywhere;
+}
+.map-switch {
+  justify-self: start;
+  max-width: 100%;
+  text-align: center;
+}
+.map-card .map-switch {
+  justify-self: stretch;
+}
+.map-job,
+.map-notice {
+  margin: 0;
   overflow-wrap: anywhere;
 }
 @media (max-width: 900px) {

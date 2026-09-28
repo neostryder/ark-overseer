@@ -21,6 +21,26 @@ export function filterFields(fields, query) {
       )
     : [...fields];
 }
+// Every word of the query must appear in the setting's key, label, description or category, so
+// "baby grow" finds Baby Mature Speed Multiplier under Breeding. The search covers every category.
+export function searchFields(fields, query) {
+  const terms = String(query || '')
+    .toLocaleLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!terms.length) return [];
+  return fields.filter((field) => {
+    const haystack = [field.key, field.label, field.description, field.category]
+      .map((text) => String(text || '').toLocaleLowerCase())
+      .join(' ');
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+// The fields a semantic search ranked, in its order, skipping keys the page doesn't know.
+export function rankedFields(fields, ranked) {
+  const byKey = new Map(fields.map((field) => [field.key, field]));
+  return (ranked || []).map((entry) => byKey.get(entry.key)).filter(Boolean);
+}
 export function controlValue(field, current) {
   const isDefault = current === null || current === undefined;
   return { value: isDefault ? field.default : current, isDefault, mark: isDefault ? 'default' : '' };

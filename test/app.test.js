@@ -543,6 +543,7 @@ async function fixtureWith(t, overrides = {}) {
     'steamcmd.setup',
     'server.backup',
     'install.check_update',
+    'server.switch_map',
   ];
   const jobs = createJobEngine({ db, handlers: Object.fromEntries(kinds.map((kind) => [kind, async () => ({})])) });
   fs.mkdirSync(path.join(root, 'public'), { recursive: true });
@@ -1049,4 +1050,257 @@ test('the version route reports what updateInfo gives, and needs a signed-in ses
   const { url, cookie } = await fixtureWith(t, { updateInfo: () => info });
   assert.equal((await fetch(`${url}/api/version`)).status, 401);
   assert.deepEqual(await (await fetch(`${url}/api/version`, { headers: { Cookie: cookie } })).json(), info);
+});
+
+// Switching maps: the request is checked here and again by the job, which does the work.
+const switchTree = (root, folderName, { name, maps, plugin = 'Plugin' }) => {
+  const dir = path.join(modsFolder(path.join(root, 'ASA')), folderName, plugin);
+  fs.mkdirSync(path.join(dir, 'Preview'), { recursive: true });
+  fs.writeFileSync(path.join(dir, `${plugin}.uplugin`), JSON.stringify({ FriendlyName: name }));
+  fs.writeFileSync(
+    path.join(dir, 'Manifest_UFSFiles_Win64.txt'),
+    maps.map((id) => `ShooterGame/Mods/${plugin}/Content/${id}.umap\t2026.09.01-00.00.00`).join('\r\n'),
+  );
+  return path.join(dir, 'Preview', 'preview_image.png');
+};
+
+test('a map switch is checked, audited and queued as a job that holds the server and its install', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t, { catalog: mapsCatalog([MOD_MAP]) });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const post = (body, id = server.id, headers = cookie) => fetch(`${url}/api/servers/${id}/map`, json(body, headers));
+  assert.equal((await post({ mapId: 'Ragnarok_WP' }, server.id, null)).status, 401);
+  assert.equal((await post({ mapId: 'Ragnarok_WP' }, 999)).status, 404);
+  for (const bad of [{ addMod: true }, { mapId: 'Nowhere_WP' }, { mapId: 'a b' }, { mapId: 5 }, { mapId: '..\\x' }]) {
+    const response = await post(bad);
+    assert.equal(response.status, 400, JSON.stringify(bad));
+    assert.equal((await response.json()).error, API_MESSAGES.badMap);
+  }
+  for (const same of ['TheIsland_WP', 'theisland_wp']) {
+    const response = await post({ mapId: same });
+    assert.equal(response.status, 409, same);
+    assert.equal((await response.json()).error, API_MESSAGES.sameMap);
+  }
+  for (const addMod of [undefined, false, 'true', 1]) {
+    const response = await post({ mapId: 'ModMap', addMod });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), {
+      error: 'A mod map needs mod 928102.',
+      code: 'needs_mod',
+      modId: '928102',
+      map: 'A mod map',
+    });
+  }
+  assert.equal(db.prepare("SELECT count(*) AS n FROM jobs WHERE kind = 'server.switch_map'").get().n, 0);
+  assert.equal(
+    db.prepare('SELECT count(*) AS n FROM audit_events WHERE action = ?').get('server.map.switch_requested').n,
+    0,
+  );
+
+  const queued = await post({ mapId: 'Ragnarok_WP' });
+  assert.equal(queued.status, 200);
+  const { jobId } = await queued.json();
+  const job = { ...db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) };
+  assert.deepEqual(
+    [job.kind, job.state, job.server_id, job.install_id, JSON.parse(job.params_json)],
+    ['server.switch_map', 'queued', server.id, server.install_id, { mapId: 'Ragnarok_WP', addMod: false }],
+  );
+  const audit = db.prepare('SELECT * FROM audit_events WHERE action = ?').get('server.map.switch_requested');
+  assert.deepEqual(
+    [audit.target_kind, audit.target_id, JSON.parse(audit.detail_json)],
+    ['server', server.id, { mapId: 'Ragnarok_WP', addMod: false }],
+  );
+  // The request queues the work; the job changes the map.
+  assert.equal(db.prepare('SELECT map FROM servers').get().map, 'TheIsland_WP');
+  // While that job is queued or running, another request is refused.
+  const again = await post({ mapId: 'Valguero_WP' });
+  assert.equal(again.status, 409);
+  assert.equal((await again.json()).error, API_MESSAGES.jobRunning);
+  // Once it is cancelled the server is free again, and a mod map with addMod true is queued as such.
+  assert.equal((await fetch(`${url}/api/jobs/${jobId}/cancel`, json({}, cookie))).status, 200);
+  const withMod = await post({ mapId: 'ModMap', addMod: true });
+  assert.equal(withMod.status, 200);
+  const params = JSON.parse(
+    db.prepare('SELECT params_json FROM jobs WHERE id = ?').get((await withMod.json()).jobId).params_json,
+  );
+  assert.deepEqual(params, { mapId: 'ModMap', addMod: true });
+});
+
+test('an update queued for the install also holds a map switch back', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const { server, installId } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  const post = () => fetch(`${url}/api/servers/${server.id}/map`, json({ mapId: 'Ragnarok_WP' }, cookie));
+  const update = await fetch(`${url}/api/installs/${installId}/update`, json({}, cookie));
+  assert.equal(update.status, 200);
+  assert.equal((await post()).status, 409);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  assert.equal((await post()).status, 200);
+});
+
+test('a save folder that is not in the catalog can be switched to, spelled as the folder is', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const post = (mapId) => fetch(`${url}/api/servers/${server.id}/map`, json({ mapId }, cookie));
+  assert.equal((await post('Homebrew_WP')).status, 400);
+  fs.mkdirSync(path.join(root, 'ASA', 'ShooterGame', 'Saved', 'SavedArks', 'Homebrew_WP'), { recursive: true });
+  const response = await post('homebrew_wp');
+  assert.equal(response.status, 200);
+  const params = JSON.parse(
+    db.prepare('SELECT params_json FROM jobs WHERE id = ?').get((await response.json()).jobId).params_json,
+  );
+  assert.deepEqual(params, { mapId: 'Homebrew_WP', addMod: false });
+});
+
+test('maps from downloaded mods are named, pictured, listed and switchable, and the catalog wins on a shared id', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t, {
+    catalog: mapsCatalog([{ id: 'Shared_WP', name: 'Catalog name', kind: 'mod', modId: '4242' }]),
+  });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const picture = switchTree(root, '928102_9', {
+    name: 'Winter Wonderland',
+    maps: ['Winter_WP', 'Shared_WP', 'Sub_Level'],
+  });
+  const png = Buffer.from('89504e470d0a1a0a00', 'hex');
+  fs.writeFileSync(picture, png);
+  const saved = path.join(root, 'ASA', 'ShooterGame', 'Saved', 'SavedArks');
+  fs.mkdirSync(path.join(saved, 'winter_wp'), { recursive: true });
+  const get = (route, headers = { Cookie: cookie }) => fetch(`${url}${route}`, { headers });
+
+  const maps = await (await get(`/api/servers/${server.id}/maps`)).json();
+  const found = maps.catalog.maps.find((map) => map.id === 'Winter_WP');
+  assert.deepEqual(
+    [found.name, found.kind, found.modId, found.hasSave],
+    ['Winter Wonderland: Winter_WP', 'mod', '928102', true],
+  );
+  assert.equal(maps.catalog.maps.find((map) => map.id === 'Shared_WP').name, 'Catalog name');
+  assert.ok(!maps.catalog.maps.some((map) => map.id === 'Sub_Level'));
+  // A save folder that matches a found map is shown with the mod's name, not as unknown.
+  assert.deepEqual(
+    maps.saves.map((save) => [save.mapId, save.name, save.kind]),
+    [['winter_wp', 'Winter Wonderland: Winter_WP', 'mod']],
+  );
+  const art = await get(`/api/servers/${server.id}/maps/Winter_WP/art`);
+  assert.equal(art.status, 200);
+  assert.deepEqual(Buffer.from(await art.arrayBuffer()), png);
+  assert.equal((await get(`/api/servers/${server.id}/maps/Sub_Level/art`)).status, 404);
+
+  // Its mod is not in the server's list, so the switch asks for it to be added; the job adds it.
+  const post = (body) => fetch(`${url}/api/servers/${server.id}/map`, json(body, cookie));
+  const refused = await post({ mapId: 'Winter_WP' });
+  assert.equal(refused.status, 409);
+  assert.deepEqual(await refused.json(), {
+    error: 'Winter Wonderland: Winter_WP needs mod 928102.',
+    code: 'needs_mod',
+    modId: '928102',
+    map: 'Winter Wonderland: Winter_WP',
+  });
+  db.prepare('UPDATE servers SET settings_json = ? WHERE id = ?').run(JSON.stringify({ mods: [928102] }), server.id);
+  assert.equal((await post({ mapId: 'Winter_WP' })).status, 200);
+});
+
+test('no other route changes the map of a server that already exists', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const paths = serverPaths(path.join(root, 'ASA'));
+  fs.mkdirSync(paths.configDir, { recursive: true });
+  fs.writeFileSync(paths.gameUserSettingsPath, '[SessionSettings]\r\nSessionName=Main\r\n');
+  const before = { ...db.prepare('SELECT map, settings_json FROM servers').get() };
+  const send = (method, route, body) => fetch(`${url}${route}`, { ...json(body, cookie), method });
+  const body = {
+    map: 'Ragnarok_WP',
+    mapId: 'Ragnarok_WP',
+    settings_json: '{"mods":["1"]}',
+    mods: ['1'],
+    sessionName: 'Renamed',
+  };
+  assert.equal((await send('PUT', `/api/servers/${server.id}/settings`, body)).status, 200);
+  const ports = { ...body, gamePort: 7781, queryPort: 27031, rconPort: 27041 };
+  assert.equal((await send('PUT', `/api/servers/${server.id}/ports`, ports)).status, 200);
+  assert.deepEqual({ ...db.prepare('SELECT map, settings_json FROM servers').get() }, before);
+  for (const method of ['PUT', 'PATCH', 'DELETE'])
+    assert.equal((await send(method, `/api/servers/${server.id}`, body)).status, 404, method);
+  assert.equal((await send('PUT', `/api/servers/${server.id}/map`, body)).status, 404);
+  assert.deepEqual({ ...db.prepare('SELECT map, settings_json FROM servers').get() }, before);
+});
+
+test('the dashboard Start, Stop and Restart are refused while a map switch is queued or running for that server', async (t) => {
+  const calls = [];
+  const supervisor = {
+    status: () => ({}),
+    start: async (id) => (calls.push(['start', id]), { id }),
+    stop: async (id) => (calls.push(['stop', id]), { id }),
+    restart: async (id) => (calls.push(['restart', id]), { id }),
+  };
+  const { url, cookie, db, root } = await fixtureWith(t, { supervisor });
+  const first = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  const other = await addServer(url, cookie, path.join(root, 'ASA2'), 'Other', 7779);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const act = (verb, id) => fetch(`${url}/api/servers/${id}/${verb}`, json({}, cookie));
+  for (const verb of ['start', 'stop', 'restart']) assert.equal((await act(verb, first.server.id)).status, 200, verb);
+  assert.equal(calls.length, 3);
+  calls.length = 0;
+  const queued = await fetch(`${url}/api/servers/${first.server.id}/map`, json({ mapId: 'Ragnarok_WP' }, cookie));
+  assert.equal(queued.status, 200);
+  for (const state of ['queued', 'running']) {
+    db.prepare("UPDATE jobs SET state = ? WHERE kind = 'server.switch_map'").run(state);
+    for (const verb of ['start', 'stop', 'restart']) {
+      const response = await act(verb, first.server.id);
+      assert.equal(response.status, 409, `${verb} while ${state}`);
+      assert.equal((await response.json()).error, API_MESSAGES.jobRunning);
+    }
+  }
+  assert.deepEqual(calls, []);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT count(*) AS n FROM audit_events WHERE action IN ('server.start', 'server.stop', 'server.restart')",
+      )
+      .get().n,
+    3,
+  );
+  // Another server is not held, and the server is free once the job has ended.
+  assert.equal((await act('start', other.server.id)).status, 200);
+  db.prepare("UPDATE jobs SET state = 'failed' WHERE kind = 'server.switch_map'").run();
+  assert.equal((await act('stop', first.server.id)).status, 200);
+});
+
+test('two map switch requests sent together queue one job and refuse the other', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  const post = (mapId) => fetch(`${url}/api/servers/${server.id}/map`, json({ mapId }, cookie));
+  const answers = await Promise.all([
+    post('Ragnarok_WP'),
+    post('Valguero_WP'),
+    post('Aberration_WP'),
+    post('Genesis_WP'),
+  ]);
+  assert.deepEqual(answers.map((answer) => answer.status).sort(), [200, 409, 409, 409]);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM jobs WHERE kind = 'server.switch_map'").get().n, 1);
+});
+
+test('map pictures are found whatever the letter case of the map id', async (t) => {
+  const artResolver = { resolve: async (id) => (id === 2399830 ? ART_URL : null) };
+  const { url, cookie, root } = await fixtureWith(t, { artResolver, catalog: mapsCatalog([MOD_MAP]) });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  const official = await fetch(`${url}/api/maps/theisland_WP/art`, { headers: { Cookie: cookie }, redirect: 'manual' });
+  assert.equal(official.status, 302);
+  assert.equal(official.headers.get('location'), ART_URL);
+  const png = Buffer.from('89504e470d0a1a0a00', 'hex');
+  const file = path.join(modsFolder(path.join(root, 'ASA')), '928102_1', 'Game', 'Preview', 'preview_image.png');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, png);
+  for (const id of ['ModMap', 'modmap', 'MODMAP']) {
+    const found = await fetch(`${url}/api/servers/${server.id}/maps/${id}/art`, { headers: { Cookie: cookie } });
+    assert.equal(found.status, 200, id);
+    assert.deepEqual(Buffer.from(await found.arrayBuffer()), png);
+  }
+  // Positive control: a name that is not the map's is still not found.
+  assert.equal(
+    (await fetch(`${url}/api/servers/${server.id}/maps/ModMaps/art`, { headers: { Cookie: cookie } })).status,
+    404,
+  );
 });

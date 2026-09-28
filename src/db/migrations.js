@@ -183,6 +183,40 @@ export const MIGRATIONS = [
         db.exec('CREATE UNIQUE INDEX idx_servers_install ON servers(install_id)');
     },
   },
+  {
+    version: 7,
+    name: 'map_switching',
+    // SQLite cannot change a CHECK in place, so the table is rebuilt with the wider list and every row
+    // and id is copied across. Nothing else refers to backups, and it has no index besides the one
+    // its UNIQUE path creates.
+    up: `
+      CREATE TABLE backups_new (
+        id INTEGER PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        server_id INTEGER REFERENCES servers(id) ON DELETE SET NULL,
+        job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL,
+        reason TEXT NOT NULL CHECK (reason IN ('manual', 'scheduled', 'pre_update', 'pre_restore', 'pre_import', 'pre_rollback', 'pre_switch')),
+        path TEXT NOT NULL UNIQUE,
+        size_bytes INTEGER,
+        sha256 TEXT
+      );
+      INSERT INTO backups_new (id, created_at, server_id, job_id, reason, path, size_bytes, sha256)
+        SELECT id, created_at, server_id, job_id, reason, path, size_bytes, sha256 FROM backups;
+      DROP TABLE backups;
+      ALTER TABLE backups_new RENAME TO backups;
+
+      -- A map switch that has not finished. The row is written before the server is stopped and removed
+      -- once the switch is settled, so a restart in between can put the old map back.
+      CREATE TABLE pending_switches (
+        server_id INTEGER PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+        job_id INTEGER,
+        from_map TEXT NOT NULL,
+        from_mods_json TEXT NOT NULL,
+        to_map TEXT NOT NULL,
+        was_running INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

@@ -23,6 +23,7 @@ import { createApp } from './app.js';
 import { createGamingMode } from './gaming/gaming-mode.js';
 import { createCatalog, scheduleCatalogRefresh } from './maps/catalog.js';
 import { createArtResolver } from './maps/art.js';
+import { createSwitchHandlers, reconcilePendingSwitches } from './maps/switch.js';
 import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
@@ -58,9 +59,11 @@ export async function start() {
     const ini = serverPaths(server.install_path).gameUserSettingsPath;
     return getIniKey(readIniLines(ini), SERVER_SETTINGS, 'ServerAdminPassword') || '';
   };
+  const catalog = createCatalog({ dataDir, log: console.error });
   const handlers = {
     ...createInstallHandlers({ db, steamcmd }),
     ...createScheduleHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
+    ...createSwitchHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
   };
   const jobs = createJobEngine({ db, handlers });
   const scheduler = createScheduler({ db, jobs });
@@ -75,7 +78,6 @@ export async function start() {
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
-  const catalog = createCatalog({ dataDir, log: console.error });
   const startedAt = new Date().toISOString();
   const serviceMode = process.env.OVERSEER_SERVICE === '1';
   const logsDir = path.resolve(process.env.OVERSEER_LOGS || path.join(dataDir, '..', 'logs'));
@@ -106,9 +108,26 @@ export async function start() {
   const port = Number(process.env.OVERSEER_PORT || 3310),
     host = process.env.OVERSEER_HOST || '0.0.0.0';
   try {
+    // A map switch cut off by the last shutdown is undone first, so a server that was running comes back
+    // on the map it had before, and one still running on the new map is restarted onto the old one.
+    const undone = reconcilePendingSwitches({ db }).filter((entry) => entry.changed && entry.wasRunning);
+    const pidsBefore = new Map(undone.map((entry) => [entry.serverId, supervisor.status(entry.serverId)?.pid ?? null]));
     jobs.start();
     scheduler.start();
     await supervisor.recover();
+    // A process that recover() adopted, rather than started, is still running the new map. The restart
+    // runs in the background, since a stop can take minutes and the dashboard should answer meanwhile.
+    for (const item of undone) {
+      const status = supervisor.status(item.serverId);
+      if (status?.observedState === 'running' && status.pid != null && status.pid === pidsBefore.get(item.serverId))
+        void supervisor
+          .restart(item.serverId)
+          .catch((error) =>
+            console.error(
+              `Restarting server ${item.serverId} after an interrupted map change failed: ${error.message}`,
+            ),
+          );
+    }
     supervisor.startPolling();
     await gaming.start();
     await new Promise((resolve, reject) => {

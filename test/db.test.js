@@ -62,8 +62,9 @@ test('fresh database applies the initial migration once', () => {
       'user_passkeys',
       'audit_events',
       'schema_migrations',
+      'pending_switches',
     ];
-    assert.deepEqual(migrate(db), [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(migrate(db), [1, 2, 3, 4, 5, 6, 7]);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
@@ -76,7 +77,7 @@ test('fresh database applies the initial migration once', () => {
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5, 6, 7],
     );
   } finally {
     db.close();
@@ -91,7 +92,7 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
       'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
     );
     db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
-    assert.deepEqual(migrate(db), [2, 3, 4, 5, 6]);
+    assert.deepEqual(migrate(db), [2, 3, 4, 5, 6, 7]);
     const hostId = Number(
       db.prepare('INSERT INTO hosts (name, created_at, updated_at) VALUES (?, ?, ?)').run('h', timestamp, timestamp)
         .lastInsertRowid,
@@ -99,7 +100,7 @@ test('migration 2 adds a checked install source and upgrades a version 1 databas
     addInstall(db, hostId);
     assert.equal(db.prepare('SELECT source FROM installs').get().source, 'steamcmd');
     assert.throws(() => db.prepare("UPDATE installs SET source = 'other'").run(), /CHECK constraint failed/);
-    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 6);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 7);
   } finally {
     db.close();
   }
@@ -115,7 +116,7 @@ test('migration 3 adds auth columns and upgrades a version 2 database', () => {
     );
     db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
     db.prepare('INSERT INTO schema_migrations VALUES (2, ?, ?)').run('install_source', timestamp);
-    assert.deepEqual(migrate(db), [3, 4, 5, 6]);
+    assert.deepEqual(migrate(db), [3, 4, 5, 6, 7]);
     const userColumns = db
       .prepare('PRAGMA table_info(users)')
       .all()
@@ -128,7 +129,7 @@ test('migration 3 adds auth columns and upgrades a version 2 database', () => {
     assert.ok(userColumns.includes('webauthn_id'));
     assert.equal(passkey.notnull, 1);
     assert.equal(passkey.dflt_value, "''");
-    assert.equal(db.prepare('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1').get().version, 6);
+    assert.equal(db.prepare('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1').get().version, 7);
   } finally {
     db.close();
   }
@@ -153,7 +154,7 @@ test('migration 4 adds automation columns and indexes while keeping version 3 ro
     db.prepare(
       "INSERT INTO schedules (server_id, kind, cron, created_at, updated_at) VALUES (?, 'backup', '0 2 * * *', ?, ?)",
     ).run(serverId, timestamp, timestamp);
-    assert.deepEqual(migrate(db), [4, 5, 6]);
+    assert.deepEqual(migrate(db), [4, 5, 6, 7]);
     assert.equal(db.prepare('SELECT count(*) AS count FROM schedules').get().count, 1);
     assert.equal(
       db.prepare('SELECT source, latest_build_id, update_checked_at FROM installs').get().source,
@@ -313,11 +314,11 @@ test('transaction commits results and rolls back the same thrown error', () => {
 test('migration refuses a recorded schema version newer than this app', () => {
   withDatabase((db) => {
     db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-      7,
+      8,
       'future',
       timestamp,
     );
-    assert.throws(() => migrate(db), /version 7 is newer than supported version 6/);
+    assert.throws(() => migrate(db), /version 8 is newer than supported version 7/);
   });
 });
 
@@ -408,7 +409,7 @@ test('several processes opening a new database file at once all succeed', async 
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5, 6, 7],
     );
   } finally {
     db.close();
@@ -485,7 +486,7 @@ function versionFive(pairs) {
 test('migration 6 on an existing database indexes install_id when every install has one server', () => {
   const db = versionFive([(make, index) => make(index), (make, index) => make(index)]);
   try {
-    assert.deepEqual(migrate(db), [6]);
+    assert.deepEqual(migrate(db), [6, 7]);
     assert.equal(db.prepare('SELECT count(*) AS n FROM servers').get().n, 2);
     assert.equal(db.prepare('SELECT count(*) AS n FROM sqlite_master WHERE name = ?').get('idx_servers_install').n, 1);
     // The index enforces the rule on the upgraded database, not just exists.
@@ -499,12 +500,98 @@ test('migration 6 keeps an existing database with two servers on one install, wi
   let shared;
   const db = versionFive([(make, index) => (shared = make(index)), () => shared]);
   try {
-    assert.deepEqual(migrate(db), [6]);
+    assert.deepEqual(migrate(db), [6, 7]);
     assert.equal(db.prepare('SELECT count(*) AS n FROM servers WHERE install_id = ?').get(shared).n, 2);
     assert.equal(db.prepare('SELECT count(*) AS n FROM sqlite_master WHERE name = ?').get('idx_servers_install').n, 0);
-    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 6);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 7);
     assert.equal(db.prepare('SELECT show_map_art FROM hosts').get().show_map_art, 1);
     assert.deepEqual(migrate(db), []);
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 7 widens the backup reasons and keeps every existing backup with its id', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  try {
+    db.exec(
+      'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
+    );
+    for (const migration of MIGRATIONS.slice(0, 6)) {
+      db.exec(migration.up);
+      migration.after?.(db);
+      db.prepare('INSERT INTO schema_migrations VALUES (?, ?, ?)').run(migration.version, migration.name, timestamp);
+    }
+    const hostId = addHost(db),
+      installId = addInstall(db, hostId),
+      serverId = addServer(db, hostId, installId);
+    const jobId = Number(
+      db
+        .prepare("INSERT INTO jobs (created_at, updated_at, kind) VALUES (?, ?, 'server.backup')")
+        .run(timestamp, timestamp).lastInsertRowid,
+    );
+    const insert = db.prepare(
+      'INSERT INTO backups (id, created_at, server_id, job_id, reason, path, size_bytes, sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    insert.run(3, timestamp, serverId, jobId, 'manual', 'C:/backups/a', 1234, 'aa');
+    insert.run(9, timestamp, serverId, null, 'pre_update', 'C:/backups/b', null, null);
+    insert.run(12, timestamp, null, null, 'pre_rollback', 'C:/backups/c', 5, 'cc');
+    const before = db
+      .prepare('SELECT * FROM backups ORDER BY id')
+      .all()
+      .map((row) => ({ ...row }));
+    // The old list refuses the new reason.
+    assert.throws(() => insert.run(20, timestamp, serverId, null, 'pre_switch', 'C:/backups/x', 1, 'x'), /CHECK/);
+    assert.deepEqual(migrate(db), [7]);
+    assert.deepEqual(
+      db
+        .prepare('SELECT * FROM backups ORDER BY id')
+        .all()
+        .map((row) => ({ ...row })),
+      before,
+    );
+    // The rebuilt table takes the new reason, still refuses others and duplicate paths, and keeps its links.
+    insert.run(20, timestamp, serverId, null, 'pre_switch', 'C:/backups/x', 1, 'x');
+    assert.throws(() => insert.run(21, timestamp, serverId, null, 'bogus', 'C:/backups/y', 1, 'y'), /CHECK/);
+    assert.throws(() => insert.run(22, timestamp, serverId, null, 'manual', 'C:/backups/a', 1, 'y'), /UNIQUE/);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name LIKE 'backups%'").get().n, 1);
+    db.prepare('DELETE FROM jobs WHERE id = ?').run(jobId);
+    assert.equal(db.prepare('SELECT job_id FROM backups WHERE id = 3').get().job_id, null);
+    db.prepare('DELETE FROM servers WHERE id = ?').run(serverId);
+    assert.equal(db.prepare('SELECT server_id FROM backups WHERE id = 9').get().server_id, null);
+    assert.deepEqual(migrate(db), []);
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 7 adds the pending map switches, one per server, removed with the server', () => {
+  const db = openDatabase(':memory:');
+  try {
+    const hostId = addHost(db),
+      serverId = addServer(db, hostId, addInstall(db, hostId));
+    const columns = db
+      .prepare('PRAGMA table_info(pending_switches)')
+      .all()
+      .map((column) => [column.name, column.notnull, column.pk]);
+    assert.deepEqual(columns, [
+      ['server_id', 0, 1],
+      ['job_id', 0, 0],
+      ['from_map', 1, 0],
+      ['from_mods_json', 1, 0],
+      ['to_map', 1, 0],
+      ['was_running', 1, 0],
+      ['created_at', 1, 0],
+    ]);
+    const insert = db.prepare(
+      'INSERT INTO pending_switches (server_id, job_id, from_map, from_mods_json, to_map, was_running, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    );
+    insert.run(serverId, null, 'A_WP', '[]', 'B_WP', 1, timestamp);
+    assert.throws(() => insert.run(serverId, null, 'A_WP', '[]', 'C_WP', 1, timestamp), /UNIQUE|PRIMARY/);
+    assert.throws(() => insert.run(999, null, 'A_WP', '[]', 'B_WP', 1, timestamp), /FOREIGN KEY/);
+    db.prepare('DELETE FROM servers WHERE id = ?').run(serverId);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM pending_switches').get().n, 0);
   } finally {
     db.close();
   }

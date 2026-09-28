@@ -2,7 +2,8 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import {
   groupFields,
-  filterFields,
+  searchFields,
+  rankedFields,
   pendingChanges,
   buildPutBody,
   validateField,
@@ -61,9 +62,11 @@ export class AoServerSettings extends HTMLElement {
     search.addEventListener('input', () => {
       this.query = search.value;
       this.renderFields();
-      this.searchRelated();
     });
-    this.append(search);
+    this.status = document.createElement('p');
+    this.status.className = 'muted search-status';
+    this.status.setAttribute('aria-live', 'polite');
+    this.append(search, this.status);
     const layout = document.createElement('div');
     layout.className = 'settings-layout';
     const select = document.createElement('select');
@@ -98,11 +101,6 @@ export class AoServerSettings extends HTMLElement {
     layout.append(this.panel);
     this.renderFields();
     this.append(layout);
-    const related = document.createElement('div');
-    related.className = 'related-fields';
-    related.id = 'related-fields';
-    this.append(related);
-    this.renderRelated();
     const bar = document.createElement('div');
     bar.className = 'pending-bar';
     const count = this.changes().length;
@@ -154,32 +152,65 @@ export class AoServerSettings extends HTMLElement {
     banner.append(text, restart, failed);
     return banner;
   }
+  // A search covers every category. Settings that hold every word come first; when none do, the local
+  // semantic search offers the settings closest in meaning, as editable fields in the same list.
   renderFields() {
-    const fields = filterFields(this.groups[this.active] || [], this.query);
-    this.panel.replaceChildren(...fields.map((field) => this.fieldNode(field)));
-  }
-  searchRelated() {
     clearTimeout(this.searchTimer);
-    if (!this.query.trim()) {
-      this.related = [];
-      this.renderRelated();
+    const revision = (this.searchRevision = (this.searchRevision ?? 0) + 1);
+    const s = STRINGS.settings,
+      query = this.query.trim();
+    const show = (fields, withCategory) =>
+      this.panel.replaceChildren(...fields.map((field) => this.fieldNode(field, withCategory)));
+    if (!query) {
+      this.status.textContent = '';
+      show(this.groups[this.active] || [], false);
       return;
     }
+    const exact = searchFields(this.fields, query);
+    if (exact.length) {
+      const categories = new Set(exact.map((field) => field.category)).size;
+      this.status.textContent = s.searchFound
+        .replace('{settings}', exact.length === 1 ? s.settingsOne : s.settingsMany.replace('{count}', exact.length))
+        .replace('{categories}', categories === 1 ? s.categoriesOne : s.categoriesMany.replace('{count}', categories));
+      show(exact, true);
+      return;
+    }
+    show([], true);
+    if (query.length < 2) {
+      this.status.textContent = s.searchNothing.replace('{query}', query);
+      return;
+    }
+    this.status.textContent = s.searchLooking;
     this.searchTimer = setTimeout(async () => {
+      let related = null;
       try {
-        this.related = await api.get(`/api/settings/search?q=${encodeURIComponent(this.query)}`);
+        related = rankedFields(this.fields, await api.get(`/api/settings/search?q=${encodeURIComponent(query)}`));
       } catch {
-        this.related = [];
+        /* reported below as unavailable */
       }
-      this.renderRelated();
+      // A newer keystroke has already redrawn the list.
+      if (revision !== this.searchRevision) return;
+      if (!related) this.status.textContent = s.searchUnavailable;
+      else if (!related.length) this.status.textContent = s.searchNothing.replace('{query}', query);
+      else {
+        this.status.textContent = s.searchRelated;
+        show(related, true);
+      }
     }, 350);
   }
   disconnectedCallback() {
     clearTimeout(this.searchTimer);
   }
-  fieldNode(field) {
+  fieldNode(field, withCategory = false) {
     const row = document.createElement('article');
     row.className = 'setting-field';
+    // Search results come from every category, so each one says where it lives.
+    if (withCategory) {
+      const where = document.createElement('p');
+      where.className = 'setting-category muted';
+      where.textContent = field.category;
+      row.append(where);
+    }
     const label = document.createElement('label');
     label.className = 'field-label';
     label.textContent = field.label;
@@ -288,20 +319,7 @@ export class AoServerSettings extends HTMLElement {
       button.disabled = !count;
     });
   }
-  renderRelated() {
-    const host = this.querySelector('#related-fields');
-    if (!host) return;
-    host.replaceChildren();
-    if (!this.related?.length) return;
-    const h = document.createElement('h2');
-    h.textContent = STRINGS.settings.related;
-    host.append(h);
-    for (const field of this.related) {
-      const p = document.createElement('p');
-      p.textContent = `${field.label || field.key}: ${field.description || ''}`;
-      host.append(p);
-    }
-  }
+
   async review() {
     const changes = this.changes();
     const byKey = new Map(this.fields.map((field) => [field.key, field]));

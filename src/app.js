@@ -18,6 +18,8 @@ import { parseCron, describeCron } from './scheduler/cron.js';
 import { createCatalog } from './maps/catalog.js';
 import { createArtResolver, findModPreview } from './maps/art.js';
 import { saveInventory } from './maps/inventory.js';
+import { findModMaps, withModMaps } from './maps/mod-maps.js';
+import { checkSwitch, SWITCH_MESSAGES } from './maps/switch.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -46,6 +48,8 @@ export const API_MESSAGES = {
   gamingUnavailable: 'Gaming mode did not start with ARK Overseer, so its settings cannot be read or saved.',
   installHasServer: 'This install already runs {name}. Each server needs its own install.',
   badMapArt: 'Send enabled as true or false.',
+  sameMap: 'The server is already on that map.',
+  jobRunning: 'Another job is queued or running for this server. Wait for it to finish, then try again.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -63,6 +67,8 @@ function audit(db, user, action, targetKind, targetId, detail = {}) {
     'INSERT INTO audit_events (created_at, user_id, actor, action, target_kind, target_id, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ).run(new Date().toISOString(), user.id, 'user', action, targetKind, targetId, JSON.stringify(detail));
 }
+// Windows folder names ignore case, so map ids are compared without regard to it.
+const sameId = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 function must(value) {
   if (!value) throw error(404, API_MESSAGES.notFound);
   return value;
@@ -116,6 +122,7 @@ export function createApp({
   // Tests pass stand-ins; the real app passes ones that may fetch from the network.
   catalog = createCatalog({ dataDir, url: null, log }),
   artResolver = createArtResolver({ dataDir, log }),
+  findMods = findModMaps,
 }) {
   const auth = createAuth({ db, now }),
     router = createRouter({ log }),
@@ -131,6 +138,14 @@ export function createApp({
       record(ctx.user, action, kind, ctx.params.id ?? result?.id ?? null, detail(ctx));
       return result;
     };
+  const switchRunning = (serverId) =>
+    Boolean(
+      db
+        .prepare(
+          "SELECT 1 FROM jobs WHERE kind = 'server.switch_map' AND state IN ('queued', 'running') AND server_id = ? LIMIT 1",
+        )
+        .get(serverId),
+    );
   const showArt = () => Boolean(hostRow()?.show_map_art ?? 1);
   for (const [key, route] of Object.entries(auth.routes)) {
     const urls = {
@@ -268,7 +283,7 @@ export function createApp({
   router.add('GET', '/api/maps', () => ({ ...catalog.get(), showArt: showArt() }));
   // A redirect to Steam's own picture, so the browser fetches it and this app never proxies the bytes.
   router.add('GET', '/api/maps/:id/art', async ({ params, res }) => {
-    const map = catalog.get().maps.find((item) => item.id === String(params.id));
+    const map = catalog.get().maps.find((item) => sameId(item.id, params.id));
     if (!showArt() || map?.kind !== 'official') throw error(404, API_MESSAGES.notFound);
     const url = await artResolver.resolve(map.steamAppId);
     if (!url) throw error(404, API_MESSAGES.notFound);
@@ -277,7 +292,9 @@ export function createApp({
   });
   router.add('GET', '/api/servers/:id/maps/:mapId/art', async ({ params, res }) => {
     const row = must(serverRow(db, params.id));
-    const map = catalog.get().maps.find((item) => item.id === String(params.mapId));
+    const map = withModMaps(catalog.get(), row.install_path, findMods).maps.find((item) =>
+      sameId(item.id, params.mapId),
+    );
     if (map?.kind !== 'mod') throw error(404, API_MESSAGES.notFound);
     const file = findModPreview(row.install_path, map.modId);
     if (!file) throw error(404, API_MESSAGES.notFound);
@@ -430,7 +447,7 @@ export function createApp({
   );
   router.add('GET', '/api/servers/:id/maps', ({ params }) => {
     const row = must(serverRow(db, params.id)),
-      current = catalog.get();
+      current = withModMaps(catalog.get(), row.install_path, findMods);
     const saves = saveInventory({ installPath: row.install_path, currentMap: row.map, catalog: current });
     const saved = new Set(saves.map((save) => save.mapId.toLowerCase()));
     return {
@@ -443,6 +460,45 @@ export function createApp({
       showArt: showArt(),
     };
   });
+  // The only way a server's map changes. The job backs the world up first and checks that the server
+  // starts on the new map, so no other route may write servers.map for an existing server.
+  router.add(
+    'POST',
+    '/api/servers/:id/map',
+    protectedRoute(
+      'server.map.switch_requested',
+      'server',
+      ({ params, body }) => {
+        const row = must(serverRow(db, params.id));
+        const check = checkSwitch({ server: row, mapId: body.mapId, addMod: body.addMod === true, catalog, findMods });
+        if (!check.ok) {
+          if (check.code === 'same_map') throw error(409, API_MESSAGES.sameMap);
+          if (check.code === 'needs_mod')
+            throw error(
+              409,
+              SWITCH_MESSAGES.needsMod.replace('{map}', () => check.map).replace('{modId}', () => check.modId),
+              { code: 'needs_mod', modId: check.modId, map: check.map },
+            );
+          throw error(400, API_MESSAGES.badMap);
+        }
+        // No await from here to the enqueue, so two requests cannot both find the server free.
+        const busy = db
+          .prepare(
+            "SELECT 1 FROM jobs WHERE state IN ('queued', 'running') AND (server_id = ? OR install_id = ?) LIMIT 1",
+          )
+          .get(row.id, row.install_id);
+        if (busy) throw error(409, API_MESSAGES.jobRunning);
+        // Both ids are set, so the engine also holds back any job for the install while this one runs.
+        const job = jobs.enqueue(
+          'server.switch_map',
+          { mapId: check.map.id, addMod: check.addMod },
+          { serverId: row.id, installId: row.install_id },
+        );
+        return { jobId: job.id };
+      },
+      (ctx) => ({ mapId: ctx.body.mapId, addMod: ctx.body.addMod === true }),
+    ),
+  );
   router.add('GET', '/api/servers/:id/backups', async ({ params }) => {
     must(serverRow(db, params.id));
     return Promise.all(
@@ -576,6 +632,8 @@ export function createApp({
       `/api/servers/:id/${verb}`,
       protectedRoute(`server.${verb}`, 'server', async ({ params }) => {
         must(serverRow(db, params.id));
+        // A map switch stops and starts the server itself, in steps that must not be interleaved.
+        if (switchRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
         return supervisor[verb](params.id);
       }),
     );

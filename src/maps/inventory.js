@@ -9,6 +9,14 @@ const listDir = (dir) => {
   }
 };
 
+// The names of the map folders under SavedArks, as they are spelled on disk.
+export function saveFolders(installPath) {
+  const root = path.join(installPath, 'ShooterGame', 'Saved', 'SavedArks');
+  return listDir(root)
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
+
 // One entry per map folder under SavedArks. Windows file names ignore case, so a folder or world file
 // spelled differently from the map id still counts. This only reads; nothing here is ever written.
 export function saveInventory({ installPath, currentMap, catalog }) {

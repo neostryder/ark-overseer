@@ -38,6 +38,22 @@ test('router copies error status and extra response fields', async (t) => {
   assert.deepEqual(await response.json(), { error: 'conflict', code: 'changed', conflicts: [{ port: 7 }] });
 });
 
+test('router also passes on the mod id and map name of a needs_mod answer, and nothing else', async (t) => {
+  const router = createRouter();
+  router.add('POST', '/api/map', () => {
+    throw Object.assign(new Error('needs it'), {
+      status: 409,
+      code: 'needs_mod',
+      modId: '928102',
+      map: 'A map',
+      secret: 'x',
+    });
+  });
+  const url = await listen(t, (req, res) => router.handle(req, res));
+  const response = await fetch(`${url}/api/map`, json({}));
+  assert.deepEqual(await response.json(), { error: 'needs it', code: 'needs_mod', modId: '928102', map: 'A map' });
+});
+
 test('router hides a server error and logs its redacted stack', async (t) => {
   const lines = [],
     router = createRouter({ log: (line) => lines.push(line) });

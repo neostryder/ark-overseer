@@ -12,6 +12,8 @@ import { parseRoute, buildRoute } from '../public/js/lib/route.js';
 import {
   groupFields,
   filterFields,
+  searchFields,
+  rankedFields,
   controlValue,
   pendingChanges,
   buildPutBody,
@@ -177,4 +179,33 @@ test('an official picture is requested only when the setting is on, and a mod pi
   assert.equal(mapPictureUrl(mod, 'x', true), null);
   assert.equal(mapPictureUrl({ id: 'Unknown', kind: null }, 3, true), null);
   assert.equal(mapPictureUrl(undefined, 3, true), null);
+});
+
+test('searchFields matches every word across key, label, description and category', () => {
+  const fields = [
+    {
+      key: 'BabyMatureSpeedMultiplier',
+      label: 'Baby mature speed',
+      description: 'How fast babies grow up',
+      category: 'Breeding',
+    },
+    { key: 'XPMultiplier', label: 'XP multiplier', description: 'Experience gained', category: 'Rates' },
+  ];
+  assert.deepEqual(
+    searchFields(fields, 'baby grow').map((f) => f.key),
+    ['BabyMatureSpeedMultiplier'],
+  );
+  assert.deepEqual(
+    searchFields(fields, 'breeding').map((f) => f.key),
+    ['BabyMatureSpeedMultiplier'],
+  );
+  assert.deepEqual(searchFields(fields, 'baby experience'), []);
+  assert.deepEqual(searchFields(fields, '   '), []);
+  assert.deepEqual(
+    rankedFields(fields, [{ key: 'XPMultiplier' }, { key: 'Unknown' }, { key: 'BabyMatureSpeedMultiplier' }]).map(
+      (f) => f.key,
+    ),
+    ['XPMultiplier', 'BabyMatureSpeedMultiplier'],
+  );
+  assert.deepEqual(rankedFields(fields, null), []);
 });

@@ -1,6 +1,7 @@
 import { MESSAGES as IMPORT_MESSAGES } from '../import/phase0.js';
 import { backupServer, pruneBackups } from './backup.js';
 import { runInstall } from '../steamcmd/handlers.js';
+import { defaultSleep, createTell, runCountdown } from './countdown.js';
 
 // What players read in game. Each countdown mark sends one line.
 export const PLAYER_MESSAGES = {
@@ -8,33 +9,19 @@ export const PLAYER_MESSAGES = {
     `Restart in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back a few minutes later.`,
   update: (n) =>
     `Update in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back once the update installs.`,
+  switchMap: (n, map) =>
+    `Map change in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server comes back on ${map}.`,
   restarting: 'Saving the world and restarting now.',
   updating: 'Saving the world and stopping for the update now.',
+  switching: 'Saving the world and changing the map now.',
   cancelled: 'The restart is off. Keep playing.',
+  switchCancelled: 'The map change is off. Keep playing.',
 };
 export const MESSAGES = {
   noServer: 'The server was not found.',
   noInstall: 'The install was not found.',
 };
 const RUNNING = 'running';
-
-function defaultSleep(ms, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason);
-      return;
-    }
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason);
-      },
-      { once: true },
-    );
-  });
-}
 
 export function createScheduleHandlers({
   db,
@@ -50,13 +37,7 @@ export function createScheduleHandlers({
     'SELECT s.*, i.path AS install_path, i.source AS install_source FROM servers s JOIN installs i ON i.id = s.install_id';
   const serverRow = (id) => db.prepare(`${serverSql} WHERE s.id = ?`).get(id);
   const isRunning = (id) => supervisor.status(id)?.observedState === RUNNING;
-  const tell = async (server, announce, message) =>
-    rcon({
-      host: '127.0.0.1',
-      port: server.rcon_port,
-      password: await getRconPassword(server),
-      command: `${announce === 'broadcast' ? 'Broadcast' : 'ServerChat'} ${message}`,
-    });
+  const tell = createTell({ rcon, getRconPassword });
 
   async function checkInstall(id, signal) {
     const install = db.prepare('SELECT * FROM installs WHERE id = ?').get(id);
@@ -79,23 +60,8 @@ export function createScheduleHandlers({
     };
   }
 
-  // Warns every listed server at each mark, waits out the gaps, then waits the last mark's minutes.
-  // A failed warning is noted in the job message and the countdown goes on.
-  async function countdown(servers, marks, message, announce, signal, progress) {
-    for (let index = 0; index < marks.length; index++) {
-      if (signal.aborted) throw signal.reason;
-      const minutes = marks[index];
-      await Promise.all(
-        servers.map((server) =>
-          tell(server, announce, message(minutes)).catch((error) =>
-            progress(null, `${server.name} did not get the in-game warning: ${error.message}`),
-          ),
-        ),
-      );
-      const next = marks[index + 1] ?? 0;
-      await sleep((minutes - next) * 60000, signal);
-    }
-  }
+  const countdown = (servers, marks, message, announce, signal, progress) =>
+    runCountdown({ tell, sleep }, servers, marks, message, announce, signal, progress);
 
   return {
     'server.restart': async ({ job, params = {}, signal, progress }) => {

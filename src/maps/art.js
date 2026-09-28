@@ -95,11 +95,11 @@ export function modsFolder(installPath) {
   return path.join(installPath, 'ShooterGame', 'Binaries', 'Win64', 'ShooterGame', 'Mods', '83374');
 }
 
-const isInside = (parent, child) => {
+export const isInside = (parent, child) => {
   const relative = path.relative(parent, child);
   return Boolean(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 };
-const entries = (dir) => {
+export const entries = (dir) => {
   try {
     return fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   } catch {
