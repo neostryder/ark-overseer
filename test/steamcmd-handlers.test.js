@@ -6,6 +6,7 @@ import path from 'node:path';
 import { openDatabase } from '../src/db/index.js';
 import { createJobEngine } from '../src/jobs/engine.js';
 import { createInstallHandlers } from '../src/steamcmd/handlers.js';
+import { MESSAGES } from '../src/import/phase0.js';
 
 function setup(t) {
   const db = openDatabase(':memory:');
@@ -53,6 +54,16 @@ test('each install handler updates state and build id', async (t) => {
     assert.equal(row.build_id, '123');
     assert.equal(f.calls[0].validate, validate);
     assert.equal(result.buildId, '123');
+  }
+});
+
+test('each install handler refuses Steam client installs without changing state', async (t) => {
+  for (const name of ['install.install', 'install.update', 'install.validate']) {
+    const f = setup(t);
+    f.db.prepare("UPDATE installs SET source = 'steam-client', state = 'installed' WHERE id = 1").run();
+    await assert.rejects(f.handlers[name](ctx()), (error) => error.message === MESSAGES.steamClientInstall);
+    assert.equal(f.db.prepare('SELECT state FROM installs WHERE id = 1').get().state, 'installed');
+    assert.equal(f.calls.length, 0);
   }
 });
 

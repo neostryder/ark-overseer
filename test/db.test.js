@@ -6,7 +6,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { spawn } from 'node:child_process';
 import { openDatabase, transaction } from '../src/db/index.js';
-import { migrate } from '../src/db/migrations.js';
+import { migrate, MIGRATIONS } from '../src/db/migrations.js';
 
 const timestamp = '2026-01-01T00:00:00.000Z';
 
@@ -63,7 +63,7 @@ test('fresh database applies the initial migration once', () => {
       'audit_events',
       'schema_migrations',
     ];
-    assert.deepEqual(migrate(db), [1]);
+    assert.deepEqual(migrate(db), [1, 2]);
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
@@ -76,8 +76,30 @@ test('fresh database applies the initial migration once', () => {
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1],
+      [1, 2],
     );
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 2 adds a checked install source and upgrades a version 1 database', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(MIGRATIONS[0].up);
+    db.exec(
+      'CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
+    );
+    db.prepare('INSERT INTO schema_migrations VALUES (1, ?, ?)').run('initial', timestamp);
+    assert.deepEqual(migrate(db), [2]);
+    const hostId = Number(
+      db.prepare('INSERT INTO hosts (name, created_at, updated_at) VALUES (?, ?, ?)').run('h', timestamp, timestamp)
+        .lastInsertRowid,
+    );
+    addInstall(db, hostId);
+    assert.equal(db.prepare('SELECT source FROM installs').get().source, 'steamcmd');
+    assert.throws(() => db.prepare("UPDATE installs SET source = 'other'").run(), /CHECK constraint failed/);
+    assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 2);
   } finally {
     db.close();
   }
@@ -223,11 +245,11 @@ test('transaction commits results and rolls back the same thrown error', () => {
 test('migration refuses a recorded schema version newer than this app', () => {
   withDatabase((db) => {
     db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-      2,
+      3,
       'future',
       timestamp,
     );
-    assert.throws(() => migrate(db), /version 2 is newer than supported version 1/);
+    assert.throws(() => migrate(db), /version 3 is newer than supported version 2/);
   });
 });
 
@@ -318,7 +340,7 @@ test('several processes opening a new database file at once all succeed', async 
         .prepare('SELECT version FROM schema_migrations')
         .all()
         .map((row) => row.version),
-      [1],
+      [1, 2],
     );
   } finally {
     db.close();

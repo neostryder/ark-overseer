@@ -142,6 +142,11 @@ export const MIGRATIONS = [
       CREATE INDEX idx_audit_events_created_at ON audit_events(created_at);
     `,
   },
+  {
+    version: 2,
+    name: 'install_source',
+    up: "ALTER TABLE installs ADD COLUMN source TEXT NOT NULL DEFAULT 'steamcmd' CHECK (source IN ('steamcmd', 'steam-client'));",
+  },
 ];
 
 // Versions run 1, 2, 3 with no gaps, so a typo in a version number fails at startup rather than

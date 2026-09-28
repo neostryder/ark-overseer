@@ -10,6 +10,35 @@ import { findAppInfo, parseKeyValues } from './keyvalues.js';
 const APP_ID = '2430930';
 const STEAMCMD_URL = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip';
 
+export function readAppManifest(installDir) {
+  const exists = (file) => fs.existsSync(file);
+  const candidates = [
+    // A SteamCMD install keeps its manifest inside the install folder. A Steam client install lives
+    // in <library>/steamapps/common/<name>, with the manifest two levels up.
+    path.join(installDir, 'steamapps', `appmanifest_${APP_ID}.acf`),
+    path.resolve(installDir, '..', '..', `appmanifest_${APP_ID}.acf`),
+  ];
+  for (const manifestPath of candidates) {
+    if (!exists(manifestPath)) continue;
+    // A manifest SteamCMD is still writing, or left half-written by a failed update, reads as no
+    // manifest rather than an error, so a failure is never hidden behind a parse error.
+    let app;
+    try {
+      app = parseKeyValues(fs.readFileSync(manifestPath, 'utf8')).AppState;
+    } catch {
+      continue;
+    }
+    if (app)
+      return {
+        buildId: app.buildid ?? null,
+        stateFlags: app.StateFlags ?? null,
+        fullyInstalled: app.StateFlags === '4',
+        path: manifestPath,
+      };
+  }
+  return null;
+}
+
 export async function extractZip(zipPath, destDir, { runner = createProcessRunner(), signal } = {}) {
   // Windows' own bsdtar reads zip files. The tar on PATH can be GNU tar, which cannot.
   const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
@@ -61,31 +90,7 @@ export function createSteamCmd({
     return { output: outcome };
   }
   function readManifest(installDir) {
-    const candidates = [
-      // A SteamCMD install keeps its manifest inside the install folder. A Steam client install lives
-      // in <library>/steamapps/common/<name>, with the manifest two levels up.
-      path.join(installDir, 'steamapps', `appmanifest_${APP_ID}.acf`),
-      path.resolve(installDir, '..', '..', `appmanifest_${APP_ID}.acf`),
-    ];
-    for (const manifestPath of candidates) {
-      if (!exists(manifestPath)) continue;
-      // A manifest SteamCMD is still writing, or left half-written by a failed update, reads as no
-      // manifest rather than an error, so a failure is never hidden behind a parse error.
-      let app;
-      try {
-        app = parseKeyValues(fs.readFileSync(manifestPath, 'utf8')).AppState;
-      } catch {
-        continue;
-      }
-      if (app)
-        return {
-          buildId: app.buildid ?? null,
-          stateFlags: app.StateFlags ?? null,
-          fullyInstalled: app.StateFlags === '4',
-          path: manifestPath,
-        };
-    }
-    return null;
+    return readAppManifest(installDir);
   }
   return {
     exePath,

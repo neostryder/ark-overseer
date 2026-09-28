@@ -1,5 +1,6 @@
 import { nowIso } from '../db/index.js';
 import fs from 'node:fs';
+import { MESSAGES } from '../import/phase0.js';
 
 export function createInstallHandlers({ db, steamcmd }) {
   // A manifest that cannot be read counts as not installed. An exception here would leave the
@@ -18,6 +19,8 @@ export function createInstallHandlers({ db, steamcmd }) {
     if (id == null) throw new Error('Install job is missing installId');
     const row = db.prepare('SELECT * FROM installs WHERE id = ?').get(id);
     if (!row) throw new Error(`Install ${id} was not found`);
+    // SteamCMD writing into a Steam library would fight Steam over the same files and manifest.
+    if (row.source === 'steam-client') throw new Error(MESSAGES.steamClientInstall);
     const active = db
       .prepare(
         "SELECT 1 AS found FROM servers WHERE install_id = ? AND observed_state IN ('running', 'starting', 'stopping') LIMIT 1",
