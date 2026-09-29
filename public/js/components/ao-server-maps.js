@@ -8,6 +8,7 @@ function el(tag, text, className = '') {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
   if (className) node.className = className;
+  if (text !== undefined && className.includes('map-name')) node.title = text;
   return node;
 }
 const count = (n, one, many) => (n === 1 ? one : many).replace('{count}', n);
@@ -43,7 +44,7 @@ export class AoServerMaps extends HTMLElement {
     }
   }
   picture(map, name, generic = false) {
-    return mapPicture({ map, name, serverId: this.serverId, showArt: this.data.showArt, generic });
+    return mapPicture({ map, name, serverId: this.serverId, showArt: this.data.showArt, generic, eager: generic });
   }
   // What is known about a save, as short lines: when it was written and how big the world file is.
   saveLines(save) {

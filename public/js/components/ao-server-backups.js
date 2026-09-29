@@ -27,6 +27,7 @@ function el(tag, text, className = '') {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
   if (className) node.className = className;
+  if (text !== undefined && className.includes('diff-name')) node.title = text;
   return node;
 }
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
@@ -237,6 +238,7 @@ export class AoServerBackups extends HTMLElement {
     const form = el('div', undefined, 'note-form');
     const input = document.createElement('input');
     input.maxLength = NOTE_MAX;
+    input.enterKeyHint = 'done';
     input.value = item.note ?? '';
     const label = el('label', undefined, 'field-label');
     label.append(el('span', b.noteLabel), input, el('small', b.noteHelp));
@@ -317,6 +319,13 @@ export class AoServerBackups extends HTMLElement {
     dialog.setAttribute('aria-labelledby', 'restore-dialog-title');
     const title = el('h2', b.restoreTitle);
     title.id = 'restore-dialog-title';
+    const heading = el('div', undefined, 'dialog-heading');
+    const close = el('button', undefined, 'button quiet dialog-close');
+    close.type = 'button';
+    close.setAttribute('aria-label', b.cancel);
+    close.title = b.cancel;
+    close.append(icon('close'));
+    heading.append(title, close);
     const from = el('p', fill(b.restoreFrom, { time: stamp(item.created_at), map: mapLabel }), 'muted');
 
     // The scope choices.
@@ -346,6 +355,8 @@ export class AoServerBackups extends HTMLElement {
     const picker = el('div', undefined, 'player-picker');
     const filter = document.createElement('input');
     filter.type = 'search';
+    filter.inputMode = 'search';
+    filter.enterKeyHint = 'search';
     filter.autocomplete = 'off';
     const filterLabel = el('label', undefined, 'field-label');
     filterLabel.append(el('span', b.filter), filter);
@@ -439,6 +450,7 @@ export class AoServerBackups extends HTMLElement {
       opener?.focus?.();
     };
     cancel.addEventListener('click', finish);
+    close.addEventListener('click', finish);
     dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       finish();
@@ -462,7 +474,7 @@ export class AoServerBackups extends HTMLElement {
       }
     });
 
-    dialog.append(title, from, fieldset, picker, notes, error, actions);
+    dialog.append(heading, from, fieldset, picker, notes, error, actions);
     this.restoreDialog?.remove();
     this.restoreDialog = dialog;
     this.append(dialog);
@@ -479,6 +491,8 @@ export class AoServerBackups extends HTMLElement {
     const form = el('div', undefined, 'snapshot-form');
     const input = document.createElement('input');
     input.maxLength = NAME_MAX;
+    input.inputMode = 'text';
+    input.enterKeyHint = 'done';
     const label = el('label', undefined, 'field-label');
     label.append(el('span', b.snapshotName), input, el('small', b.snapshotNameHelp));
     const error = el('p', '', 'error-message');
@@ -521,6 +535,7 @@ export class AoServerBackups extends HTMLElement {
     const row = el('li', undefined, 'snapshot-row');
     const head = el('div', undefined, 'snapshot-head');
     const name = el('strong', snapshot.name, 'snapshot-name');
+    name.title = snapshot.name;
     head.append(
       name,
       el(
@@ -647,6 +662,8 @@ export class AoServerBackups extends HTMLElement {
     const form = el('div', undefined, 'note-form');
     const input = document.createElement('input');
     input.maxLength = NAME_MAX;
+    input.inputMode = 'text';
+    input.enterKeyHint = 'done';
     input.value = snapshot.name;
     const label = el('label', undefined, 'field-label');
     label.append(el('span', b.snapshotName), input, el('small', b.snapshotNameHelp));

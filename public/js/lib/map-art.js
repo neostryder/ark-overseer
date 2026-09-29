@@ -24,14 +24,14 @@ export function mapPictureUrl(map, serverId, showArt) {
 // The picture at Steam's 460:215 shape, or null when there is nothing to request. A picture that is
 // blocked or fails to load becomes a plain panel with the map's name, never a broken image.
 // With `generic`, a map with no picture, or one that fails, shows the generic picture instead.
-export function mapPicture({ map, name, serverId, showArt, generic = false }) {
+export function mapPicture({ map, name, serverId, showArt, generic = false, eager = false }) {
   const url = mapPictureUrl(map, serverId, showArt);
   if (!url && !generic) return null;
   const frame = document.createElement('div');
   frame.className = 'map-art';
   const image = document.createElement('img');
   image.alt = name;
-  image.loading = 'lazy';
+  image.loading = eager ? 'eager' : 'lazy';
   image.width = 460;
   image.height = 215;
   image.addEventListener('error', () => {

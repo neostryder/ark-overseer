@@ -40,6 +40,7 @@ export class AoFleetRail extends HTMLElement {
     thumb.width = 460;
     thumb.height = 215;
     thumb.decoding = 'async';
+    thumb.loading = this.servers?.indexOf(server) > 2 ? 'lazy' : 'eager';
     thumb.dataset.want = want;
     thumb.addEventListener('error', () => {
       markArtFailed(want);
@@ -54,6 +55,10 @@ export class AoFleetRail extends HTMLElement {
     this.app?.removeEventListener('servers-loaded', this.onServers);
   }
   render() {
+    const scroll = this.scrollTop;
+    const active = this.contains(document.activeElement) ? document.activeElement : null;
+    const focused = active?.getAttribute('href');
+    const expandFocused = active?.classList.contains('rail-expand');
     this.replaceChildren();
     this.className = 'fleet-rail';
     const brand = document.createElement('a');
@@ -65,10 +70,22 @@ export class AoFleetRail extends HTMLElement {
     const name = document.createElement('span');
     name.textContent = STRINGS.app.name;
     brand.append(mark, name);
+    brand.title = STRINGS.app.name;
+    const expand = document.createElement('button');
+    expand.className = 'button quiet rail-expand';
+    expand.type = 'button';
+    const expanded = Boolean(this.app?.classList.contains('rail-expanded'));
+    expand.setAttribute('aria-label', expanded ? STRINGS.app.collapseRail : STRINGS.app.expandRail);
+    expand.setAttribute('aria-expanded', String(expanded));
+    expand.title = expanded ? STRINGS.app.collapseRail : STRINGS.app.expandRail;
+    expand.append(icon('menu'));
+    expand.addEventListener('click', () =>
+      this.dispatchEvent(new CustomEvent('rail-toggle', { detail: { opener: expand } })),
+    );
     const heading = document.createElement('h2');
     heading.className = 'rail-heading';
     heading.textContent = STRINGS.fleet.servers;
-    this.append(brand, heading);
+    this.append(brand, expand, heading);
     if (!this.servers?.length) {
       const empty = document.createElement('p');
       empty.className = 'muted rail-empty';
@@ -79,10 +96,20 @@ export class AoFleetRail extends HTMLElement {
       const link = document.createElement('a');
       link.className = 'server-link';
       link.href = `#/servers/${server.id}/overview`;
+      link.setAttribute(
+        'aria-label',
+        STRINGS.fleet.serverLabel
+          .replace('{name}', server.name)
+          .replace('{map}', mapName(server.map))
+          .replace('{state}', stateName(server.status?.observedState)),
+      );
+      link.title = server.name;
       const serverName = document.createElement('strong');
       serverName.textContent = server.name;
+      serverName.title = server.name;
       const meta = document.createElement('span');
       meta.textContent = `${mapName(server.map)} · ${stateName(server.status?.observedState)}`;
+      meta.title = meta.textContent;
       const text = document.createElement('span');
       text.className = 'server-text';
       text.append(serverName, meta);
@@ -95,7 +122,10 @@ export class AoFleetRail extends HTMLElement {
         text.append(flag);
       }
       const thumb = this.thumbFor(server);
-      link.append(thumb, text);
+      const status = document.createElement('span');
+      status.className = `rail-status ${server.status?.observedState ?? 'unknown'}`;
+      status.setAttribute('aria-hidden', 'true');
+      link.append(thumb, status, text);
       this.append(link);
     }
     if (this.refreshError) {
@@ -108,17 +138,24 @@ export class AoFleetRail extends HTMLElement {
     add.className = 'button secondary rail-add';
     add.href = '#/setup';
     add.append(icon('add'), STRINGS.fleet.add);
+    add.title = STRINGS.fleet.add;
     this.append(add);
     const bottom = document.createElement('div');
     bottom.className = 'rail-bottom';
     const account = document.createElement('a');
     account.href = '#/account';
-    account.append(icon('account'), STRINGS.fleet.account);
+    account.setAttribute('aria-label', STRINGS.fleet.account);
+    account.title = STRINGS.fleet.account;
+    account.append(icon('account'), document.createTextNode(STRINGS.fleet.account));
     const host = document.createElement('a');
     host.href = '#/host';
-    host.append(icon('settings'), STRINGS.fleet.host);
+    host.setAttribute('aria-label', STRINGS.fleet.host);
+    host.title = STRINGS.fleet.host;
+    host.append(icon('settings'), document.createTextNode(STRINGS.fleet.host));
     const signOut = document.createElement('button');
     signOut.className = 'button quiet';
+    signOut.setAttribute('aria-label', STRINGS.fleet.signOut);
+    signOut.title = STRINGS.fleet.signOut;
     signOut.append(icon('sign-out'), STRINGS.fleet.signOut);
     signOut.addEventListener('click', async () => {
       try {
@@ -129,6 +166,9 @@ export class AoFleetRail extends HTMLElement {
     });
     bottom.append(host, account, signOut);
     this.append(bottom);
+    this.scrollTop = scroll;
+    if (focused) [...this.querySelectorAll('a[href]')].find((link) => link.getAttribute('href') === focused)?.focus();
+    else if (expandFocused) expand.focus();
   }
 }
 customElements.define('ao-fleet-rail', AoFleetRail);

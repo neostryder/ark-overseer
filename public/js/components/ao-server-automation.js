@@ -103,6 +103,8 @@ export class AoServerAutomation extends HTMLElement {
     if ('keep' in DEFAULTS[kind].options) {
       const keep = document.createElement('input');
       keep.type = 'number';
+      keep.inputMode = 'numeric';
+      keep.enterKeyHint = 'done';
       keep.min = 1;
       keep.max = 100;
       keep.value = options.keep;
@@ -156,11 +158,13 @@ export class AoServerAutomation extends HTMLElement {
     time.value = `${String(picker.hour ?? 0).padStart(2, '0')}:${String(picker.minute ?? 0).padStart(2, '0')}`;
     const hours = document.createElement('input');
     hours.type = 'number';
+    hours.inputMode = 'numeric';
     hours.min = 1;
     hours.max = 23;
     hours.value = picker.hours ?? 6;
     const minute = document.createElement('input');
     minute.type = 'number';
+    minute.inputMode = 'numeric';
     minute.min = 0;
     minute.max = 59;
     minute.value = picker.minute ?? 0;

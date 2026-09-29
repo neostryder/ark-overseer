@@ -48,6 +48,8 @@ export class AoServerNetwork extends HTMLElement {
       wrap.textContent = label;
       const input = document.createElement('input');
       input.type = 'number';
+      input.inputMode = 'numeric';
+      input.enterKeyHint = 'done';
       input.min = 1;
       input.max = 65535;
       input.value = this.server[column] ?? '';

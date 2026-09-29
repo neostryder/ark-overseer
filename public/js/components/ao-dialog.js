@@ -1,4 +1,5 @@
 import { STRINGS } from '../strings.js';
+import { icon } from '../lib/icon.js';
 export class AoDialog extends HTMLElement {
   connectedCallback() {
     if (this.querySelector('dialog')) return;
@@ -7,6 +8,15 @@ export class AoDialog extends HTMLElement {
     const title = document.createElement('h2');
     title.id = 'ao-dialog-title';
     dialog.setAttribute('aria-labelledby', title.id);
+    const heading = document.createElement('div');
+    heading.className = 'dialog-heading';
+    const close = document.createElement('button');
+    close.className = 'button quiet dialog-close';
+    close.type = 'button';
+    close.setAttribute('aria-label', STRINGS.dialog.cancel);
+    close.title = STRINGS.dialog.cancel;
+    close.append(icon('close'));
+    heading.append(title, close);
     const message = document.createElement('p');
     const actions = document.createElement('div');
     actions.className = 'button-row';
@@ -17,9 +27,10 @@ export class AoDialog extends HTMLElement {
     confirm.className = 'button primary';
     confirm.textContent = STRINGS.dialog.confirm;
     actions.append(cancel, confirm);
-    dialog.append(title, message, actions);
+    dialog.append(heading, message, actions);
     this.append(dialog);
     cancel.addEventListener('click', () => this.finish(false));
+    close.addEventListener('click', () => this.finish(false));
     confirm.addEventListener('click', () => this.finish(true));
     dialog.addEventListener('cancel', (event) => {
       event.preventDefault();

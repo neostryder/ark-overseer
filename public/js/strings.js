@@ -13,6 +13,8 @@ export const STRINGS = {
     closeMenu: 'Close menu',
     jobs: 'Jobs',
     menuButton: 'Menu',
+    expandRail: 'Expand server list',
+    collapseRail: 'Collapse server list',
   },
   login: {
     loading: 'Loading sign in',
@@ -37,6 +39,7 @@ export const STRINGS = {
     signOut: 'Sign out',
     settingsChanged: 'Settings changed',
     settingsChangedHelp: 'The settings files changed outside ARK Overseer.',
+    serverLabel: '{name}, {map}, {state}',
   },
   host: {
     title: 'This computer',

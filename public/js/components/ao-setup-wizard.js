@@ -26,6 +26,7 @@ function node(tag, text, className = '') {
   const el = document.createElement(tag);
   if (text !== undefined) el.textContent = text;
   if (className) el.className = className;
+  if (text !== undefined && tag === 'dd') el.title = text;
   return el;
 }
 function button(text, className, onClick, iconName) {
@@ -333,6 +334,9 @@ export class AoSetupWizard extends HTMLElement {
     const input = (key, type = 'text') => {
       const el = document.createElement('input');
       el.type = type;
+      if (type === 'number') el.inputMode = 'numeric';
+      else el.inputMode = 'text';
+      el.enterKeyHint = 'next';
       el.value = s[key] ?? '';
       el.addEventListener('input', () => {
         s[key] = type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value;
@@ -413,6 +417,8 @@ export class AoSetupWizard extends HTMLElement {
     for (const key of ['gamePort', 'queryPort', 'rconPort']) {
       const el = document.createElement('input');
       el.type = 'number';
+      el.inputMode = 'numeric';
+      el.enterKeyHint = 'next';
       el.min = 1;
       el.max = 65535;
       el.value = s[key] ?? '';
@@ -683,6 +689,7 @@ export class AoSetupWizard extends HTMLElement {
       s = this.s;
     const folder = document.createElement('input');
     folder.value = s.dashboardDir;
+    folder.enterKeyHint = 'done';
     folder.placeholder = w.dashboardExample;
     folder.addEventListener('input', () => {
       s.dashboardDir = folder.value;

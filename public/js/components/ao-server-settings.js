@@ -63,6 +63,8 @@ export class AoServerSettings extends HTMLElement {
     this.driftEl.setBlocked(this.changes().length > 0);
     const search = document.createElement('input');
     search.type = 'search';
+    search.inputMode = 'search';
+    search.enterKeyHint = 'search';
     search.placeholder = STRINGS.settings.search;
     search.setAttribute('aria-label', STRINGS.settings.search);
     search.value = this.query;
@@ -234,6 +236,9 @@ export class AoServerSettings extends HTMLElement {
     } else {
       input.type =
         field.type === 'password' ? 'password' : field.type === 'int' || field.type === 'float' ? 'number' : 'text';
+      if (field.type === 'int' || field.type === 'float')
+        input.inputMode = field.type === 'int' ? 'numeric' : 'decimal';
+      input.enterKeyHint = 'done';
       input.value = display.value === '(none)' || display.value === '(game default)' ? '' : String(display.value ?? '');
       if (field.min !== undefined) input.min = field.min;
       if (field.max !== undefined) input.max = field.max;
@@ -247,7 +252,10 @@ export class AoServerSettings extends HTMLElement {
     const description = document.createElement('p');
     description.className = 'muted';
     description.textContent = field.description || '';
-    row.append(label, input, description);
+    if (field.type === 'bool') label.append(input);
+    row.append(label);
+    if (field.type !== 'bool') row.append(input);
+    row.append(description);
     if ((field.type === 'int' || field.type === 'float') && field.min !== undefined && field.max !== undefined) {
       const slider = document.createElement('input');
       slider.type = 'range';

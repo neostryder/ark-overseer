@@ -33,6 +33,7 @@ export class AoServerOverview extends HTMLElement {
     this.className = 'screen';
     const title = document.createElement('h1');
     title.textContent = s.name;
+    title.title = s.name;
     this.append(title);
     const pill = document.createElement('p');
     pill.className = `status ${state}`;
@@ -88,6 +89,7 @@ export class AoServerOverview extends HTMLElement {
       const data = document.createElement('strong');
       data.textContent =
         value === null || value === undefined || value === '' ? STRINGS.overview.notSet : String(value);
+      data.title = data.textContent;
       card.append(term, data);
       cards.append(card);
     }
