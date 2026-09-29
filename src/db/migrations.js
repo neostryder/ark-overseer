@@ -217,6 +217,40 @@ export const MIGRATIONS = [
         created_at TEXT NOT NULL
       );`,
   },
+  {
+    version: 8,
+    name: 'restore',
+    // A backup's map is filled in for new backups; an older row keeps NULL until the API reads the map
+    // from the backup's manifest and writes it back, since SQL cannot open the file. Names of settings
+    // snapshots ignore letter case, so "Base" and "base" cannot both exist for one server.
+    up: `
+      ALTER TABLE backups ADD COLUMN map TEXT;
+      ALTER TABLE backups ADD COLUMN note TEXT;
+
+      CREATE TABLE settings_snapshots (
+        id INTEGER PRIMARY KEY,
+        server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+        name TEXT NOT NULL COLLATE NOCASE CHECK (length(name) BETWEEN 1 AND 64),
+        created_at TEXT NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        size_bytes INTEGER,
+        sha256 TEXT
+      );
+      CREATE UNIQUE INDEX idx_settings_snapshots_name ON settings_snapshots(server_id, name);
+
+      -- A restore that has not finished. The row is written before the server is stopped and removed once
+      -- the restore is settled, so a restart in between can put the files back.
+      CREATE TABLE pending_restores (
+        server_id INTEGER PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+        job_id INTEGER,
+        backup_id INTEGER,
+        scope TEXT NOT NULL,
+        safety_backup_id INTEGER,
+        was_running INTEGER NOT NULL,
+        started_at TEXT NOT NULL,
+        stage TEXT NOT NULL
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

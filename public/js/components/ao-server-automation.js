@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
-import { byteSize, jobState } from '../lib/format.js';
+import { jobState } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
 import { cronToPicker, pickerToCron, parseCountdown } from '../lib/cron-picker.js';
 
@@ -17,7 +17,6 @@ const DEFAULTS = {
     options: { countdownMinutes: [15, 5, 1], announce: 'chat', keep: 10 },
   },
 };
-const POLL_MS = 2000;
 
 function el(tag, text, className = '') {
   const node = document.createElement(tag);
@@ -39,16 +38,12 @@ export class AoServerAutomation extends HTMLElement {
     this.id = this.getAttribute('server-id');
     await this.load();
   }
-  disconnectedCallback() {
-    clearTimeout(this.pollTimer);
-  }
   async load() {
     this.replaceChildren(el('p', STRINGS.app.loading));
     try {
-      [this.server, this.schedules, this.backups] = await Promise.all([
+      [this.server, this.schedules] = await Promise.all([
         api.get(`/api/servers/${this.id}`),
         api.get(`/api/servers/${this.id}/schedules`),
-        api.get(`/api/servers/${this.id}/backups`),
       ]);
       this.render();
     } catch (error) {
@@ -64,7 +59,7 @@ export class AoServerAutomation extends HTMLElement {
     this.append(el('h1', a.title), el('p', a.intro, 'muted'));
     const steamOnly = this.server.install?.source === 'steam-client';
     for (const kind of KINDS) this.append(this.card(kind, steamOnly));
-    this.append(this.backupSection());
+    this.append(this.backupsNote());
   }
   card(kind, steamOnly) {
     const a = STRINGS.automation;
@@ -197,65 +192,18 @@ export class AoServerAutomation extends HTMLElement {
       });
     };
   }
-  backupSection() {
+  // The backup list moved to its own tab; the schedule above stays here.
+  backupsNote() {
     const a = STRINGS.automation;
     const section = el('section', undefined, 'card');
-    section.append(el('h2', a.backups), el('p', a.backupsHelp, 'muted'));
-    const status = el('p', '', 'wizard-progress');
-    status.setAttribute('aria-live', 'polite');
-    const now = el('button', undefined, 'button primary');
-    now.append(icon('add'), a.backUpNow);
-    now.disabled = Boolean(this.pollTimer);
-    now.addEventListener('click', async () => {
-      now.disabled = true;
-      status.textContent = '';
-      try {
-        const job = await api.post(`/api/servers/${this.id}/backups`, {});
-        status.textContent = a.backingUp;
-        this.follow(job.id, status);
-      } catch (error) {
-        status.textContent = error.message;
-        now.disabled = false;
-      }
-    });
-    section.append(now, status);
-    if (!this.backups.length) {
-      section.append(el('p', a.noBackups));
-      return section;
-    }
-    const list = el('ul', undefined, 'backup-list');
-    for (const item of this.backups)
-      list.append(
-        el(
-          'li',
-          `${when(item.created_at)}. ${a.reasons[item.reason] ?? item.reason}. ${byteSize(item.size_bytes)}, ${item.files} ${a.files}.`,
-        ),
-      );
-    section.append(list);
+    section.append(el('p', a.backupsHelp, 'muted'));
+    const link = document.createElement('a');
+    link.href = `#/servers/${this.id}/backups`;
+    link.textContent = a.backupsLinkText;
+    const line = el('p', `${a.backupsLink} `);
+    line.append(link, '.');
+    section.append(line);
     return section;
-  }
-  // Polls the one job until it ends, then reloads once; the page is left alone while it runs.
-  follow(jobId, status) {
-    const tick = async () => {
-      this.pollTimer = null;
-      if (!this.isConnected) return;
-      try {
-        const job = (await api.get('/api/jobs')).find((item) => item.id === jobId);
-        if (job && !['queued', 'running'].includes(job.state)) {
-          if (job.state === 'succeeded') document.querySelector('ao-toast')?.show(STRINGS.automation.backedUp);
-          await this.load();
-          if (job.state !== 'succeeded') {
-            const again = this.querySelector('.wizard-progress');
-            if (again) again.textContent = job.error || jobState(job.state);
-          }
-          return;
-        }
-      } catch (error) {
-        status.textContent = error.message;
-      }
-      this.pollTimer = setTimeout(tick, POLL_MS);
-    };
-    this.pollTimer = setTimeout(tick, POLL_MS);
   }
 }
 customElements.define('ao-server-automation', AoServerAutomation);

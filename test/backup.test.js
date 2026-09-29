@@ -148,3 +148,66 @@ test('a cancelled backup stops between files and leaves no folder or row behind'
   const serverDir = path.join(dataDir, 'backups', 'server-1');
   assert.deepEqual(fs.existsSync(serverDir) ? fs.readdirSync(serverDir) : [], []);
 });
+
+test('a backup records its map, and a restore backup can name another map or leave a part out', async (t) => {
+  const { db, run, root } = setup(t);
+  const saved = path.join(root, 'ASA', 'ShooterGame', 'Saved', 'SavedArks', 'Ragnarok_WP');
+  fs.mkdirSync(saved, { recursive: true });
+  fs.writeFileSync(path.join(saved, 'Ragnarok_WP.ark'), 'other world');
+  await run();
+  const other = await run({ map: 'Ragnarok_WP', include: { config: false } });
+  const settingsOnly = await run({ include: { world: false } });
+  assert.deepEqual(
+    other.files.map((f) => f.relPath),
+    ['SavedArks/Ragnarok_WP/Ragnarok_WP.ark'],
+  );
+  assert.deepEqual(
+    settingsOnly.files.map((f) => f.relPath),
+    ['Config/WindowsServer/Game.ini'],
+  );
+  assert.deepEqual(
+    db
+      .prepare('SELECT map, note FROM backups ORDER BY id')
+      .all()
+      .map((row) => ({ ...row })),
+    [
+      { map: 'TheIsland_WP', note: null },
+      { map: 'Ragnarok_WP', note: null },
+      { map: null, note: null },
+    ],
+  );
+});
+
+test('a backup with nothing to copy fails with a code the restore can tell apart', async (t) => {
+  const { run } = setup(t, { config: false, world: false });
+  await assert.rejects(run(), { code: 'EMPTY_BACKUP', message: MESSAGES.emptyBackup });
+  const { run: again } = setup(t);
+  await assert.rejects(again({ include: { world: false, config: false } }), { code: 'EMPTY_BACKUP' });
+});
+
+test('pruning never removes a backup taken before a restore, a map change, an import or a rollback', async (t) => {
+  const { db, run, tick, dataDir } = setup(t);
+  const kept = ['pre_restore', 'pre_switch', 'pre_import', 'pre_rollback'];
+  const made = [];
+  for (const reason of [...kept, 'manual', 'manual', 'scheduled']) {
+    made.push({ reason, ...(await run({ reason })) });
+    tick(1000);
+  }
+  pruneBackups({ db, serverId: 1, keep: 1, dataDir });
+  const left = db
+    .prepare('SELECT reason FROM backups ORDER BY id')
+    .all()
+    .map((row) => row.reason);
+  assert.deepEqual(left, [...kept, 'scheduled']);
+  for (const item of made)
+    assert.equal(fs.existsSync(item.path), left.includes(item.reason) || item.reason === 'scheduled');
+  // Even with keep at zero, only manual and scheduled backups can go.
+  pruneBackups({ db, serverId: 1, keep: 0, dataDir });
+  assert.deepEqual(
+    db
+      .prepare('SELECT reason FROM backups ORDER BY id')
+      .all()
+      .map((row) => row.reason),
+    kept,
+  );
+});

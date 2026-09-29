@@ -799,6 +799,259 @@ pre {
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* The Backups page: a timeline of backups, the restore dialog, and the settings snapshots. */
+.backups-screen {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.backups-screen > * {
+  min-width: 0;
+}
+.backup-actions-card,
+.backup-timeline-card,
+.snapshot-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  margin-bottom: 0;
+}
+.backup-actions-card {
+  justify-items: start;
+}
+.backup-job,
+.backup-notice {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.backup-day {
+  margin: 8px 0 0;
+  font-size: 1.05rem;
+}
+.backup-timeline,
+.snapshot-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.backup-entry,
+.snapshot-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(16, 18, 14, 0.6);
+}
+.backup-head,
+.snapshot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.backup-time {
+  font-family: var(--font-mono);
+}
+.badge {
+  padding: 2px 9px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.badge.safety {
+  border-color: rgba(63, 184, 168, 0.55);
+  color: var(--teal);
+}
+.backup-meta,
+.backup-problem,
+.backup-note,
+.snapshot-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.backup-actions,
+.snapshot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.note-form {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.note-form .button-row {
+  margin: 0;
+}
+.snapshot-form {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.snapshot-form .field-label {
+  width: 100%;
+}
+.snapshot-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.diff {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.diff-file {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.diff-name,
+.diff-section {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.diff-name {
+  font: 500 0.95rem var(--font-mono);
+}
+.diff-section {
+  color: var(--gold);
+  font-size: 0.9rem;
+}
+.diff-row {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--gold);
+  background: rgba(16, 18, 14, 0.7);
+}
+.diff-row.added {
+  border-left-color: var(--teal);
+}
+.diff-row.removed {
+  border-left-color: #f08c82;
+}
+.diff-key {
+  overflow-wrap: anywhere;
+}
+.diff-kind {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.diff-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.diff-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.diff-cell code {
+  font: 500 0.85rem var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.restore-dialog {
+  max-width: min(640px, calc(100vw - 30px));
+  max-height: calc(100dvh - 30px);
+  overflow: auto;
+}
+.restore-dialog h2 {
+  margin-top: 0;
+}
+.scope-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+}
+.scope-list legend {
+  padding: 0 0 6px;
+  font-weight: 600;
+}
+.scope-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.scope-option input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+.scope-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.scope-text small {
+  overflow-wrap: anywhere;
+}
+.player-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.player-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.player-column {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+.player-column h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.player-rows {
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+}
+.player-row {
+  align-items: flex-start;
+  min-height: 44px;
+}
+.player-row span {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.restore-notes {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .diff-values,
+  .player-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dialog.restore-dialog {
+    padding: 16px;
+  }
+}
 @media (max-width: 900px) {
   .app-frame {
     grid-template-columns: 220px minmax(0, 1fr);

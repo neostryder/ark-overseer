@@ -24,7 +24,7 @@ function httpError(status, code, message) {
   return e;
 }
 async function bodyOf(req) {
-  if (!['POST', 'PUT', 'DELETE'].includes(req.method)) return {};
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return {};
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || ''))
     throw httpError(415, 'badJson', 'The request body must be JSON.');
   const chunks = [];

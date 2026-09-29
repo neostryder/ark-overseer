@@ -9,6 +9,7 @@ import './components/ao-fleet-rail.js';
 import './components/ao-server-overview.js';
 import './components/ao-server-settings.js';
 import './components/ao-server-maps.js';
+import './components/ao-server-backups.js';
 import './components/ao-server-network.js';
 import './components/ao-server-automation.js';
 import './components/ao-jobs-panel.js';
@@ -165,7 +166,7 @@ class AoApp extends HTMLElement {
       route.id = this.servers[0].id;
       window.history.replaceState(null, '', `#/servers/${route.id}/overview`);
     }
-    if (['overview', 'settings', 'maps', 'network', 'automation'].includes(route.screen)) {
+    if (['overview', 'settings', 'maps', 'backups', 'network', 'automation'].includes(route.screen)) {
       if (this.servers && !this.servers.some((s) => s.id === route.id)) {
         this.view.textContent = STRINGS.app.emptyServers;
         return;
@@ -174,6 +175,7 @@ class AoApp extends HTMLElement {
         overview: 'ao-server-overview',
         settings: 'ao-server-settings',
         maps: 'ao-server-maps',
+        backups: 'ao-server-backups',
         network: 'ao-server-network',
         automation: 'ao-server-automation',
       }[route.screen];
@@ -185,6 +187,7 @@ class AoApp extends HTMLElement {
         ['overview', STRINGS.overview.title],
         ['settings', STRINGS.settings.title],
         ['maps', STRINGS.maps.title],
+        ['backups', STRINGS.backups.title],
         ['network', STRINGS.network.title],
         ['automation', STRINGS.automation.title],
       ]) {
@@ -192,7 +195,14 @@ class AoApp extends HTMLElement {
         a.href = `#/servers/${route.id}/${screen}`;
         a.append(
           icon(
-            { overview: 'server', settings: 'settings', maps: 'map', network: 'network', automation: 'jobs' }[screen],
+            {
+              overview: 'server',
+              settings: 'settings',
+              maps: 'map',
+              backups: 'backup',
+              network: 'network',
+              automation: 'jobs',
+            }[screen],
           ),
           label,
         );

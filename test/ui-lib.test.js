@@ -30,6 +30,7 @@ test('route parsing and building covers supported routes', () => {
     { screen: 'overview', id: 3 },
     { screen: 'settings', id: 4 },
     { screen: 'maps', id: 4 },
+    { screen: 'backups', id: 4 },
     { screen: 'network', id: 5 },
     { screen: 'automation', id: 5 },
     { screen: 'jobs' },

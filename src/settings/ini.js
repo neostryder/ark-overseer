@@ -71,7 +71,7 @@ export function writeIniLines(iniPath, lines) {
 //
 // A header is read the way the game reads it: the name between the brackets, ignoring anything after
 // the closing bracket, so "[ServerSettings] ; managed" is still [ServerSettings].
-function headerName(line) {
+export function headerName(line) {
   const m = line.trimStart().match(/^\[([^\]]*)\]/);
   return m ? m[1].trim().toLowerCase() : null;
 }

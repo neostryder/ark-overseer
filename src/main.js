@@ -24,6 +24,8 @@ import { createGamingMode } from './gaming/gaming-mode.js';
 import { createCatalog, scheduleCatalogRefresh } from './maps/catalog.js';
 import { createArtResolver } from './maps/art.js';
 import { createSwitchHandlers, reconcilePendingSwitches } from './maps/switch.js';
+import { createRestoreHandlers, reconcilePendingRestores } from './backups/restore.js';
+import { createSettingsSnapshotHandlers } from './backups/settings-snapshots.js';
 import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
@@ -64,6 +66,8 @@ export async function start() {
     ...createInstallHandlers({ db, steamcmd }),
     ...createScheduleHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
     ...createSwitchHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
+    ...createRestoreHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
+    ...createSettingsSnapshotHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword }),
   };
   const jobs = createJobEngine({ db, handlers });
   const scheduler = createScheduler({ db, jobs });
@@ -111,6 +115,11 @@ export async function start() {
     // A map switch cut off by the last shutdown is undone first, so a server that was running comes back
     // on the map it had before, and one still running on the new map is restarted onto the old one.
     const undone = reconcilePendingSwitches({ db }).filter((entry) => entry.changed && entry.wasRunning);
+    // A restore cut off by the last shutdown is settled the same way: the files are put back, or the old copies
+    // are removed if the swap was whole. A server that was running is started again once the supervisor is up.
+    const settled = await reconcilePendingRestores({ db });
+    for (const item of settled.filter((entry) => entry.failed))
+      console.error(`Settling the interrupted restore for server ${item.serverId} failed: ${item.failed}`);
     const pidsBefore = new Map(undone.map((entry) => [entry.serverId, supervisor.status(entry.serverId)?.pid ?? null]));
     jobs.start();
     scheduler.start();
@@ -128,6 +137,12 @@ export async function start() {
             ),
           );
     }
+    for (const item of settled.filter((entry) => entry.wasRunning))
+      void supervisor
+        .start(item.serverId)
+        .catch((error) =>
+          console.error(`Starting server ${item.serverId} after an interrupted restore failed: ${error.message}`),
+        );
     supervisor.startPolling();
     await gaming.start();
     await new Promise((resolve, reject) => {

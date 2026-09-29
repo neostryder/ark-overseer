@@ -2,6 +2,7 @@ const patterns = [
   [/^#\/servers\/(\d+)\/overview$/, (m) => ({ screen: 'overview', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/settings$/, (m) => ({ screen: 'settings', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/maps$/, (m) => ({ screen: 'maps', id: Number(m[1]) })],
+  [/^#\/servers\/(\d+)\/backups$/, (m) => ({ screen: 'backups', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/network$/, (m) => ({ screen: 'network', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/automation$/, (m) => ({ screen: 'automation', id: Number(m[1]) })],
   [/^#\/jobs$/, () => ({ screen: 'jobs' })],
@@ -22,7 +23,7 @@ export function buildRoute(route) {
   if (typeof route === 'string') return route.startsWith('#') ? route : `#${route}`;
   if (route?.screen === 'home') return '#/';
   if (
-    ['overview', 'settings', 'maps', 'network', 'automation'].includes(route?.screen) &&
+    ['overview', 'settings', 'maps', 'backups', 'network', 'automation'].includes(route?.screen) &&
     Number.isInteger(Number(route.id)) &&
     Number(route.id) > 0
   )

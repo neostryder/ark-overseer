@@ -47,6 +47,7 @@ test('the sprite holds every planned icon and every icon the pages use', () => {
     'sign-out',
     'chevron',
     'map',
+    'backup',
   ])
     assert.ok(symbols.has(name), `sprite has no ${name}`);
   // Pages call icon('name'), or icon({ key: 'name' }[key]) to pick one per button.

@@ -33,7 +33,7 @@ export const MESSAGES = {
 const SAVE_FILE = /\.(arkprofile|profilebak|arktribe|tribebak)$/i;
 const CONFIG_FILES = ['GameUserSettings.ini', 'Game.ini', 'Engine.ini'];
 
-const hashFile = async (file) => {
+export const hashFile = async (file) => {
   const hash = createHash('sha256');
   let size = 0;
   for await (const chunk of fs.createReadStream(file)) {
@@ -233,7 +233,7 @@ export function previewImport(db, detection, { hostName = 'local', listeners = [
 }
 
 // Copies one file and returns the hash of what was written, computed as it streams through.
-async function copyHashed(source, target) {
+export async function copyHashed(source, target) {
   const hash = createHash('sha256');
   let size = 0;
   const hasher = new Transform({

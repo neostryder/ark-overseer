@@ -10,7 +10,7 @@ export const MESSAGES = {
   missingConfig: 'The settings folder was not found.',
 };
 
-function collectFiles(folder, prefix, output) {
+export function collectFiles(folder, prefix, output) {
   if (!fs.existsSync(folder)) return false;
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -24,6 +24,8 @@ function collectFiles(folder, prefix, output) {
   return true;
 }
 
+// `map` names the world folder to copy when it is not the server's current map (a restore backs up the map
+// it is about to replace). `include` leaves out the world or the settings for a backup that needs only one.
 export async function backupServer({
   db,
   server,
@@ -35,6 +37,8 @@ export async function backupServer({
   now = () => Date.now(),
   jobId = null,
   signal,
+  map = server.map,
+  include = {},
 }) {
   const skipped = [];
   if (await isRunning(server.id)) {
@@ -47,10 +51,13 @@ export async function backupServer({
   }
   const paths = serverPaths(server.install_path),
     sources = [];
-  const world = path.join(server.install_path, 'ShooterGame', 'Saved', 'SavedArks', server.map);
-  if (!collectFiles(world, `SavedArks/${server.map}`, sources)) skipped.push(MESSAGES.missingWorld);
-  if (!collectFiles(paths.configDir, 'Config/WindowsServer', sources)) skipped.push(MESSAGES.missingConfig);
-  if (!sources.length) throw new Error(MESSAGES.emptyBackup);
+  const world = path.join(server.install_path, 'ShooterGame', 'Saved', 'SavedArks', map);
+  if (include.world !== false && !collectFiles(world, `SavedArks/${map}`, sources)) skipped.push(MESSAGES.missingWorld);
+  if (include.config !== false && !collectFiles(paths.configDir, 'Config/WindowsServer', sources))
+    skipped.push(MESSAGES.missingConfig);
+  // A backup that holds no world files belongs to no map, so it records none.
+  const recordedMap = sources.some((source) => source.relPath.startsWith(`SavedArks/${map}/`)) ? map : null;
+  if (!sources.length) throw Object.assign(new Error(MESSAGES.emptyBackup), { code: 'EMPTY_BACKUP' });
   const stamp = new Date(now()).toISOString().replace(/[-:]/g, '').replace('.', '-');
   const base = path.join(dataDir, 'backups', `server-${server.id}`, `${stamp}-${reason}`);
   // snapshotFiles refuses a folder that already exists, so a second backup in the same millisecond
@@ -66,9 +73,9 @@ export async function backupServer({
   const createdAt = new Date(now()).toISOString();
   const result = db
     .prepare(
-      'INSERT INTO backups (created_at, server_id, job_id, reason, path, size_bytes, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO backups (created_at, server_id, job_id, reason, path, size_bytes, sha256, map) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(createdAt, server.id, jobId, reason, snapshot.path, snapshot.sizeBytes, snapshot.sha256);
+    .run(createdAt, server.id, jobId, reason, snapshot.path, snapshot.sizeBytes, snapshot.sha256, recordedMap);
   return {
     backupId: Number(result.lastInsertRowid),
     path: snapshot.path,

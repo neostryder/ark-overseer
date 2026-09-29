@@ -20,6 +20,7 @@ import { createArtResolver, findModPreview } from './maps/art.js';
 import { saveInventory } from './maps/inventory.js';
 import { findModMaps, withModMaps } from './maps/mod-maps.js';
 import { checkSwitch, SWITCH_MESSAGES } from './maps/switch.js';
+import { registerBackupRoutes, FILE_JOBS } from './backups/api.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -138,13 +139,14 @@ export function createApp({
       record(ctx.user, action, kind, ctx.params.id ?? result?.id ?? null, detail(ctx));
       return result;
     };
-  const switchRunning = (serverId) =>
+  // The jobs that change the files under a server, or stop and start it in steps that must not be interleaved.
+  const fileJobRunning = (serverId) =>
     Boolean(
       db
         .prepare(
-          "SELECT 1 FROM jobs WHERE kind = 'server.switch_map' AND state IN ('queued', 'running') AND server_id = ? LIMIT 1",
+          `SELECT 1 FROM jobs WHERE kind IN (${FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND server_id = ? LIMIT 1`,
         )
-        .get(serverId),
+        .get(...FILE_JOBS, serverId),
     );
   const showArt = () => Boolean(hostRow()?.show_map_art ?? 1);
   for (const [key, route] of Object.entries(auth.routes)) {
@@ -499,21 +501,6 @@ export function createApp({
       (ctx) => ({ mapId: ctx.body.mapId, addMod: ctx.body.addMod === true }),
     ),
   );
-  router.add('GET', '/api/servers/:id/backups', async ({ params }) => {
-    must(serverRow(db, params.id));
-    return Promise.all(
-      db
-        .prepare('SELECT * FROM backups WHERE server_id = ? ORDER BY created_at DESC, id DESC')
-        .all(params.id)
-        .map(async (row) => {
-          let files = 0;
-          try {
-            files = JSON.parse(await fs.readFile(path.join(row.path, 'snapshot.json'), 'utf8')).files.length;
-          } catch {}
-          return { ...row, files };
-        }),
-    );
-  });
   router.add(
     'POST',
     '/api/servers/:id/backups',
@@ -528,6 +515,18 @@ export function createApp({
       return jobs.enqueue('server.backup', { reason: 'manual', ...(keep ? { keep } : {}) }, { serverId: params.id });
     }),
   );
+  registerBackupRoutes({
+    router,
+    db,
+    dataDir,
+    jobs,
+    supervisor,
+    protectedRoute,
+    must,
+    error,
+    serverRow,
+    messages: API_MESSAGES,
+  });
   router.add(
     'POST',
     '/api/installs/:id/check-update',
@@ -632,8 +631,8 @@ export function createApp({
       `/api/servers/:id/${verb}`,
       protectedRoute(`server.${verb}`, 'server', async ({ params }) => {
         must(serverRow(db, params.id));
-        // A map switch stops and starts the server itself, in steps that must not be interleaved.
-        if (switchRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
+        // A map switch or a restore stops and starts the server itself, in steps that must not be interleaved.
+        if (fileJobRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
         return supervisor[verb](params.id);
       }),
     );
@@ -655,6 +654,8 @@ export function createApp({
       'server',
       ({ params, body }) => {
         must(serverRow(db, params.id));
+        // A restore swaps settings files one by one, and a save in the middle would mix with it.
+        if (fileJobRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
         try {
           return storeFor(params.id).writeSettings(body);
         } catch (e) {
@@ -787,7 +788,7 @@ export function createApp({
     } catch {
       return sendJson(res, 400, { error: API_MESSAGES.notFound });
     }
-    const unsafe = ['POST', 'PUT', 'DELETE'].includes(req.method);
+    const unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
     if (
       unsafe &&
       !originAllowed({

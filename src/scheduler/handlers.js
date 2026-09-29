@@ -11,11 +11,20 @@ export const PLAYER_MESSAGES = {
     `Update in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back once the update installs.`,
   switchMap: (n, map) =>
     `Map change in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server comes back on ${map}.`,
+  restore: (n, scope) =>
+    `Restart in ${n} ${n === 1 ? 'minute' : 'minutes'} to restore ${
+      {
+        settings: 'the server settings from a backup. The world and your progress are kept.',
+        players: "some players and tribes from a backup. Everyone else's progress is kept.",
+      }[scope] ?? 'a backup. The world goes back to that backup, so anything done since then is lost.'
+    }`,
   restarting: 'Saving the world and restarting now.',
   updating: 'Saving the world and stopping for the update now.',
   switching: 'Saving the world and changing the map now.',
+  restoring: 'Shutting down to restore a backup now.',
   cancelled: 'The restart is off. Keep playing.',
   switchCancelled: 'The map change is off. Keep playing.',
+  restoreCancelled: 'The restore is off. Keep playing.',
 };
 export const MESSAGES = {
   noServer: 'The server was not found.',
