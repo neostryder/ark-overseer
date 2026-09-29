@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
-import { build, vendorSpecs, zip } from '../tools/build-release.js';
+import { build, thirdPartyNotices, vendorSpecs, zip } from '../tools/build-release.js';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const hash = (data) => createHash('sha256').update(data).digest('hex');
@@ -185,4 +185,33 @@ test('other-platform search runtime binaries are left out and the Windows x64 on
   assert.ok(!has('onnxruntime-node/bin/napi-v6/darwin/arm64'));
   assert.ok(!has('onnxruntime-node/bin/napi-v6/linux/x64'));
   assert.ok(!has('onnxruntime-node/bin/napi-v6/win32/arm64'));
+});
+
+test('third-party notices list every package, scoped and nested, with the license text it ships', (t) => {
+  const modules = fs.mkdtempSync(path.join(os.tmpdir(), 'notices-'));
+  t.after(() => fs.rmSync(modules, { recursive: true, force: true }));
+  const add = (dir, name, license, text) => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, version: '1.0.0', license }));
+    if (text) fs.writeFileSync(path.join(dir, 'LICENSE.md'), text);
+  };
+  add(path.join(modules, 'plain'), 'plain', 'MIT', 'Plain license text');
+  add(path.join(modules, '@scope', 'scoped'), '@scope/scoped', 'Apache-2.0', 'Scoped license text');
+  add(path.join(modules, 'plain', 'node_modules', 'nested'), 'nested', 'ISC', '');
+  const notices = thirdPartyNotices(modules);
+  const section = (name, license, text) =>
+    `### ${name} 1.0.0\n\nLicense: ${license}\n\n` + (text ? '```text\n' + text + '\n```\n' : '');
+  assert.ok(notices.includes(section('@scope/scoped', 'Apache-2.0', 'Scoped license text')));
+  assert.ok(notices.includes(section('plain', 'MIT', 'Plain license text')));
+  assert.ok(notices.includes(section('nested', 'ISC', '')));
+  assert.ok(notices.includes('Node.js (runtime/node.exe), MIT license'));
+  assert.ok(notices.includes('shawl (vendor/shawl-v1.9.0-win64.zip)'));
+});
+
+test('the package carries a THIRD_PARTY_NOTICES.md built from its node_modules', (t) => {
+  const fx = fixture(t);
+  const bytes = fs.readFileSync(
+    build({ cwd: fx.cwd, out: fx.out, allowDirty: true, runCommand: fx.runCommand }).zipPath,
+  );
+  assert.ok(bytes.includes(Buffer.from('ark-overseer-1.2.3-win-x64/THIRD_PARTY_NOTICES.md')));
 });

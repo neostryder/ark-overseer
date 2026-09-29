@@ -29,6 +29,57 @@ const run = (exe, argv, cwd = root) =>
     shell: exe === 'npm' && process.platform === 'win32',
   }).trim();
 
+// Programs the package carries besides node_modules. Their licenses are MIT; Node.js also bundles other
+// components under their own terms, which its own LICENSE file lists.
+const BUNDLED = [
+  ['Node.js', 'runtime/node.exe', 'MIT', 'https://github.com/nodejs/node/blob/main/LICENSE'],
+  [
+    'PowerShell 7',
+    'vendor/PowerShell-7.6.6-win-x64.zip',
+    'MIT',
+    'https://github.com/PowerShell/PowerShell/blob/master/LICENSE.txt',
+  ],
+  ['shawl', 'vendor/shawl-v1.9.0-win64.zip', 'MIT', 'https://github.com/mtkennerly/shawl/blob/master/LICENSE'],
+];
+
+// Lists every production package with its license, and includes the full license text each package ships,
+// so the notices travel with the binaries.
+function thirdPartyNotices(modulesDir) {
+  const packages = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      if (name.startsWith('.')) continue;
+      const full = path.join(dir, name);
+      if (name.startsWith('@')) {
+        walk(full);
+        continue;
+      }
+      const manifest = path.join(full, 'package.json');
+      if (!fs.existsSync(manifest)) continue;
+      const info = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+      const licenseFile = fs.readdirSync(full).find((file) => /^(licen[sc]e|copying)(\.(md|txt))?$/i.test(file));
+      packages.push({
+        name: info.name,
+        version: info.version,
+        license: typeof info.license === 'string' ? info.license : (info.license?.type ?? 'see package'),
+        text: licenseFile ? fs.readFileSync(path.join(full, licenseFile), 'utf8').trim() : '',
+      });
+      const nested = path.join(full, 'node_modules');
+      if (fs.existsSync(nested)) walk(nested);
+    }
+  };
+  walk(modulesDir);
+  packages.sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
+  const lines = ['# Third-party notices', '', 'This release includes the following software.', '', '## Programs', ''];
+  for (const [name, file, license, url] of BUNDLED) lines.push(`- ${name} (${file}), ${license} license: ${url}`);
+  lines.push('', '## Packages', '');
+  for (const pkg of packages) {
+    lines.push(`### ${pkg.name} ${pkg.version}`, '', `License: ${pkg.license}`, '');
+    if (pkg.text) lines.push('```text', pkg.text, '```', '');
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 function crc32(bytes) {
   let crc = 0xffffffff;
   for (const byte of bytes) {
@@ -160,6 +211,10 @@ function build({
       // A real embedding still runs without them; keep this list in step with the dependency.
       for (const rel of PRUNED)
         fs.rmSync(path.join(packageRoot, 'node_modules', rel), { recursive: true, force: true });
+      fs.writeFileSync(
+        path.join(packageRoot, 'THIRD_PARTY_NOTICES.md'),
+        thirdPartyNotices(path.join(packageRoot, 'node_modules')),
+      );
     } finally {
       fs.rmSync(depStage, { recursive: true, force: true });
     }
@@ -216,4 +271,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { build, vendorSpecs, zip };
+export { build, thirdPartyNotices, vendorSpecs, zip };

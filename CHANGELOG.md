@@ -6,6 +6,9 @@ All notable changes to ARK Overseer are listed here.
 
 ### Added
 
+- [Visible] [Docs] **Contributing guide and contributor agreement.** Pull requests need a signed contributor license agreement, which keeps the AGPL and commercial licenses both possible. CONTRIBUTING.md lists the checks a pull request has to pass.
+- [Visible] [Docs] **Third-party notices in every release.** Each release zip includes THIRD_PARTY_NOTICES.md, which lists the bundled programs and packages with their licenses.
+- [Visible] [Docs] **README rewritten for installing from a release.** It covers the download install, updating, reaching ARK Overseer from other devices and putting it behind Cloudflare Access.
 - [Visible] [Server] [Docs] **Install from a download.** A release is one zip. Unpack it anywhere, double-click Install ARK Overseer, approve the Windows prompt, and ARK Overseer runs as a service with its own copy of Node. It needs no Git, npm or separate Node install. Uninstall ARK Overseer removes the service and asks before it touches your data.
 - [Internal] [Server] **Release builds.** Pushing a version tag builds the release zip and its checksum on GitHub, and every push to main refreshes a rolling Edge build.
 - [Visible] [UI] [Server] **Update from GitHub.** The This computer page can update from GitHub. Pick Stable, Beta or Edge, read the release notes, and go back to an earlier release if a new one causes trouble. Updating from a checkout folder still works.
