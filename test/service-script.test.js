@@ -72,6 +72,14 @@ test('service script install dry run validates hashes and prints all planned ste
   assert.match(output, /^FAIL: .* is not a git checkout with a commit to deploy\./m);
   assert.ok(steps.some((line) => line.startsWith('STEP: Export commit') && line.includes('"archive"')));
   assert.ok(steps.some((line) => line.includes('robocopy.exe') && line.includes('node_modules')));
+  // The new copy is built beside the old one before anything is stopped, then moved into place.
+  const at = (start) => steps.findIndex((line) => line.startsWith(`STEP: ${start}`));
+  const newApp = path.join(serviceRoot, 'app.new');
+  assert.ok(steps[at('Unpack the app')].includes(newApp));
+  assert.ok(steps[at('Copy node_modules')].includes(path.join(newApp, 'node_modules')));
+  assert.ok(at('Unpack the app') < at('Move the old app copy aside'));
+  assert.ok(at('Move the old app copy aside') < at('Put the new app copy in place'));
+  assert.ok(at('Put the new app copy in place') < at('Create the service'));
   assert.ok(steps.every((line) => !(line.includes('/grant') && line.includes(`"${appDir}"`))));
   const config = steps.find((line) => line.includes('sc.exe" "config"'));
   assert.match(config, /NT AUTHORITY\\NetworkService/);

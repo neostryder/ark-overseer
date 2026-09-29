@@ -17,6 +17,17 @@ $isAdmin = ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.P
 if (-not $isAdmin -and -not $DryRun) {
   if ($Elevated) { exit 1 }
   $pwsh = (Get-Process -Id $PID).Path
+  # The link starts the PowerShell kept in the service's runtime folder, which the install may replace.
+  # Windows will not overwrite a program that is running, so the approved run uses a copy in TEMP.
+  $pwshHome = Split-Path -Parent $pwsh
+  if ($pwshHome.StartsWith((Join-Path $Root 'runtime'), [StringComparison]::OrdinalIgnoreCase)) {
+    $temp = [IO.Path]::GetTempPath()
+    Get-ChildItem -LiteralPath $temp -Directory -Filter 'ark-overseer-update-pwsh-*' -ErrorAction SilentlyContinue |
+      ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+    $copy = Join-Path $temp "ark-overseer-update-pwsh-$([guid]::NewGuid().ToString('N'))"
+    Copy-Item -LiteralPath $pwshHome -Destination $copy -Recurse
+    $pwsh = Join-Path $copy 'pwsh.exe'
+  }
   $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath), '-Root', ('"{0}"' -f $Root), '-Elevated')
   # Declining the Windows prompt throws here, and the page then reports that nothing changed.
   try { Start-Process -FilePath $pwsh -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden } catch { exit 1 }
