@@ -17,6 +17,7 @@ param(
   [switch]$Force,
   [switch]$RemoveData,
   [switch]$DryRun,
+  [switch]$Package,
   # A GitHub archive to deploy instead of git archive. update.ps1 downloads it and passes the commit.
   [string]$Archive,
   [string]$Commit,
@@ -50,8 +51,8 @@ if ($UnpackArchive) {
   Expand-GitHubArchive -Archive $UnpackArchive -Destination $UnpackDestination
   exit 0
 }
-if (-not $ShawlZip) { $ShawlZip = Join-Path $AppDir 'vendor\shawl-v1.9.0-win64.zip' }
-if (-not $PwshZip) { $PwshZip = Join-Path $AppDir 'vendor\PowerShell-7.6.6-win-x64.zip' }
+if ($Package -or -not $ShawlZip) { $ShawlZip = Join-Path $AppDir 'vendor\shawl-v1.9.0-win64.zip' }
+if ($Package -or -not $PwshZip) { $PwshZip = Join-Path $AppDir 'vendor\PowerShell-7.6.6-win-x64.zip' }
 $Hashes = @{
   $ShawlZip = 'f883c5d09c9beae2efaeabd8513e7d3f57cd1d0864cec3df4f4a7b6ee904351c'
   $PwshZip  = '02fe458be20493fbdf43f61ea20610b811ee6c738ab1676c61b9cfcd1a33c860'
@@ -141,28 +142,51 @@ $LinkScheme = if ($ServiceName -eq 'ArkOverseer') { 'ark-overseer-update' } else
 $UpdateLink = "HKCU:\Software\Classes\$LinkScheme"
 
 if ($Action -eq 'install') {
+  if ($Package -and $Archive) { Fail '-Package and -Archive cannot be used together.'; exit 1 }
   foreach ($zip in @($ShawlZip, $PwshZip)) {
     if (-not (Test-Path -LiteralPath $zip)) { Fail "Missing zip: $zip"; continue }
     $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $Hashes[$zip]) { Fail "SHA-256 mismatch for ${zip}: expected $($Hashes[$zip]), got $actual" }
   }
 
-  # nvm4w reaches node.exe through a symlink, and the service needs the real file.
-  $command = Get-Command node -ErrorAction SilentlyContinue
-  $node = $null
-  if (-not $command) { Fail 'node.exe was not found on PATH.' }
-  else {
-    $item = Get-Item -LiteralPath $command.Source
-    while ($item.LinkType) {
-      $target = [string]($item.Target | Select-Object -First 1)
-      if (-not [IO.Path]::IsPathRooted($target)) { $target = Join-Path $item.DirectoryName $target }
-      $item = Get-Item -LiteralPath $target
+  $release = $null
+  if ($Package) {
+    $releaseFile = Join-Path $AppDir 'RELEASE.json'
+    if (-not (Test-Path -LiteralPath $releaseFile)) { Fail 'Package RELEASE.json is missing.' }
+    else {
+      try { $release = Get-Content -LiteralPath $releaseFile -Raw | ConvertFrom-Json }
+      catch { Fail 'Package RELEASE.json is not valid JSON.' }
+      if ($release -and ($release.commit -notmatch '^[0-9a-fA-F]{40}$' -or -not $release.version)) { Fail 'Package RELEASE.json has a missing version or invalid commit.' }
+      if ($release -and $release.nodeSha256 -notmatch '^[0-9a-fA-F]{64}$') { Fail 'Package RELEASE.json has an invalid Node SHA-256.' }
     }
-    if ($item.PSIsContainer) { $item = Get-Item -LiteralPath (Join-Path $item.FullName 'node.exe') }
-    $node = $item.FullName
-    $version = & $node --version
-    if ($version -notmatch '^v(\d+)\.') { Fail "Could not read the Node version from $node." }
-    elseif ([int]$Matches[1] -lt 26) { Fail "ARK Overseer needs Node 26 or later; $node is $version." }
+    $node = Join-Path $AppDir 'runtime\node.exe'
+    if (-not (Test-Path -LiteralPath $node)) { Fail "Package Node is missing: $node" }
+    elseif ($release -and (Get-FileHash -LiteralPath $node -Algorithm SHA256).Hash -ne $release.nodeSha256) { Fail 'Package Node SHA-256 does not match RELEASE.json.' }
+    $commit = if ($release) { $release.commit.ToLowerInvariant() } else { 'HEAD' }
+  }
+  else {
+    # nvm4w reaches node.exe through a symlink, and the service needs the real file.
+    $command = Get-Command node -ErrorAction SilentlyContinue
+    $node = $null
+    if (-not $command) { Fail 'node.exe was not found on PATH.' }
+    else {
+      $item = Get-Item -LiteralPath $command.Source
+      while ($item.LinkType) {
+        $target = [string]($item.Target | Select-Object -First 1)
+        if (-not [IO.Path]::IsPathRooted($target)) { $target = Join-Path $item.DirectoryName $target }
+        $item = Get-Item -LiteralPath $target
+      }
+      if ($item.PSIsContainer) { $item = Get-Item -LiteralPath (Join-Path $item.FullName 'node.exe') }
+      $node = $item.FullName
+      $version = & $node --version
+      if ($version -notmatch '^v(\d+)\.') { Fail "Could not read the Node version from $node." }
+      elseif ([int]$Matches[1] -lt 26) { Fail "ARK Overseer needs Node 26 or later; $node is $version." }
+    }
+  }
+  if ($Package -and $node -and (Test-Path -LiteralPath $node)) {
+    $packageNodeVersion = & $node --version
+    if ($packageNodeVersion -notmatch '^v(\d+)\.') { Fail "Could not read the Node version from $node." }
+    elseif ([int]$Matches[1] -lt 26) { Fail "ARK Overseer needs Node 26 or later; $node is $packageNodeVersion." }
   }
 
   $nodeDir = Join-Path $Runtime 'node'
@@ -178,9 +202,12 @@ if ($Action -eq 'install') {
 
   # The new copy of the app is built beside the running one while the old service still runs, so a failed
   # export or copy leaves the service as it was. A checkout deploys its last commit; a GitHub archive is
-  # deployed as downloaded. node_modules is copied from the running app or the checkout, since the runtime
-  # has no npm.
-  if ($Archive) {
+  # deployed as downloaded; a package already contains its production node_modules.
+  if ($Package) {
+    if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules." }
+    $modulesFrom = $AppDir
+  }
+  elseif ($Archive) {
     if ($Commit -notmatch '^[0-9a-f]{40}$') { Fail 'The archive needs a 40-character commit id.'; $Commit = 'HEAD' }
     if (-not (Test-Path -LiteralPath $Archive)) { Fail "Missing archive: $Archive" }
     $commit = $Commit
@@ -188,7 +215,7 @@ if ($Action -eq 'install') {
     $modulesFrom = if (Test-Path -LiteralPath (Join-Path $App 'node_modules')) { $App } else { $AppDir }
     if (-not (Test-Path -LiteralPath (Join-Path $modulesFrom 'node_modules'))) { Fail "$modulesFrom has no node_modules. Install from a checkout once, then update from GitHub." }
   }
-  else {
+  elseif (-not $Package) {
     $commit = git -C $AppDir rev-parse --verify HEAD 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail "$AppDir is not a git checkout with a commit to deploy."; $commit = 'HEAD' }
     elseif (git -C $AppDir status --porcelain) { Write-Output "NOTE: $AppDir has uncommitted changes. They are not deployed; the service runs commit $commit." }
@@ -201,7 +228,12 @@ if ($Action -eq 'install') {
       Invoke-Step "Remove $leftover" "Remove-Item $(Quote $leftover) -Recurse -Force" { if (Test-Path -LiteralPath $leftover) { Remove-Item -LiteralPath $leftover -Recurse -Force } }
     }
   }
-  if ($Archive) {
+  if ($Package) {
+    Invoke-Native 'Copy the release app' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @($AppDir, $AppNew, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1', '/XD', (Join-Path $AppDir 'runtime'), (Join-Path $AppDir 'vendor'), '/XF', '*.cmd', 'RELEASE.json') 7
+    Invoke-Step 'Record the package commit' "Set-Content $(Quote (Join-Path $AppNew '.deployed-commit')) $commit" { Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline }
+  }
+
+  elseif ($Archive) {
     Invoke-Step 'Unpack the GitHub archive' "Expand-GitHubArchive $(Quote $zipPath) $(Quote $AppNew)" {
       Expand-GitHubArchive -Archive $zipPath -Destination $AppNew
       Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline
@@ -215,7 +247,7 @@ if ($Action -eq 'install') {
       Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline
     }
   }
-  Invoke-Native 'Copy node_modules' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @((Join-Path $modulesFrom 'node_modules'), (Join-Path $AppNew 'node_modules'), '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1') 7
+  if (-not $Package) { Invoke-Native 'Copy node_modules' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @((Join-Path $modulesFrom 'node_modules'), (Join-Path $AppNew 'node_modules'), '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1') 7 }
 
   # Creates the service entry. Also used to put the previous service back when an update fails.
   function Register-OverseerService {
@@ -294,7 +326,9 @@ if ($Action -eq 'install') {
     # The Update button on the This computer page opens the update link, which runs tools\update.ps1 from the
     # checkout in this Windows account's session. It replays this install with the options recorded here.
     $updaterFile = Join-Path $Data 'updater.json'
-    $updater = [ordered]@{ appDir = $AppDir; port = $Port; grantFolder = @($GrantFolder); link = $LinkScheme } | ConvertTo-Json -Compress
+    $updaterValues = [ordered]@{ appDir = $AppDir; port = $Port; grantFolder = @($GrantFolder); link = $LinkScheme }
+    if ($Package) { $updaterValues.package = $true }
+    $updater = $updaterValues | ConvertTo-Json -Compress
     Invoke-Step 'Record the update options' "Set-Content $(Quote $updaterFile) $updater" {
       Set-Content -LiteralPath $updaterFile -Value $updater -Encoding utf8NoBOM
     }

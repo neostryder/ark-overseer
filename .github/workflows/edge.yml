@@ -1,0 +1,46 @@
+name: Edge
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  edge:
+    runs-on: windows-latest
+    steps:
+      # To update, check each action's GitHub releases page and replace @vN with its newest tagged major.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Check and test
+        shell: pwsh
+        run: |
+          npm ci
+          npm run format:check
+          npm run check
+          npm test
+      - name: Verify package version
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($package.engines.node -notmatch '^>=26$') { throw 'package.json must allow Node 26.' }
+      - name: Build edge package
+        shell: pwsh
+        run: node tools/build-release.js --channel edge
+      - name: Replace edge release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete edge --yes 2>$null
+          git push origin :refs/tags/edge 2>$null
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $short = $env:GITHUB_SHA.Substring(0, 7)
+          $version = "$($package.version)-edge.$short"
+          $asset = "dist/ark-overseer-$version-win-x64.zip"
+          gh release create edge $asset "$asset.sha256" --target $env:GITHUB_SHA --title 'Edge' --notes "Edge build from commit $env:GITHUB_SHA" --prerelease

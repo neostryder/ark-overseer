@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      # To update, check each action's GitHub releases page and replace @vN with its newest tagged major.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Check and test
+        shell: pwsh
+        run: |
+          npm ci
+          npm run format:check
+          npm run check
+          npm test
+      - name: Verify tag and changelog
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $version = $package.version
+          if ($package.engines.node -notmatch '^>=26$') { throw 'package.json must allow Node 26.' }
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "Tag $env:GITHUB_REF_NAME must equal v$version." }
+          $log = Get-Content CHANGELOG.md -Raw
+          if ($log -notmatch "(?m)^## .*\[$([regex]::Escape($version))\].*\d{4}-\d{2}-\d{2}") { throw "CHANGELOG.md needs a dated section for $version." }
+          $match = [regex]::Match($log, "(?ms)^## .*\[$([regex]::Escape($version))\].*?\r?\n(.*?)(?=^## |\z)")
+          if (-not $match.Success) { throw "Could not read the changelog section for $version." }
+          Set-Content -Path changelog-release.md -Value $match.Groups[1].Value -NoNewline
+      - name: Build release package
+        shell: pwsh
+        run: |
+          $channel = if ($env:GITHUB_REF_NAME -match '-beta\.\d+$') { 'beta' } else { 'stable' }
+          node tools/build-release.js --channel $channel
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $asset = "dist/ark-overseer-$version-win-x64.zip"
+          $sha = "$asset.sha256"
+          $args = @('release', 'create', $tag, $asset, $sha, '--title', $tag, '--notes-file', 'changelog-release.md')
+          if ($tag -match '-beta\.\d+$') { $args += '--prerelease' }
+          gh @args
