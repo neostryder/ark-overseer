@@ -11,6 +11,72 @@ export function updateFinished(before, after) {
 
 export const UPDATE_SOURCES = ['checkout', 'github'];
 export const UPDATE_CHANNELS = ['stable', 'beta', 'edge'];
+export const UPDATE_PROGRESS_STAGES = [
+  'requested',
+  'checking',
+  'downloading',
+  'verifying',
+  'installing',
+  'restarting',
+  'done',
+  'failed',
+];
+export function updateProgressStage(progress) {
+  return progress && (UPDATE_PROGRESS_STAGES.includes(progress.stage) || progress.stage === 'failed')
+    ? progress.stage
+    : null;
+}
+export function updateChecklist(progress) {
+  const active = updateProgressStage(progress);
+  return UPDATE_PROGRESS_STAGES.map((stage) => ({ stage, current: stage === active }));
+}
+
+export function createUpdatePoller({
+  fetchVersion,
+  before,
+  startedAt,
+  onState,
+  onNoStart,
+  onFinish,
+  now = Date.now,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
+}) {
+  let seenProgress = false;
+  let stopped = false;
+  const poll = async () => {
+    if (stopped) return;
+    if (!seenProgress && now() - startedAt >= 60000) {
+      stopped = true;
+      clearIntervalFn(timer);
+      onNoStart();
+      return;
+    }
+    const after = await fetchVersion();
+    if (stopped) return;
+    if (!after) {
+      onState({ kind: 'restart', after: null, progress: null });
+      return;
+    }
+    const candidate = after.progress;
+    const progress = candidate && Date.parse(candidate.startedAt) >= startedAt - 3000 ? candidate : null;
+    if (progress) seenProgress = true;
+    onState({ kind: progress ? 'progress' : 'waiting', after, progress });
+    if (progress?.stage === 'done' || progress?.stage === 'failed' || updateFinished(before, after)) {
+      stopped = true;
+      clearIntervalFn(timer);
+      onFinish(after, progress);
+    }
+  };
+  const timer = setIntervalFn(() => void poll(), 2000);
+  return {
+    poll,
+    stop() {
+      stopped = true;
+      clearIntervalFn(timer);
+    },
+  };
+}
 export function updateSources(info) {
   return info?.package === true ? ['github'] : UPDATE_SOURCES;
 }

@@ -6,6 +6,7 @@ All notable changes to ARK Overseer are listed here.
 
 ### Added
 
+- [Visible] [UI] **Update progress.** After you click Update, the This computer page shows each step as it happens, from the Windows approval prompt through the download, the install and the restart. It says so when the update didn't start or failed, and a page opened mid-update joins the running one.
 - [Visible] [Docs] **Contributing guide and contributor agreement.** Pull requests need a signed contributor license agreement, which keeps the AGPL and commercial licenses both possible. CONTRIBUTING.md lists the checks a pull request has to pass.
 - [Visible] [Docs] **Third-party notices in every release.** Each release zip includes THIRD_PARTY_NOTICES.md, which lists the bundled programs and packages with their licenses.
 - [Visible] [Docs] **README rewritten for installing from a release.** It covers the download install, updating, reaching ARK Overseer from other devices and putting it behind Cloudflare Access.

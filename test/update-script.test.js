@@ -367,3 +367,57 @@ test('a missing options file stops the update with a plain message', { skip }, (
   assert.equal(result.status, 1);
   assert.match(result.stdout, /FAIL: The update options could not be read/);
 });
+
+test('progress writes replace one valid JSON file at every stage', { skip }, (t) => {
+  const { root } = tree(t);
+  const logs = path.join(root, 'logs');
+  const stages = ['requested', 'checking', 'downloading', 'verifying', 'installing', 'restarting', 'done'];
+  const code = `$stages = @(${stages.map(psQuote).join(',')}); foreach ($stage in $stages) { Write-UpdateProgress ${psQuote(logs)} ${psQuote(now())} $stage 'Checking the download' 'github' 'Copy node'; Get-Content -Raw ${psQuote(path.join(logs, 'update-progress.json'))} | ConvertFrom-Json | Out-Null }; Get-ChildItem ${psQuote(logs)} -Filter '*.tmp' | Measure-Object | Select-Object -ExpandProperty Count`;
+  const result = runHelper(code);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(result.stdout.trim(), '0');
+  const saved = JSON.parse(fs.readFileSync(path.join(logs, 'update-progress.json'), 'utf8'));
+  assert.equal(saved.stage, 'done');
+});
+
+test('STEP lines update the raw step and a refusal writes final failed progress and result', { skip }, (t) => {
+  const { root } = tree(t);
+  const logs = path.join(root, 'logs');
+  const code = `Update-ProgressFromLine ${psQuote(logs)} ${psQuote(now())} 'checkout' 'STEP: Copy node :: Copy-Item x'; Update-ProgressFromLine ${psQuote(logs)} ${psQuote(now())} 'checkout' 'INFO: secret'; $step = Get-Content -Raw ${psQuote(path.join(logs, 'update-progress.json'))} | ConvertFrom-Json; Write-UpdateFailure ${psQuote(logs)} ${psQuote(now())} 'There is no update request. Open the This computer page and try again.' 'checkout'; $final = Get-Content -Raw ${psQuote(path.join(logs, 'update-progress.json'))} | ConvertFrom-Json; [pscustomobject]@{ step = $step.step; stage = $final.stage; message = $final.message; result = (Get-Content -Raw ${psQuote(path.join(logs, 'update-result.json'))} | ConvertFrom-Json).message } | ConvertTo-Json -Compress`;
+  const result = runHelper(code);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    step: 'Copy node',
+    stage: 'failed',
+    message: 'There is no update request. Open the This computer page and try again.',
+    result: 'There is no update request. Open the This computer page and try again.',
+  });
+});
+
+test('the install is called with real parameters, so -Force and -Start are switches', { skip }, (t) => {
+  const { root } = tree(t);
+  const stub = path.join(root, 'service-stub.ps1');
+  fs.writeFileSync(
+    stub,
+    [
+      'param([Parameter(Position = 0)][string]$Action, [switch]$Force, [switch]$Start, [switch]$Package,',
+      '  [string]$AppDir, [string]$Root, [int]$Port, [string[]]$GrantFolder)',
+      '[ordered]@{ Action = $Action; Force = [bool]$Force; Start = [bool]$Start; Package = [bool]$Package;',
+      '  AppDir = $AppDir; Root = $Root; Port = $Port; GrantFolder = @($GrantFolder) } | ConvertTo-Json -Compress',
+    ].join('\n'),
+  );
+  const parameters =
+    "@{ Force = $true; Start = $true; Package = $true; AppDir = 'C:\pkg dir'; Root = 'C:\Root'; Port = 3310; GrantFolder = [string[]]@('D:\one', 'E:\two words') }";
+  const result = runHelper(`Invoke-ServiceInstall ${psQuote(stub)} ${parameters}`);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    Action: 'install',
+    Force: true,
+    Start: true,
+    Package: true,
+    AppDir: 'C:\pkg dir',
+    Root: 'C:\Root',
+    Port: 3310,
+    GrantFolder: ['D:\one', 'E:\two words'],
+  });
+});

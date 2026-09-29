@@ -221,12 +221,61 @@ function Remove-UpdateTemp([string]$Path) {
   }
 }
 
+function Write-AtomicJson([string]$Path, $Value) {
+  $directory = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Path $directory -Force | Out-Null
+  $temporary = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
+  try {
+    $json = ConvertTo-Json -InputObject $Value -Depth 8
+    [IO.File]::WriteAllText($temporary, $json, [Text.UTF8Encoding]::new($false))
+    [IO.File]::Move($temporary, $Path, $true)
+  }
+  finally { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue }
+}
+
+function Write-UpdateProgress([string]$LogsPath, [string]$StartedAt, [string]$Stage, [string]$Message, [string]$Source, [string]$Step = $null) {
+  $stages = @('requested', 'checking', 'downloading', 'verifying', 'installing', 'restarting', 'done', 'failed')
+  if ($Stage -notin $stages) { throw 'The update progress stage is invalid.' }
+  if ($Message -match '[\\/]|[A-Za-z]:|https?://|token|password') { $Message = 'The update failed. Check the update log.' }
+  if ($Step -match '[\\/]|[A-Za-z]:|https?://|token|password') { $Step = 'Working on service setup' }
+  $progress = [ordered]@{ startedAt = $StartedAt; at = (Get-Date).ToUniversalTime().ToString('o'); stage = $Stage; message = $Message; step = $Step; source = $Source }
+  Write-AtomicJson (Join-Path $LogsPath 'update-progress.json') $progress
+}
+
+function Write-UpdateResult([string]$LogsPath, $Result) {
+  Write-AtomicJson (Join-Path $LogsPath 'update-result.json') $Result
+}
+
+function Write-UpdateFailure([string]$LogsPath, [string]$StartedAt, [string]$Reason, [string]$Source = 'unknown') {
+  $endedAt = (Get-Date).ToUniversalTime().ToString('o')
+  $result = [ordered]@{ ok = $false; startedAt = $StartedAt; endedAt = $endedAt; exitCode = 1; message = $Reason }
+  Write-UpdateResult $LogsPath $result
+  Write-UpdateProgress $LogsPath $StartedAt 'failed' $Reason $Source
+}
+
+function Update-ProgressFromLine([string]$LogsPath, [string]$StartedAt, [string]$Source, [string]$Line) {
+  if ($Line -notmatch '^STEP: ([^:]*) ::') { return }
+  $description = $Matches[1].Trim()
+  if ($description -match '[\\/]|[A-Za-z]:|https?://|token|password') { $description = 'Working on service setup' }
+  # service.ps1 prints this immediately before the service is stopped and replaced.
+  $stage = if ($description -eq 'Stop the service') { 'restarting' } else { 'installing' }
+  $message = if ($stage -eq 'restarting') { 'Restarting ARK Overseer' } else { 'Copying the new version' }
+  Write-UpdateProgress $LogsPath $StartedAt $stage $message $Source $description
+}
+
 # Tests dot-source the validation helpers without entering the update request path.
+# The parameters go in as a hashtable. An array splatted into a script binds by position, so a string such as
+# '-Force' would arrive as an unnamed argument and the install would fail before it started.
+function Invoke-ServiceInstall([string]$ServiceScript, [hashtable]$Parameters) {
+  & $ServiceScript install @Parameters
+}
+
 if ($FunctionsOnly) { return }
 
 $data = Join-Path $Root 'data'
 $logs = Join-Path $Root 'logs'
 $started = (Get-Date).ToUniversalTime().ToString('o')
+Write-UpdateProgress $logs $started 'requested' 'Starting the update' 'unknown'
 
 # An early refusal is written where the page reads it, so the page can say why nothing changed. The
 # elevated window is hidden and nobody sees its output.
@@ -234,14 +283,14 @@ function Stop-Update([string]$Reason) {
   Write-Output "FAIL: $Reason"
   if ($DryRun) { exit 1 }
   New-Item -ItemType Directory -Path $logs -Force | Out-Null
-  [ordered]@{ ok = $false; startedAt = $started; endedAt = (Get-Date).ToUniversalTime().ToString('o'); exitCode = 1; message = $Reason } |
-    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'update-result.json') -Encoding utf8NoBOM
+  Write-UpdateFailure $logs $started $Reason $(if ($request) { $request.source } else { 'unknown' })
   exit 1
 }
 # A failed download, hash check or unpack ends here too, with its message on the page.
 trap { Stop-Update $_.Exception.Message }
 
 $options = $null
+Write-UpdateProgress $logs $started 'checking' 'Checking the update request' 'unknown'
 try { $options = Get-Content -LiteralPath (Join-Path $data 'updater.json') -Raw | ConvertFrom-Json }
 catch { Stop-Update 'The update options could not be read. Run the installer again.' }
 
@@ -381,11 +430,14 @@ try {
   # Called in this process, so the array of folders binds to -GrantFolder as an array. An exit inside
   # service.ps1 ends only that script and sets LASTEXITCODE.
   $global:LASTEXITCODE = 0
-  $arguments = @('install', '-Force', '-Start')
-  $arguments += @('-AppDir', $appDir, '-Root', $Root, '-Port', [int]$options.port)
-  if ($grant.Count) { $arguments += @('-GrantFolder') + $grant }
-  if ($request.source -eq 'github') { $arguments += @('-Package') }
-  & $serviceScript @arguments *>&1 | ForEach-Object { $lines.Add("$_") }
+  $parameters = @{ Force = $true; Start = $true; AppDir = $appDir; Root = $Root; Port = [int]$options.port }
+  if ($grant.Count) { $parameters.GrantFolder = [string[]]$grant }
+  if ($request.source -eq 'github') { $parameters.Package = $true }
+  Invoke-ServiceInstall $serviceScript $parameters *>&1 | ForEach-Object {
+    $line = "$_"
+    $lines.Add($line)
+    Update-ProgressFromLine $logs $started $request.source $line
+  }
   $code = $LASTEXITCODE
 }
 catch {
@@ -413,5 +465,6 @@ $result = [ordered]@{
 }
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
 Set-Content -LiteralPath (Join-Path $logs 'update.log') -Value $lines -Encoding utf8NoBOM
-$result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'update-result.json') -Encoding utf8NoBOM
+Write-UpdateResult $logs $result
+Write-UpdateProgress $logs $started $(if ($result.ok) { 'done' } else { 'failed' }) $(if ($result.ok) { 'Update complete' } else { $result.message }) $request.source
 exit $code

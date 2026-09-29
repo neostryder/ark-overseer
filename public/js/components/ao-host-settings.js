@@ -3,12 +3,20 @@ import { STRINGS } from '../strings.js';
 import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
-import { isLocalPage, shortCommit, updateFinished, updateCard, updateSources } from '../lib/update.js';
+import {
+  isLocalPage,
+  shortCommit,
+  updateFinished,
+  updateCard,
+  updateSources,
+  UPDATE_PROGRESS_STAGES,
+  updateProgressStage,
+  createUpdatePoller,
+  updateChecklist,
+} from '../lib/update.js';
 import { createInstallFolderPicker } from '../lib/install-folder.js';
 
 const POLL_MS = 15000;
-const UPDATE_POLL_MS = 3000;
-const UPDATE_WAIT_MINUTES = 10;
 
 function el(tag, text, className = '') {
   const node = document.createElement(tag);
@@ -47,7 +55,7 @@ export class AoHostSettings extends HTMLElement {
   }
   disconnectedCallback() {
     clearInterval(this.timer);
-    clearInterval(this.updateTimer);
+    this.updatePoller?.stop();
   }
   async load() {
     this.replaceChildren(el('p', STRINGS.app.loading));
@@ -254,11 +262,20 @@ export class AoHostSettings extends HTMLElement {
     const message = el('p', '', 'error-message');
     message.setAttribute('aria-live', 'polite');
     card.append(body, note, message);
+    this.updateProgressHost = card;
     source.addEventListener('change', () => {
       this.updateSource = source.value;
       this.renderUpdateBody(body, note, message);
     });
     this.renderUpdateBody(body, note, message);
+    // A page opened while an update is running joins it, so a reload never hides what it is doing.
+    const running = this.version?.progress;
+    if (running && running.stage !== 'done' && running.stage !== 'failed') {
+      const run = { startedAt: Date.parse(running.startedAt) || Date.now(), before: this.version, request: null };
+      this.updateRun = run;
+      this.renderUpdateProgress(run, running);
+      this.watchUpdate(run);
+    }
     return [card];
   }
   renderUpdateBody(container, note, message) {
@@ -402,35 +419,105 @@ export class AoHostSettings extends HTMLElement {
       before = this.version;
     button.disabled = true;
     note.className = 'muted';
-    note.textContent = s.updateWaiting;
+    note.textContent = '';
     message.textContent = '';
+    const run = { startedAt: Date.now(), request, button, note, message, before };
+    this.updateRun = run;
+    this.renderUpdateProgress(run, { stage: 'requested' }, s.updateApprovalWaiting);
     try {
       await api.post('/api/host/update', request);
     } catch (error) {
+      run.panel?.remove();
+      if (this.updateRun === run) this.updateRun = null;
       button.disabled = false;
       note.textContent = '';
       message.textContent = error.message;
       return;
     }
     location.href = `${before.link}:`;
-    const deadline = Date.now() + UPDATE_WAIT_MINUTES * 60000;
-    clearInterval(this.updateTimer);
-    this.updateTimer = setInterval(async () => {
-      if (Date.now() > deadline) {
-        clearInterval(this.updateTimer);
-        button.disabled = false;
-        note.className = 'error-message';
-        note.textContent = s.updateTimeout
-          .replace('{minutes}', String(UPDATE_WAIT_MINUTES))
-          .replace('{folder}', before.logsDir ?? '');
-        return;
-      }
-      const after = await api.get('/api/version').catch(() => null);
-      if (updateFinished(before, after)) {
-        clearInterval(this.updateTimer);
-        location.reload();
-      }
-    }, UPDATE_POLL_MS);
+    this.watchUpdate(run);
+  }
+  // Watches the progress file and the service until the run ends. A page opened while an update is
+  // already running joins it the same way, so a reload never hides what the update is doing.
+  watchUpdate(run) {
+    const s = STRINGS.host;
+    this.updatePoller?.stop();
+    this.updatePoller = createUpdatePoller({
+      before: run.before,
+      startedAt: run.startedAt,
+      fetchVersion: () => api.get('/api/version').catch(() => null),
+      onState: ({ kind, progress }) => {
+        if (this.updateRun !== run) return;
+        if (kind === 'restart') this.renderUpdateProgress(run, { stage: 'restarting' }, s.updateRestartWaiting);
+        else if (kind === 'progress') this.renderUpdateProgress(run, progress);
+      },
+      onNoStart: () => {
+        if (this.updateRun !== run) return;
+        if (run.button) run.button.disabled = false;
+        this.renderUpdateProgress(run, null, s.updateNoStart, true);
+      },
+      onFinish: (after, progress) => {
+        if (this.updateRun !== run) return;
+        const failed = progress?.stage === 'failed' || after.lastUpdate?.ok === false;
+        const finalText = failed
+          ? after.lastUpdate?.message || progress?.message || s.updateFailed
+          : s.updateSucceeded
+              .replace('{version}', after.version ?? '?')
+              .replace('{commit}', shortCommit(after.commit) ?? '?');
+        this.renderUpdateProgress(run, progress, finalText, false, failed);
+        if (run.button) run.button.disabled = false;
+        if (!failed) setTimeout(() => location.reload(), 2000);
+      },
+    });
+  }
+  renderUpdateProgress(run, progress, overrideMessage = null, allowRetry = false, failed = false) {
+    const s = STRINGS.host;
+    let panel = run.panel;
+    if (!panel) {
+      panel = el('section', undefined, 'update-progress');
+      panel.setAttribute('aria-live', 'polite');
+      panel.append(el('h3', s.updateProgressTitle));
+      run.status = el('p', '', 'update-progress-message');
+      run.steps = el('ol', undefined, 'update-progress-steps');
+      panel.append(run.status, run.steps);
+      run.step = el('p', '', 'muted update-progress-step');
+      panel.append(run.step);
+      run.panel = panel;
+      this.updateProgressHost?.append(panel);
+    }
+    const stage = updateProgressStage(progress);
+    const labels = [
+      s.updateStageRequested,
+      s.updateStageChecking,
+      s.updateStageDownloading,
+      s.updateStageVerifying,
+      s.updateStageInstalling,
+      s.updateStageRestarting,
+      s.updateStageDone,
+      s.updateStageFailed,
+    ];
+    run.steps.replaceChildren(
+      // Failed is a step only when the run ended that way.
+      ...updateChecklist(progress)
+        .map(({ stage: key, current }, index) => ({ key, current, label: labels[index] }))
+        .filter(({ key, current }) => key !== 'failed' || current)
+        .map(({ current, label }) => {
+          const item = el('li', label);
+          if (current) item.setAttribute('aria-current', 'step');
+          return item;
+        }),
+    );
+    const text = overrideMessage ?? progress?.message ?? s.updateWaiting;
+    run.status.className = failed || allowRetry ? 'error-message update-progress-message' : 'update-progress-message';
+    run.status.textContent = text;
+    run.step.textContent = stage === 'installing' && progress?.step ? progress.step : '';
+    run.step.hidden = !(stage === 'installing' && progress?.step);
+    if (allowRetry && run.request) {
+      const retry = el('button', s.tryAgain, 'button secondary');
+      retry.type = 'button';
+      retry.addEventListener('click', () => void this.beginUpdate(run.button, run.note, run.message, run.request));
+      panel.append(retry);
+    }
   }
   renderStatus() {
     const s = STRINGS.host,

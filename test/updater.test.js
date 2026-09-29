@@ -267,3 +267,28 @@ test('readUpdateInfo reports the package version and the last update source', (t
   );
   assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).package, true);
 });
+
+test('readUpdateInfo returns recent progress and ignores stale or malformed progress', (t) => {
+  const d = tree(t);
+  fs.writeFileSync(
+    path.join(d.dataDir, 'updater.json'),
+    JSON.stringify({ appDir: 'C:\\x', link: 'ark-overseer-update' }),
+  );
+  const progressPath = path.join(d.logsDir, 'update-progress.json');
+  const progress = {
+    startedAt,
+    at: new Date().toISOString(),
+    stage: 'installing',
+    message: 'Copying the new version',
+    step: 'Copy node',
+    source: 'github',
+  };
+  fs.writeFileSync(progressPath, JSON.stringify(progress));
+  assert.deepEqual(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress, progress);
+  fs.writeFileSync(progressPath, JSON.stringify({ ...progress, at: '2020-01-01T00:00:00Z' }));
+  assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress, null);
+  fs.writeFileSync(progressPath, JSON.stringify({ ...progress, at: '2020-01-01T00:00:00Z', stage: 'failed' }));
+  assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress.stage, 'failed');
+  fs.writeFileSync(progressPath, '{');
+  assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress, null);
+});

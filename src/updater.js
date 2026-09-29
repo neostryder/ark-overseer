@@ -130,6 +130,40 @@ export function readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode 
   const link = typeof options?.link === 'string' && LINK.test(options.link) ? options.link : null;
   const appDir = typeof options?.appDir === 'string' && path.win32.isAbsolute(options.appDir) ? options.appDir : null;
   const result = readJson(path.join(logsDir, 'update-result.json'));
+  let progress = null;
+  try {
+    const candidate = JSON.parse(
+      fs.readFileSync(path.join(logsDir, 'update-progress.json'), 'utf8').replace(/^\uFEFF/, ''),
+    );
+    const stages = new Set([
+      'requested',
+      'checking',
+      'downloading',
+      'verifying',
+      'installing',
+      'restarting',
+      'done',
+      'failed',
+    ]);
+    const at = typeof candidate?.at === 'string' ? Date.parse(candidate.at) : NaN;
+    if (
+      candidate &&
+      stages.has(candidate.stage) &&
+      Number.isFinite(at) &&
+      (Date.now() - at <= 15 * 60 * 1000 || candidate.stage === 'done' || candidate.stage === 'failed')
+    ) {
+      progress = {
+        startedAt: isoOrNull(candidate.startedAt),
+        at: isoOrNull(candidate.at),
+        stage: candidate.stage,
+        message: typeof candidate.message === 'string' ? candidate.message.slice(0, 240) : '',
+        step: typeof candidate.step === 'string' ? candidate.step.slice(0, 240) : null,
+        source: typeof candidate.source === 'string' ? candidate.source : null,
+      };
+    }
+  } catch {
+    /* Progress is advisory; a malformed file must not break this route. */
+  }
   const lastUpdate =
     result && typeof result === 'object'
       ? {
@@ -154,5 +188,6 @@ export function readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode 
     appDir: serviceMode ? appDir : null,
     logsDir: serviceMode ? logsDir : null,
     lastUpdate,
+    progress,
   };
 }
