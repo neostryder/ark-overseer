@@ -226,15 +226,37 @@ if ($FunctionsOnly) { return }
 
 $data = Join-Path $Root 'data'
 $logs = Join-Path $Root 'logs'
+$started = (Get-Date).ToUniversalTime().ToString('o')
+
+# An early refusal is written where the page reads it, so the page can say why nothing changed. The
+# elevated window is hidden and nobody sees its output.
+function Stop-Update([string]$Reason) {
+  Write-Output "FAIL: $Reason"
+  if ($DryRun) { exit 1 }
+  New-Item -ItemType Directory -Path $logs -Force | Out-Null
+  [ordered]@{ ok = $false; startedAt = $started; endedAt = (Get-Date).ToUniversalTime().ToString('o'); exitCode = 1; message = $Reason } |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'update-result.json') -Encoding utf8NoBOM
+  exit 1
+}
+# A failed download, hash check or unpack ends here too, with its message on the page.
+trap { Stop-Update $_.Exception.Message }
+
+$options = $null
+try { $options = Get-Content -LiteralPath (Join-Path $data 'updater.json') -Raw | ConvertFrom-Json }
+catch { Stop-Update 'The update options could not be read. Run the installer again.' }
 
 # The service writes only this small file. Everything below checks it again before acting on it.
 $requestFile = Join-Path $data 'update-request.json'
-if (-not (Test-Path -LiteralPath $requestFile)) {
-  Write-Output 'FAIL: There is no update request. Open the This computer page and try again.'
-  exit 1
+if (Test-Path -LiteralPath $requestFile) {
+  try { $request = Get-Content -LiteralPath $requestFile -Raw | ConvertFrom-Json }
+  catch { Stop-Update 'The update request could not be read.' }
 }
-try { $request = Get-Content -LiteralPath $requestFile -Raw | ConvertFrom-Json }
-catch { Write-Output 'FAIL: The update request could not be read.'; exit 1 }
+elseif (-not $options.package -and $options.appDir) {
+  # A service installed before requests existed opens this script without one. Its Update button always
+  # meant the recorded checkout, which is the same folder an administrator installed it from.
+  $request = [pscustomobject]@{ source = 'checkout'; checkout = $options.appDir; requestedAt = (Get-Date).ToUniversalTime().ToString('o') }
+}
+else { Stop-Update 'There is no update request. Open the This computer page and try again.' }
 
 $reason = $null
 if ($request.PSObject.Properties.Name -contains 'repository') {
@@ -264,11 +286,8 @@ if (-not $reason -and $request.source -eq 'github') {
     $reason = 'The ref must be a release tag or a 40-character commit id.'
   }
 }
-if ($reason) { Write-Output "FAIL: $reason"; exit 1 }
+if ($reason) { Stop-Update $reason }
 
-$options = $null
-try { $options = Get-Content -LiteralPath (Join-Path $data 'updater.json') -Raw | ConvertFrom-Json }
-catch { Write-Output 'FAIL: The update options could not be read. Run the installer again.'; exit 1 }
 if ($options.repository -and $options.repository -match '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { $repository = $options.repository }
 else { $repository = $Repository }
 
@@ -350,7 +369,6 @@ if ($DryRun) {
   exit 0
 }
 
-$started = (Get-Date).ToUniversalTime().ToString('o')
 $lines = [System.Collections.Generic.List[string]]::new()
 $ifGithub = $request.source -eq 'github'
 if ($ifGithub) {

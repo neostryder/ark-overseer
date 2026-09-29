@@ -336,3 +336,34 @@ test('package metadata must match its version and contain a full commit id', { s
   assert.equal(badCommit.status, 0, badCommit.stderr);
   assert.equal(badCommit.stdout.trim(), 'REFUSED');
 });
+
+test(
+  'a service installed before requests existed updates from its recorded checkout with no request file',
+  { skip },
+  (t) => {
+    const { root, checkout } = tree(t);
+    options(root, checkout);
+    const result = run(root);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /CHECK: source checkout/);
+    assert.ok(result.stdout.includes(`CHECK: checkout ${checkout}`));
+  },
+);
+
+test('a package install with no request file refuses instead of guessing a source', { skip }, (t) => {
+  const { root, checkout } = tree(t);
+  fs.writeFileSync(
+    path.join(root, 'data', 'updater.json'),
+    JSON.stringify({ appDir: checkout, port: 3310, grantFolder: [], link: 'ark-overseer-update', package: true }),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /FAIL: There is no update request/);
+});
+
+test('a missing options file stops the update with a plain message', { skip }, (t) => {
+  const { root } = tree(t);
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /FAIL: The update options could not be read/);
+});
