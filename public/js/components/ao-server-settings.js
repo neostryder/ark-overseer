@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import './ao-settings-drift.js';
 import {
   groupFields,
   searchFields,
@@ -18,6 +19,10 @@ export class AoServerSettings extends HTMLElement {
     this.query = '';
     this.active = '';
     this.edited = {};
+    // One banner for the page's whole life: it is moved into each draw, so an open review survives a category change.
+    this.driftEl = document.createElement('ao-settings-drift');
+    this.driftEl.setAttribute('server-id', this.id);
+    this.driftEl.addEventListener('drift-resolved', () => this.load());
     await this.load();
   }
   async load() {
@@ -54,6 +59,8 @@ export class AoServerSettings extends HTMLElement {
     h.textContent = STRINGS.settings.title;
     this.append(h);
     if (this.needsRestart) this.append(this.restartBanner());
+    this.append(this.driftEl);
+    this.driftEl.setBlocked(this.changes().length > 0);
     const search = document.createElement('input');
     search.type = 'search';
     search.placeholder = STRINGS.settings.search;
@@ -315,6 +322,7 @@ export class AoServerSettings extends HTMLElement {
     }
     const count = this.changes().length;
     old.firstChild.textContent = changeCount(count);
+    this.driftEl?.setBlocked(count > 0);
     old.querySelectorAll('button').forEach((button) => {
       button.disabled = !count;
     });
@@ -346,6 +354,8 @@ export class AoServerSettings extends HTMLElement {
       const server = await api.get(`/api/servers/${this.id}`).catch(() => null);
       this.needsRestart = server?.status?.observedState === 'running';
       this.render();
+      // The save has recorded what it wrote, so the banner is read again.
+      this.driftEl.refresh();
       document.querySelector('ao-toast').show(STRINGS.settings.saved);
     } catch (error) {
       this.saveError.textContent = error.message;

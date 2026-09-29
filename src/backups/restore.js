@@ -319,6 +319,8 @@ export function createRestoreHandlers({
   readyTimeoutMs,
   readyPollMs,
   ops = defaultOps,
+  // Called with the server once a restore has put settings files in place, so the baseline follows them.
+  onSettingsWritten = async () => {},
 }) {
   const tell = createTell({ rcon, getRconPassword });
   const stamp = () => new Date(now()).toISOString();
@@ -517,8 +519,12 @@ export function createRestoreHandlers({
       differentMap: check.differentMap,
       ...(note || leftovers ? { notes: [note, leftovers ? RESTORE_MESSAGES.leftovers : null].filter(Boolean) } : {}),
     };
-    const success = () => {
+    const settingsWritten = async () => {
+      if (units.some((unit) => unit.label === 'settings')) await onSettingsWritten(server, 'restore').catch(() => {});
+    };
+    const success = async () => {
       finished();
+      await settingsWritten();
       record('server.backup.restore', 'restored', {
         safetyBackupId: safety?.backupId ?? null,
         differentMap: check.differentMap,
@@ -571,7 +577,7 @@ export function createRestoreHandlers({
     };
 
     if (!wasRunning) {
-      success();
+      await success();
       step(0.95, 'doneStopped', { time: when });
       return result;
     }
@@ -589,12 +595,13 @@ export function createRestoreHandlers({
       // A cancel while the world loads stops the waiting. The restore is whole and the server is up on it.
       if (signal.aborted) {
         finished();
+        await settingsWritten();
         record('server.backup.restore', 'restored_then_cancelled', { safetyBackupId: safety?.backupId ?? null });
         throw cancelled();
       }
       return rollBack(error);
     }
-    success();
+    await success();
     if (signal.aborted) throw cancelled();
     step(0.95, 'done', { time: when });
     return result;

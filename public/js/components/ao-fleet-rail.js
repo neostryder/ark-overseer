@@ -3,6 +3,8 @@ import { STRINGS } from '../strings.js';
 import { stateName } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
 import { mapName } from '../lib/wizard.js';
+import { GENERIC_MAP_ART, markArtFailed, railPictureUrl } from '../lib/map-art.js';
+
 export class AoFleetRail extends HTMLElement {
   connectedCallback() {
     this.app = this.closest('ao-app');
@@ -14,6 +16,39 @@ export class AoFleetRail extends HTMLElement {
     this.app?.addEventListener('servers-loaded', this.onServers);
     this.servers = this.app?.servers;
     this.render();
+    // The catalog says which maps are official and whether Steam pictures are allowed. Until it loads,
+    // or if it fails, every server shows the generic picture.
+    api
+      .get('/api/maps')
+      .then((maps) => {
+        this.maps = maps;
+        this.render();
+      })
+      .catch(() => {});
+  }
+  // The rail is drawn again on every server poll. A server keeps its picture element while the picture it
+  // should show stays the same, so nothing is fetched again and nothing flickers.
+  thumbFor(server) {
+    this.thumbs ??= new Map();
+    const want = railPictureUrl(server, this.maps);
+    const kept = this.thumbs.get(server.id);
+    if (kept?.dataset.want === want) return kept;
+    const thumb = document.createElement('img');
+    thumb.className = 'rail-thumb';
+    // The server's name and map are written beside it, so the picture adds nothing for a screen reader.
+    thumb.alt = '';
+    thumb.width = 460;
+    thumb.height = 215;
+    thumb.decoding = 'async';
+    thumb.dataset.want = want;
+    thumb.addEventListener('error', () => {
+      markArtFailed(want);
+      if (!thumb.src.endsWith(GENERIC_MAP_ART)) thumb.src = GENERIC_MAP_ART;
+    });
+    // The source is set after the listener, so even a failure reported at once reaches it.
+    thumb.src = want;
+    this.thumbs.set(server.id, thumb);
+    return thumb;
   }
   disconnectedCallback() {
     this.app?.removeEventListener('servers-loaded', this.onServers);
@@ -51,7 +86,16 @@ export class AoFleetRail extends HTMLElement {
       const text = document.createElement('span');
       text.className = 'server-text';
       text.append(serverName, meta);
-      link.append(icon('server'), text);
+      // Settings files that changed outside ARK Overseer and that nobody has looked at yet.
+      if (server.settingsChanged) {
+        const flag = document.createElement('span');
+        flag.className = 'badge drift-badge';
+        flag.textContent = STRINGS.fleet.settingsChanged;
+        flag.title = STRINGS.fleet.settingsChangedHelp;
+        text.append(flag);
+      }
+      const thumb = this.thumbFor(server);
+      link.append(thumb, text);
       this.append(link);
     }
     if (this.refreshError) {

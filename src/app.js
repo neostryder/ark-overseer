@@ -21,6 +21,8 @@ import { saveInventory } from './maps/inventory.js';
 import { findModMaps, withModMaps } from './maps/mod-maps.js';
 import { checkSwitch, SWITCH_MESSAGES } from './maps/switch.js';
 import { registerBackupRoutes, FILE_JOBS } from './backups/api.js';
+import { createDrift, settingKeys } from './settings/drift.js';
+import { registerDriftRoutes } from './settings/api.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -81,10 +83,11 @@ function serverRow(db, id) {
     )
     .get(id);
 }
-function shapeServer(row, supervisor) {
+function shapeServer(row, supervisor, unseenDrift = new Set()) {
   const settings = JSON.parse(row.settings_json || '{}');
   return {
     ...row,
+    settingsChanged: unseenDrift.has(row.id),
     settings_json: { mods: settings.mods ?? [], disableBattlEye: settings.disableBattlEye ?? false },
     status: supervisor.status(row.id),
     install: {
@@ -120,6 +123,8 @@ export function createApp({
   rcon,
   getRconPassword,
   serviceMode = false,
+  // The settings drift service. The real app shares one with the job engine and the supervisor.
+  drift = null,
   // Tests pass stand-ins; the real app passes ones that may fetch from the network.
   catalog = createCatalog({ dataDir, url: null, log }),
   artResolver = createArtResolver({ dataDir, log }),
@@ -128,6 +133,15 @@ export function createApp({
   const auth = createAuth({ db, now }),
     router = createRouter({ log }),
     previews = new Map();
+  const settingsDrift = drift ?? createDrift({ db, dataDir, supervisor, rcon, getRconPassword, now, log });
+  if (!drift) settingsDrift.attach(jobs);
+  const unseenDrift = () =>
+    new Set(
+      db
+        .prepare('SELECT server_id FROM settings_drift WHERE seen_at IS NULL')
+        .all()
+        .map((row) => row.server_id),
+    );
   const hostRow = () => db.prepare("SELECT * FROM hosts WHERE name = 'local'").get();
   function record(user, action, kind, id, detail) {
     if (user) audit(db, user, action, kind, id, detail);
@@ -136,7 +150,13 @@ export function createApp({
     (action, kind, handler, detail = (ctx) => ({})) =>
     async (ctx) => {
       const result = await handler(ctx);
-      record(ctx.user, action, kind, ctx.params.id ?? result?.id ?? null, detail(ctx));
+      record(
+        ctx.user,
+        typeof action === 'function' ? action(ctx) : action,
+        kind,
+        ctx.params.id ?? result?.id ?? null,
+        detail(ctx, result),
+      );
       return result;
     };
   // The jobs that change the files under a server, or stop and start it in steps that must not be interleaved.
@@ -360,15 +380,17 @@ export function createApp({
     '/api/steamcmd/setup',
     protectedRoute('steamcmd.setup', 'steamcmd', () => jobs.enqueue('steamcmd.setup')),
   );
-  const listServers = () =>
+  const listServers = (unseen) =>
     db
       .prepare(
         'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at FROM servers s JOIN installs i ON i.id = s.install_id ORDER BY s.id',
       )
       .all()
-      .map((row) => shapeServer(row, supervisor));
-  router.add('GET', '/api/servers', listServers);
-  router.add('GET', '/api/servers/:id', ({ params }) => shapeServer(must(serverRow(db, params.id)), supervisor));
+      .map((row) => shapeServer(row, supervisor, unseen));
+  router.add('GET', '/api/servers', () => listServers(unseenDrift()));
+  router.add('GET', '/api/servers/:id', ({ params }) =>
+    shapeServer(must(serverRow(db, params.id)), supervisor, unseenDrift()),
+  );
   router.add('GET', '/api/servers/:id/schedules', ({ params }) => {
     must(serverRow(db, params.id));
     return db
@@ -526,6 +548,24 @@ export function createApp({
     error,
     serverRow,
     messages: API_MESSAGES,
+    // A backups page load is also a look at whether the settings files still match ARK Overseer's last write.
+    onServerLoad: (server) =>
+      void settingsDrift
+        .checkDrift(server, { force: true })
+        .catch((cause) => log(`Checking the settings failed: ${cause.message}`)),
+  });
+  registerDriftRoutes({
+    router,
+    db,
+    drift: settingsDrift,
+    jobs,
+    supervisor,
+    protectedRoute,
+    must,
+    error,
+    serverRow,
+    messages: API_MESSAGES,
+    fileJobRunning,
   });
   router.add(
     'POST',
@@ -597,6 +637,8 @@ export function createApp({
           );
           return serverRow(db, id);
         });
+        // The install may already hold settings files, so they are the starting point for what is reported as changed.
+        await settingsDrift.recordBaseline(result, 'server_created', { skipIfEmpty: true });
         return shapeServer(result, supervisor);
       },
       (ctx) => ({ name: ctx.body.name, map: ctx.body.map }),
@@ -645,19 +687,31 @@ export function createApp({
     const paths = serverPaths(row.install_path);
     return createSettingsStore(paths);
   };
-  router.add('GET', '/api/servers/:id/settings', ({ params }) => storeFor(params.id).readSettings());
+  router.add('GET', '/api/servers/:id/settings', async ({ params }) => {
+    const settings = storeFor(params.id).readSettings();
+    // The first read of an older server takes its baseline from the files as they are now.
+    await settingsDrift
+      .ensureBaseline(serverRow(db, params.id))
+      .catch((cause) => log(`Recording the settings baseline failed: ${cause.message}`));
+    return settings;
+  });
   router.add(
     'PUT',
     '/api/servers/:id/settings',
     protectedRoute(
       'server.settings',
       'server',
-      ({ params, body }) => {
-        must(serverRow(db, params.id));
+      async ({ params, body }) => {
+        const row = must(serverRow(db, params.id));
         // A restore swaps settings files one by one, and a save in the middle would mix with it.
         if (fileJobRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
+        // The write and the record of it are one step, so a check of the files cannot fall between them.
         try {
-          return storeFor(params.id).writeSettings(body);
+          return await settingsDrift.saveSettings(
+            row,
+            () => storeFor(params.id).writeSettings(body),
+            settingKeys(body),
+          );
         } catch (e) {
           if (e.errors) e.status = 400;
           throw e;
@@ -744,10 +798,12 @@ export function createApp({
         previews.delete(body.token);
         if (!entry || entry.expires < now()) throw error(410, API_MESSAGES.previewExpired);
         try {
-          return await applyImport(db, entry.detection, body.profileId, {
+          const imported = await applyImport(db, entry.detection, body.profileId, {
             snapshotRoot: path.join(dataDir, 'snapshots'),
             listeners: await listListeners(),
           });
+          await settingsDrift.recordBaseline(serverRow(db, imported.serverId), 'import', { skipIfEmpty: true });
+          return imported;
         } catch (e) {
           if (e.code === 'CHANGED_SINCE_PREVIEW') e.status = 409;
           if (e.conflicts) e.status = 409;

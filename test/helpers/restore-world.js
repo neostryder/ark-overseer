@@ -53,7 +53,13 @@ export function readTree(dir) {
 
 export function restoreWorld(
   t,
-  { running = true, maps = ['TheIsland_WP', 'Ragnarok_WP'], config = true, prefix = 'overseer-restore-' } = {},
+  {
+    running = true,
+    maps = ['TheIsland_WP', 'Ragnarok_WP'],
+    config = true,
+    prefix = 'overseer-restore-',
+    onSettingsWritten,
+  } = {},
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -148,6 +154,7 @@ export function restoreWorld(
     getRconPassword: () => 'pw',
     now: () => NOW,
     ops,
+    ...(onSettingsWritten ? { onSettingsWritten } : {}),
   };
   const handlers = {
     ...createRestoreHandlers({

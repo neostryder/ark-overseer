@@ -42,8 +42,8 @@ export class AoServerMaps extends HTMLElement {
       this.replaceChildren(el('p', error.message || STRINGS.maps.failed, 'error-message'), retry);
     }
   }
-  picture(map, name) {
-    return mapPicture({ map, name, serverId: this.serverId, showArt: this.data.showArt });
+  picture(map, name, generic = false) {
+    return mapPicture({ map, name, serverId: this.serverId, showArt: this.data.showArt, generic });
   }
   // What is known about a save, as short lines: when it was written and how big the world file is.
   saveLines(save) {
@@ -73,7 +73,8 @@ export class AoServerMaps extends HTMLElement {
     const currentName = currentMap?.name ?? currentSave?.name ?? data.current;
     const current = el('section', undefined, 'card map-current');
     current.append(el('h2', m.current));
-    const picture = currentMap ? this.picture(currentMap, currentName) : null;
+    // The current map always gets a picture: its own, or the generic one when it has none.
+    const picture = this.picture(currentMap ?? { id: data.current, kind: 'mod' }, currentName, true);
     if (picture) current.append(picture);
     const text = el('div', undefined, 'map-text');
     text.append(el('strong', currentName, 'map-name'));

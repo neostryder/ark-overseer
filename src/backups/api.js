@@ -20,7 +20,7 @@ export const API_MESSAGES = {
 };
 // Jobs that change files under a server while it is down or being changed, so the dashboard's Start, Stop and
 // Restart wait for them.
-export const FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore'];
+export const FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore', 'server.settings_resolve'];
 const NOTE_MAX = 200;
 const ACTIVE = new Set(['running', 'starting', 'unknown']);
 
@@ -36,6 +36,7 @@ export function registerBackupRoutes({
   error,
   serverRow,
   messages,
+  onServerLoad = () => {},
 }) {
   const backupOf = (serverId, backupId) =>
     db.prepare('SELECT * FROM backups WHERE id = ? AND server_id = ?').get(backupId, serverId) ?? must(null);
@@ -62,7 +63,7 @@ export function registerBackupRoutes({
     );
 
   router.add('GET', '/api/servers/:id/backups', async ({ params }) => {
-    must(serverRow(db, params.id));
+    onServerLoad(must(serverRow(db, params.id)));
     return Promise.all(
       db
         .prepare('SELECT * FROM backups WHERE server_id = ? ORDER BY created_at DESC, id DESC')

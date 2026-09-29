@@ -251,6 +251,29 @@ export const MIGRATIONS = [
         stage TEXT NOT NULL
       );`,
   },
+  {
+    version: 9,
+    name: 'settings_drift',
+    // The baseline is what ARK Overseer last wrote or accepted in the settings files; the drift row says the
+    // files no longer match it. Both go with their server. `pending_json` names what still has to be taken into
+    // the baseline after a record failed, so the last good baseline is kept meanwhile.
+    up: `
+      CREATE TABLE settings_baselines (
+        server_id INTEGER PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+        recorded_at TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        source TEXT NOT NULL,
+        pending_json TEXT CHECK (pending_json IS NULL OR json_valid(pending_json))
+      );
+
+      CREATE TABLE settings_drift (
+        server_id INTEGER PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+        detected_at TEXT NOT NULL,
+        live_sha256 TEXT NOT NULL,
+        seen_at TEXT,
+        after_stop INTEGER NOT NULL DEFAULT 0 CHECK (after_stop IN (0, 1))
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

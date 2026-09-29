@@ -49,10 +49,15 @@ export function readIniFile(iniPath) {
   return { lines: text.split(/\r?\n/), encoding, bom, eol };
 }
 
-export function writeIniFile(iniPath, { lines, encoding = 'utf8', bom = false, eol = '\r\n' }) {
+// The bytes of a file read with readIniFile: the same encoding, byte order mark and line endings.
+export function iniBytes({ lines, encoding = 'utf8', bom = false, eol = '\r\n' }) {
   const body = Buffer.from(lines.join(eol), encoding);
   const prefix = !bom ? Buffer.alloc(0) : Buffer.from(encoding === 'utf16le' ? [0xff, 0xfe] : [0xef, 0xbb, 0xbf]);
-  writeFileAtomic(iniPath, Buffer.concat([prefix, body]));
+  return Buffer.concat([prefix, body]);
+}
+
+export function writeIniFile(iniPath, file) {
+  writeFileAtomic(iniPath, iniBytes(file));
 }
 
 export function readIniLines(iniPath) {
@@ -109,7 +114,7 @@ export function findKeyLine(lines, section, key) {
   return findKeyLines(lines, [section], key)[0] ?? null;
 }
 
-function findKeyLines(lines, sections, key) {
+export function findKeyLines(lines, sections, key) {
   const wanted = key.trim().toLowerCase();
   const found = [];
   for (const section of sections) {

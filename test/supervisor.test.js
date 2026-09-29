@@ -73,6 +73,7 @@ function setup(t, overrides = {}) {
       return '';
     },
     getRconPassword: () => 'secret',
+    ...(overrides.beforeStart ? { beforeStart: overrides.beforeStart } : {}),
     options: {
       surviveMs: 2000,
       startupAttempts: 2,
@@ -512,4 +513,43 @@ test('an automatic restart waits for an install update without counting it as a 
   assert.equal(ctx.supervisor.status(1).crashLoop, false);
   ctx.db.prepare("UPDATE installs SET state = 'installed' WHERE id = 1").run();
   await waitFor(() => ctx.spawns.length === 2);
+});
+
+test('beforeStart finishes before anything is launched, after the stop on a restart, and never blocks a start', async (t) => {
+  const order = [];
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const ctx = setup(t, {
+    exitOnRcon: true,
+    spawn: (pid) => (order.push(`spawn ${pid}`), {}),
+    beforeStart: async (id) => {
+      order.push(`hook start ${id}`);
+      if (order.filter((item) => item.startsWith('hook')).length === 1) await gate;
+      order.push('hook end');
+    },
+  });
+  const starting = ctx.supervisor.start(1);
+  await new Promise((resolve) => setImmediate(resolve));
+  // The hook is still waiting, so the server has not been marked as starting or launched.
+  assert.deepEqual(order, ['hook start 1']);
+  assert.equal(ctx.supervisor.status(1).observedState, 'stopped');
+  release();
+  await starting;
+  assert.deepEqual(order, ['hook start 1', 'hook end', 'spawn 1']);
+  order.length = 0;
+  await ctx.supervisor.restart(1);
+  assert.deepEqual(order, ['hook start 1', 'hook end', 'spawn 2']);
+  assert.deepEqual(ctx.rcons, ['SaveWorld', 'DoExit']);
+  // A server that is already running is not started again, so the hook is not run for it.
+  order.length = 0;
+  await ctx.supervisor.start(1);
+  assert.deepEqual(order, []);
+  // A hook that throws does not stop the start.
+  const failing = setup(t, {
+    beforeStart: async () => {
+      throw new Error('settings check failed');
+    },
+  });
+  assert.equal((await failing.supervisor.start(1)).observedState, 'running');
+  assert.equal(failing.spawns.length, 1);
 });

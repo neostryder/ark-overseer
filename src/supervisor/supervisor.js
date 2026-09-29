@@ -49,6 +49,9 @@ export function createSupervisor({
   getRconPassword = () => '',
   clock = realClock,
   options = {},
+  // Runs before every start, after the checks that can refuse one and before anything is launched. The
+  // settings drift check uses it to put ARK Overseer's values back first. A failure here never stops a start.
+  beforeStart = async () => {},
 }) {
   const config = { ...DEFAULTS, ...options };
   const listeners = new Set();
@@ -205,6 +208,11 @@ export function createSupervisor({
       const error = new Error(`The server cannot start while its install is ${server.install_state}.`);
       error.code = 'INSTALL_BUSY';
       throw error;
+    }
+    try {
+      await beforeStart(id);
+    } catch {
+      /* the start goes ahead without it */
     }
     if (manual) crashes.delete(id);
     cancelRestart(id);

@@ -247,7 +247,11 @@ export async function copyHashed(source, target) {
   return { size, sha256: hash.digest('hex') };
 }
 
-export async function snapshotFiles(files, destDir, { copy = copyHashed, signal } = {}) {
+export async function snapshotFiles(
+  files,
+  destDir,
+  { copy = copyHashed, signal, manifestName = 'snapshot.json' } = {},
+) {
   await fsp.mkdir(path.dirname(destDir), { recursive: true });
   // A plain mkdir fails if the folder exists, so two imports can never write into one snapshot, and a
   // snapshot this call did not create is never removed by it.
@@ -275,7 +279,7 @@ export async function snapshotFiles(files, destDir, { copy = copyHashed, signal 
       if (!result) throw new Error(`${file.relPath} kept changing while it was copied`);
       copied.push({ relPath: file.relPath, size: result.size, sha256: result.sha256 });
     }
-    const manifestPath = path.join(destDir, 'snapshot.json');
+    const manifestPath = path.join(destDir, manifestName);
     await fsp.writeFile(manifestPath, JSON.stringify({ createdAt: nowIso(), files: copied }, null, 2));
     const manifest = await hashFile(manifestPath);
     const sizeBytes = copied.reduce((sum, file) => sum + file.size, manifest.size);

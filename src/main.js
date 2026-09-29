@@ -26,11 +26,14 @@ import { createArtResolver } from './maps/art.js';
 import { createSwitchHandlers, reconcilePendingSwitches } from './maps/switch.js';
 import { createRestoreHandlers, reconcilePendingRestores } from './backups/restore.js';
 import { createSettingsSnapshotHandlers } from './backups/settings-snapshots.js';
+import { createDrift } from './settings/drift.js';
 import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
 // 20 s, which leaves time to close everything else.
 const SAVE_ALL_MS = 25000;
+// The pending restores whose scope put settings files in place.
+const SETTINGS_SCOPES = new Set(['everything', 'settings', 'settings_snapshot', 'settings_resolve']);
 const JOB_STOP_MS = 20000;
 
 export async function start() {
@@ -42,6 +45,7 @@ export async function start() {
     pwshPath = process.env.OVERSEER_PWSH || 'pwsh',
     platform = createWindowsPlatform({ pwshPath });
   const steamcmd = createSteamCmd({ root: path.join(dataDir, 'steamcmd'), runner });
+  // The supervisor asks the drift service, created below, to put ARK Overseer's settings back before a start.
   const supervisor = createSupervisor({
     db,
     platform,
@@ -49,6 +53,7 @@ export async function start() {
       const ini = serverPaths(server.install_path).gameUserSettingsPath;
       return getIniKey(readIniLines(ini), SERVER_SETTINGS, 'ServerAdminPassword') || '';
     },
+    beforeStart: (id) => drift.beforeStart(id),
   });
   const gaming = createGamingMode({
     db,
@@ -61,15 +66,42 @@ export async function start() {
     const ini = serverPaths(server.install_path).gameUserSettingsPath;
     return getIniKey(readIniLines(ini), SERVER_SETTINGS, 'ServerAdminPassword') || '';
   };
+  const drift = createDrift({
+    db,
+    dataDir,
+    supervisor,
+    rcon: rconCommand,
+    getRconPassword,
+    log: console.error,
+  });
+  supervisor.subscribe((event) => drift.onStateChange(event));
+  const settingsWritten = (server, source) => drift.recordBaseline(server, source);
   const catalog = createCatalog({ dataDir, log: console.error });
   const handlers = {
     ...createInstallHandlers({ db, steamcmd }),
     ...createScheduleHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
     ...createSwitchHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
-    ...createRestoreHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
-    ...createSettingsSnapshotHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword }),
+    ...createRestoreHandlers({
+      db,
+      dataDir,
+      supervisor,
+      rcon: rconCommand,
+      getRconPassword,
+      catalog,
+      onSettingsWritten: settingsWritten,
+    }),
+    ...createSettingsSnapshotHandlers({
+      db,
+      dataDir,
+      supervisor,
+      rcon: rconCommand,
+      getRconPassword,
+      onSettingsWritten: settingsWritten,
+    }),
+    ...drift.handlers,
   };
   const jobs = createJobEngine({ db, handlers });
+  drift.attach(jobs);
   const scheduler = createScheduler({ db, jobs });
   const listListeners = () => readListeners({ runner });
   // Windows' own tools by full path, never whatever a PATH entry happens to put first.
@@ -96,6 +128,7 @@ export async function start() {
     supervisor,
     gaming,
     scheduler,
+    drift,
     rcon: rconCommand,
     getRconPassword,
     steamcmd,
@@ -117,9 +150,27 @@ export async function start() {
     const undone = reconcilePendingSwitches({ db }).filter((entry) => entry.changed && entry.wasRunning);
     // A restore cut off by the last shutdown is settled the same way: the files are put back, or the old copies
     // are removed if the swap was whole. A server that was running is started again once the supervisor is up.
+    const pendingScopes = new Map(
+      db
+        .prepare('SELECT server_id, scope FROM pending_restores')
+        .all()
+        .map((row) => [row.server_id, row.scope]),
+    );
     const settled = await reconcilePendingRestores({ db });
     for (const item of settled.filter((entry) => entry.failed))
       console.error(`Settling the interrupted restore for server ${item.serverId} failed: ${item.failed}`);
+    // A restore or a put-back that finished swapping settings files before it was cut off leaves the baseline behind
+    // the files, so it is taken again from them.
+    for (const item of settled.filter(
+      (entry) => entry.outcome === 'completed' && SETTINGS_SCOPES.has(pendingScopes.get(entry.serverId)),
+    )) {
+      const row = db
+        .prepare(
+          'SELECT s.*, i.path AS install_path FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+        )
+        .get(item.serverId);
+      if (row) await drift.recordBaseline(row, 'restore_settled').catch((error) => console.error(error.message));
+    }
     const pidsBefore = new Map(undone.map((entry) => [entry.serverId, supervisor.status(entry.serverId)?.pid ?? null]));
     jobs.start();
     scheduler.start();
@@ -160,11 +211,14 @@ export async function start() {
   }
   // A newer map list is fetched now and then daily; without OVERSEER_CATALOG_URL this does nothing.
   const stopCatalogRefresh = scheduleCatalogRefresh(catalog);
+  // Every server's settings files are compared with ARK Overseer's last write now and then every ten minutes.
+  const stopDriftWatch = drift.start();
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
     closing = true;
     stopCatalogRefresh();
+    stopDriftWatch();
     await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),

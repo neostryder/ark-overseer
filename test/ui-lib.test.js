@@ -22,7 +22,7 @@ import {
 import { stateName, relativeTime, byteSize, jobSummary, jobState } from '../public/js/lib/format.js';
 import { STRINGS } from '../public/js/strings.js';
 import { MAPS, mapName, setCatalogMaps } from '../public/js/lib/wizard.js';
-import { mapPictureUrl } from '../public/js/lib/map-art.js';
+import { mapPictureUrl, railPictureUrl, markArtFailed, GENERIC_MAP_ART } from '../public/js/lib/map-art.js';
 import { cronToPicker, pickerToCron, parseCountdown } from '../public/js/lib/cron-picker.js';
 
 test('route parsing and building covers supported routes', () => {
@@ -209,4 +209,17 @@ test('searchFields matches every word across key, label, description and categor
     ['XPMultiplier', 'BabyMatureSpeedMultiplier'],
   );
   assert.deepEqual(rankedFields(fields, null), []);
+});
+
+test('the server rail picks the map picture, and the generic one when there is none', () => {
+  const maps = { showArt: true, maps: [{ id: 'TheIsland_WP', kind: 'official' }] };
+  assert.equal(railPictureUrl({ id: 3, map: 'TheIsland_WP' }, maps), '/api/maps/TheIsland_WP/art');
+  // A map missing from the catalog is tried as a mod map on that server.
+  assert.equal(railPictureUrl({ id: 3, map: 'Winter_WP' }, maps), '/api/servers/3/maps/Winter_WP/art');
+  assert.equal(railPictureUrl({ id: 3, map: 'TheIsland_WP' }, { ...maps, showArt: false }), GENERIC_MAP_ART);
+  assert.equal(railPictureUrl({ id: 3, map: 'TheIsland_WP' }, undefined), GENERIC_MAP_ART);
+  assert.equal(railPictureUrl({ id: 3, map: '' }, maps), GENERIC_MAP_ART);
+  // A picture that failed once is not asked for again when the rail is drawn again.
+  markArtFailed('/api/servers/3/maps/Winter_WP/art');
+  assert.equal(railPictureUrl({ id: 3, map: 'Winter_WP' }, maps), GENERIC_MAP_ART);
 });

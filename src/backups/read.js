@@ -62,8 +62,8 @@ function validRelPath(relPath) {
 }
 
 // The manifest of a backup folder, checked. Nothing here writes.
-export async function readManifest(folder) {
-  const file = path.join(folder, 'snapshot.json');
+export async function readManifest(folder, name = 'snapshot.json') {
+  const file = path.join(folder, name);
   let stat;
   try {
     stat = await fsp.stat(file);

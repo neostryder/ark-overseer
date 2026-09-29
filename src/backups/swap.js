@@ -51,7 +51,8 @@ const fill = (template, values) => template.replace(/\{(\w+)\}/g, (match, key) =
 
 // A unit is one thing to replace. `folder` swaps a whole folder, `files` swaps single files inside `dir`.
 // `files` lists { rel, relPath, size, sha256 }: where the file goes under the target and where it is in
-// `source`, the backup folder. A folder unit with no files replaces the folder with nothing.
+// `source`, the backup folder. A folder unit with no files replaces the folder with nothing. In a `files`
+// unit an entry marked `remove` has no copy: the target is moved aside and nothing takes its place.
 export async function stageUnit(unit, { ops, tag, signal }) {
   const one = async (file, to) => {
     if (signal?.aborted) throw signal.reason ?? new Error(MESSAGES.cancelled);
@@ -69,6 +70,7 @@ export async function stageUnit(unit, { ops, tag, signal }) {
     return;
   }
   for (const file of unit.files) {
+    if (file.remove) continue;
     const target = path.join(unit.dir, ...file.rel.split('/'));
     await ops.rm(artifact(target, 'restore', tag));
     await one(file, artifact(target, 'restore', tag));
@@ -92,7 +94,7 @@ export async function swapUnit(unit, { ops, tag, onStage = () => {} }) {
     }
   };
   if (unit.kind === 'folder') return replace(unit.dir, unit.files.length > 0);
-  for (const file of unit.files) await replace(path.join(unit.dir, ...file.rel.split('/')), true);
+  for (const file of unit.files) await replace(path.join(unit.dir, ...file.rel.split('/')), !file.remove);
 }
 
 const ARTIFACT = /^(.+)\.(old|restore|absent)-(\d+r?)$/;

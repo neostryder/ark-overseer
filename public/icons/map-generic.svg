@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 215" width="460" height="215">
+  <!-- Stand-in picture for a map with no art: an island at dusk with a long-necked dinosaur. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3b53"/>
+      <stop offset="0.55" stop-color="#c7774a"/>
+      <stop offset="1" stop-color="#f0b56e"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d5a6b"/>
+      <stop offset="1" stop-color="#173645"/>
+    </linearGradient>
+  </defs>
+  <rect width="460" height="215" fill="url(#sky)"/>
+  <circle cx="330" cy="120" r="34" fill="#f7d08a" opacity="0.85"/>
+  <path d="M0 150 L70 88 L112 122 L168 60 L226 128 L262 104 L300 140 L460 140 L460 215 L0 215 Z" fill="#40485a" opacity="0.75"/>
+  <path d="M0 168 L54 132 L98 150 L150 110 L206 156 L250 138 L330 160 L400 128 L460 150 L460 215 L0 215 Z" fill="#2b3342"/>
+  <rect y="176" width="460" height="39" fill="url(#sea)"/>
+  <path d="M0 178 C40 170 80 172 120 176 C170 181 210 170 250 172 C300 175 340 168 380 172 C410 175 440 171 460 173 L460 180 L0 180 Z" fill="#1c2632"/>
+  <g fill="#151b24">
+    <path d="M300 172 C300 158 312 150 330 150 C350 150 364 156 372 166 L380 172 Z"/>
+    <path d="M364 160 C376 148 382 128 386 108 C388 98 394 94 400 96 C404 97 404 102 399 104 C394 106 392 114 391 124 C389 142 384 156 374 166 Z"/>
+    <path d="M300 166 C286 164 272 168 256 174 C272 170 288 170 302 172 Z"/>
+    <rect x="312" y="166" width="7" height="12" rx="2"/>
+    <rect x="326" y="166" width="7" height="12" rx="2"/>
+    <rect x="346" y="166" width="7" height="12" rx="2"/>
+    <rect x="360" y="165" width="7" height="13" rx="2"/>
+  </g>
+  <g fill="#10161e">
+    <path d="M40 176 L44 146 L48 176 Z"/>
+    <path d="M44 150 C34 146 28 148 22 152 C30 146 38 144 44 146 C50 140 58 138 66 140 C58 142 52 145 46 149 Z"/>
+    <path d="M420 176 L423 152 L427 176 Z"/>
+    <path d="M423 155 C415 151 409 152 404 156 C411 150 418 149 423 151 C428 146 434 145 440 147 C434 149 429 151 425 154 Z"/>
+  </g>
+</svg>

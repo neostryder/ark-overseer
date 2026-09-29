@@ -58,7 +58,7 @@ a {
 .app-frame {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
 }
 .fleet-rail {
   position: sticky;
@@ -121,8 +121,16 @@ a {
   gap: 5px;
   min-width: 0;
 }
-.server-link .icon {
-  margin: 2px 0 0;
+.rail-thumb {
+  flex: none;
+  width: 72px;
+  height: auto;
+  aspect-ratio: 460 / 215;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  margin-top: 2px;
 }
 .server-text span {
   color: var(--muted);
@@ -1043,8 +1051,118 @@ pre {
   padding-left: 18px;
   overflow-wrap: anywhere;
 }
+.server-text .badge.drift-badge {
+  align-self: flex-start;
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+.drift-host {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+.drift-keep,
+.drift-banner {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.drift-keep .check-row {
+  color: var(--text);
+  align-items: flex-start;
+}
+.drift-keep .check-row input {
+  flex: none;
+  margin-top: 2px;
+}
+.drift-banner {
+  border-left: 3px solid var(--gold);
+}
+.drift-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.drift-words {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.drift-job,
+.drift-notice,
+.drift-panel p,
+.drift-panel small {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.drift-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.drift-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.drift-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.drift-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.drift-choice:has(input:checked) {
+  border-color: var(--teal);
+  background: rgba(63, 184, 168, 0.08);
+}
+.drift-choice input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--gold);
+}
+.drift-choice-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.drift-choice-text code {
+  font: 500 0.85rem var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.drift-choice-action {
+  font-size: 0.85rem;
+}
+.drift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.drift-running {
+  color: var(--gold-bright);
+  overflow-wrap: anywhere;
+}
 @media (max-width: 560px) {
   .diff-values,
+  .drift-choices,
   .player-lists {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1054,7 +1172,10 @@ pre {
 }
 @media (max-width: 900px) {
   .app-frame {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+  .rail-thumb {
+    width: 58px;
   }
   .settings-layout {
     grid-template-columns: 170px minmax(0, 1fr);

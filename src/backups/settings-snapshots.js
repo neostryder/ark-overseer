@@ -157,7 +157,7 @@ const isComment = (line) => /^\s*[;#]/.test(line);
 
 // Sections and keys of one INI file. Section and key names ignore letter case, as ARK reads them, and values
 // are trimmed. A key that appears more than once (Game.ini repeats some) keeps every value in file order.
-function parseIni(lines) {
+export function parseIni(lines) {
   const sections = new Map();
   let current = null;
   const open = (name) => {
@@ -238,8 +238,8 @@ async function walk(dir, prefix = '') {
 // What differs between a snapshot and the settings folder as it is now. `old` is the snapshot's value and
 // `current` is the live one: a key is `added` when the live file has it and the snapshot does not, `removed` when
 // only the snapshot has it. A file on one side only is listed whole. Comments and blank lines are ignored.
-export async function diffSettings(snapshotPath, liveConfigDir) {
-  const manifest = await readManifest(snapshotPath);
+export async function diffSettings(snapshotPath, liveConfigDir, { manifest: manifestName } = {}) {
+  const manifest = await readManifest(snapshotPath, manifestName);
   const held = new Map(
     manifest.files
       .filter((file) => file.relPath.startsWith(`${CONFIG_PREFIX}/`))
@@ -280,6 +280,8 @@ export function createSettingsSnapshotHandlers({
   getRconPassword,
   now = () => Date.now(),
   ops = defaultOps,
+  // Called with the server once the snapshot's files are in place, so the baseline follows them.
+  onSettingsWritten = async () => {},
 }) {
   const stamp = () => new Date(now()).toISOString();
   const serverRow = (id) =>
@@ -381,6 +383,7 @@ export function createSettingsSnapshotHandlers({
       leftovers = true;
     }
     if (!leftovers) dropPending();
+    await onSettingsWritten(server, 'settings_restore').catch(() => {});
     const running = ACTIVE.has(supervisor.status(server.id)?.observedState);
     record('restored', { name: row.name, safetyBackupId: safety?.backupId ?? null });
     step(0.95, running ? 'doneRunning' : 'done', { name: row.name });
