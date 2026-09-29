@@ -1483,3 +1483,41 @@ test('map pictures are found whatever the letter case of the map id', async (t) 
     404,
   );
 });
+
+test('the public address is saved, checked, and lets the app answer on that name', async (t) => {
+  const { url, db } = await fixture(t);
+  const { cookie } = await setup(url);
+  const put = (body) => fetch(`${url}/api/access`, putJson(body, cookie));
+  for (const publicHost of [
+    'https://ark.example.test',
+    'ark.example.test/path',
+    'ark example.test',
+    'ark.example.test:3310',
+    7,
+  ]) {
+    assert.equal((await put({ teamDomain: '', aud: '', publicHost })).status, 400, String(publicHost));
+  }
+  const askedAs = (host) => rawRequest(url, { method: 'GET', path: '/api/auth/state', headers: { Host: host } });
+  assert.equal((await askedAs('ark.example.test')).status, 421);
+  const saved = await put({ teamDomain: '', aud: '', publicHost: ' ark.example.test ' });
+  assert.equal(saved.status, 200);
+  assert.equal((await saved.json()).publicHost, 'ark.example.test');
+  assert.equal(db.prepare("SELECT public_host FROM hosts WHERE name = 'local'").get().public_host, 'ark.example.test');
+  assert.equal((await askedAs('ark.example.test')).status, 200);
+  assert.equal((await askedAs('other.example.test')).status, 421);
+  assert.equal(
+    (await (await fetch(`${url}/api/access`, { headers: { cookie } })).json()).publicHost,
+    'ark.example.test',
+  );
+});
+
+test('saving Access settings without a public address leaves the saved one alone, and empty clears it', async (t) => {
+  const { url, db } = await fixture(t);
+  const { cookie } = await setup(url);
+  const put = (body) => fetch(`${url}/api/access`, putJson(body, cookie));
+  await put({ teamDomain: '', aud: '', publicHost: 'ark.example.test' });
+  const kept = await put({ teamDomain: '', aud: '' });
+  assert.equal((await kept.json()).publicHost, 'ark.example.test');
+  await put({ teamDomain: '', aud: '', publicHost: '' });
+  assert.equal(db.prepare("SELECT public_host FROM hosts WHERE name = 'local'").get().public_host, null);
+});

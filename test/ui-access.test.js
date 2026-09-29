@@ -46,8 +46,13 @@ test('the Access settings component renders saved values and sends them on save'
     calls.push([path, options.method, options.body ? JSON.parse(options.body) : null]);
     const data =
       options.method === 'PUT'
-        ? { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }
-        : { enabled: true, teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) };
+        ? { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' }
+        : {
+            enabled: true,
+            teamDomain: 'rpgm.cloudflareaccess.com',
+            aud: 'a'.repeat(64),
+            publicHost: 'ark.example.test',
+          };
     return { ok: true, status: 200, json: async () => data };
   };
   try {
@@ -59,17 +64,22 @@ test('the Access settings component renders saved values and sends them on save'
     assert.equal(card.children[1].textContent, STRINGS.access.help);
     const actualForm = card.children[2];
     assert.equal(actualForm.tagName, 'form');
-    const inputs = actualForm.children.slice(0, 2).map((label) => label.children[1]);
+    const inputs = actualForm.children.slice(0, 3).map((label) => label.children[1]);
     assert.deepEqual(
       inputs.map((input) => input.value),
-      ['rpgm.cloudflareaccess.com', 'a'.repeat(64)],
+      ['rpgm.cloudflareaccess.com', 'a'.repeat(64), 'ark.example.test'],
     );
     await actualForm.listeners.submit({ preventDefault() {} });
     assert.deepEqual(calls, [
       ['/api/access', 'GET', null],
-      ['/api/access', 'PUT', { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }],
+      [
+        '/api/access',
+        'PUT',
+        { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' },
+      ],
     ]);
-    assert.equal(actualForm.children[2].textContent, STRINGS.access.save);
+    assert.equal(actualForm.children[3].textContent, STRINGS.access.publicHostHelp);
+    assert.equal(actualForm.children[4].textContent, STRINGS.access.save);
   } finally {
     globalThis.HTMLElement = old.HTMLElement;
     globalThis.customElements = old.customElements;

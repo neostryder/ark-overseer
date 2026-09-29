@@ -10,7 +10,7 @@ function element(tag, text, className = '') {
 
 export class AoAccessSettings extends HTMLElement {
   async connectedCallback() {
-    this.render(await api.get('/api/access').catch(() => ({ teamDomain: '', aud: '' })));
+    this.render(await api.get('/api/access').catch(() => ({ teamDomain: '', aud: '', publicHost: '' })));
   }
   render(data) {
     const s = STRINGS.access;
@@ -27,6 +27,10 @@ export class AoAccessSettings extends HTMLElement {
     aud.type = 'text';
     aud.autocomplete = 'off';
     aud.value = data.aud || '';
+    const publicHost = document.createElement('input');
+    publicHost.type = 'text';
+    publicHost.autocomplete = 'off';
+    publicHost.value = data.publicHost || '';
     const field = (labelText, input) => {
       const label = element('label', undefined, 'field-label');
       label.append(element('span', labelText), input);
@@ -36,15 +40,27 @@ export class AoAccessSettings extends HTMLElement {
     save.type = 'submit';
     const message = element('p', '', 'error-message');
     message.setAttribute('aria-live', 'polite');
-    form.append(field(s.teamDomain, teamDomain), field(s.aud, aud), save, message);
+    form.append(
+      field(s.teamDomain, teamDomain),
+      field(s.aud, aud),
+      field(s.publicHost, publicHost),
+      element('p', s.publicHostHelp, 'muted'),
+      save,
+      message,
+    );
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       message.textContent = '';
       save.disabled = true;
       try {
-        const result = await api.put('/api/access', { teamDomain: teamDomain.value, aud: aud.value });
+        const result = await api.put('/api/access', {
+          teamDomain: teamDomain.value,
+          aud: aud.value,
+          publicHost: publicHost.value,
+        });
         teamDomain.value = result.teamDomain;
         aud.value = result.aud;
+        publicHost.value = result.publicHost;
         document.querySelector('ao-toast')?.show(s.saved);
       } catch (error) {
         message.textContent = error.message;

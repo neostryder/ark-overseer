@@ -144,6 +144,8 @@ export const STRINGS = {
     help: 'A valid Cloudflare Access sign in lets you open ARK Overseer without another password.',
     teamDomain: 'Access team domain',
     aud: 'Application AUD tag',
+    publicHost: 'Public address',
+    publicHostHelp: 'The address people type when they reach ARK Overseer through Cloudflare, such as ark.example.com.',
     save: 'Save',
     saved: 'Cloudflare Access settings saved.',
   },

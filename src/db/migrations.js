@@ -364,6 +364,23 @@ export const MIGRATIONS = [
         access_aud IS NULL OR (length(access_aud) = 64 AND access_aud NOT GLOB '*[^A-Fa-f0-9]*')
       );`,
   },
+  {
+    version: 13,
+    name: 'public_host',
+    // An extra name ARK Overseer answers on, such as the address a relay or tunnel serves it at. A service
+    // cannot be given environment variables at install time, so the name is kept here.
+    up: `
+      ALTER TABLE hosts ADD COLUMN public_host TEXT CHECK (
+        public_host IS NULL OR (
+          length(public_host) BETWEEN 1 AND 253 AND
+          public_host NOT GLOB '*[^A-Za-z0-9.-]*' AND
+          public_host NOT LIKE '.%' AND public_host NOT LIKE '%.' AND
+          public_host NOT LIKE '%..%' AND
+          public_host NOT GLOB '-*' AND public_host NOT GLOB '*-' AND
+          public_host NOT GLOB '*.-*' AND public_host NOT GLOB '*-.*'
+        )
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

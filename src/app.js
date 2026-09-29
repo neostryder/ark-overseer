@@ -63,6 +63,7 @@ export const API_MESSAGES = {
   installHasServer: 'This install already runs {name}. Each server needs its own install.',
   badMapArt: 'Send enabled as true or false.',
   badAccessSettings: 'Enter both a plain team hostname and a 64 character AUD, or leave both empty.',
+  badPublicHost: 'Enter a plain address such as ark.example.com, without https:// or a path, or leave it empty.',
   accessKeysUnavailable: 'Cloudflare Access keys could not be reached. Check the team domain and try again.',
   sameMap: 'The server is already on that map.',
   jobRunning: 'Another job is queued or running for this server. Wait for it to finish, then try again.',
@@ -88,6 +89,11 @@ function audit(db, user, action, targetKind, targetId, detail = {}) {
 }
 // Windows folder names ignore case, so map ids are compared without regard to it.
 const sameId = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+// An empty name is valid and means "none". Ports, schemes and paths are not part of a name.
+const validHostname = (value) =>
+  value === '' ||
+  (value.length <= 253 &&
+    value.split('.').every((label) => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(label)));
 function must(value) {
   if (!value) throw error(404, API_MESSAGES.notFound);
   return value;
@@ -223,7 +229,7 @@ export function createApp({
     const row = hostRow();
     const teamDomain = row?.access_team_domain ?? '';
     const aud = row?.access_aud ?? '';
-    return { enabled: Boolean(teamDomain && aud), teamDomain, aud };
+    return { enabled: Boolean(teamDomain && aud), teamDomain, aud, publicHost: row?.public_host ?? '' };
   });
   router.add(
     'PUT',
@@ -240,6 +246,11 @@ export function createApp({
       const validAud = aud === '' || (typeof aud === 'string' && /^[A-Fa-f0-9]{64}$/.test(aud));
       if (!validHost || !validAud || Boolean(teamDomain) !== Boolean(aud))
         throw error(400, API_MESSAGES.badAccessSettings);
+      // Left out of the request, the saved address stays as it is.
+      const publicHost =
+        body.publicHost === undefined ? undefined : typeof body.publicHost === 'string' ? body.publicHost.trim() : null;
+      if (publicHost !== undefined && (publicHost === null || !validHostname(publicHost)))
+        throw error(400, API_MESSAGES.badPublicHost);
       if (teamDomain) {
         try {
           await auth.saveAccessSettings(teamDomain, aud);
@@ -262,7 +273,14 @@ export function createApp({
         aud || null,
         host.id,
       );
-      return { enabled: Boolean(teamDomain), teamDomain: teamDomain || '', aud: aud || '' };
+      if (publicHost !== undefined)
+        db.prepare('UPDATE hosts SET public_host = ? WHERE id = ?').run(publicHost || null, host.id);
+      return {
+        enabled: Boolean(teamDomain),
+        teamDomain: teamDomain || '',
+        aud: aud || '',
+        publicHost: publicHost === undefined ? (hostRow()?.public_host ?? '') : publicHost,
+      };
     }),
   );
   // The checkout the This computer page picked, read without running git as the service account.
@@ -1019,7 +1037,9 @@ export function createApp({
   });
   async function handleRequest(req, res) {
     for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
-    if (!hostAllowed(req.headers.host, allowedHosts)) return sendJson(res, 421, { error: AUTH_MESSAGES.unknownHost });
+    const publicHost = hostRow()?.public_host;
+    if (!hostAllowed(req.headers.host, publicHost ? [...allowedHosts, publicHost] : allowedHosts))
+      return sendJson(res, 421, { error: AUTH_MESSAGES.unknownHost });
     // A request line such as "GET //" is not a URL the parser accepts, and it answers 400 before
     // anything else looks at it.
     let pathname;
