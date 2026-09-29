@@ -356,3 +356,38 @@ test('the real runner keeps a multi-byte character that is split across two outp
   await createProcessRunner()(process.execPath, ['-e', script], { onLine: (line) => lines.push(line) });
   assert.deepEqual(lines, ['p\u20ac']);
 });
+
+test('appUpdate tries a fresh SteamCMD again once after its first-run "Missing configuration" error', async (t) => {
+  const root = temp(t);
+  fs.writeFileSync(path.join(root, 'steamcmd.exe'), '');
+  const calls = [];
+  const runner = async (command, args, options = {}) => {
+    calls.push(args);
+    options.onLine?.(calls.length === 1 ? "ERROR! Failed to install app '2430930' (Missing configuration)" : ok);
+    return { code: 0 };
+  };
+  const result = await createSteamCmd({ root, runner }).appUpdate({ installDir: 'C:\ARK Server' });
+  assert.equal(result.output, 'installed');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1], calls[0]);
+});
+
+test('appUpdate gives up when the same error comes back, and does not retry other errors', async (t) => {
+  const root = temp(t);
+  fs.writeFileSync(path.join(root, 'steamcmd.exe'), '');
+  const attempts = async (message) => {
+    let count = 0;
+    const runner = async (command, args, options = {}) => {
+      count++;
+      options.onLine?.(message);
+      return { code: 0 };
+    };
+    await assert.rejects(
+      createSteamCmd({ root, runner }).appUpdate({ installDir: 'C:\ARK Server' }),
+      /Failed to install/,
+    );
+    return count;
+  };
+  assert.equal(await attempts("ERROR! Failed to install app '2430930' (Missing configuration)"), 2);
+  assert.equal(await attempts("ERROR! Failed to install app '2430930' (No subscription)"), 1);
+});

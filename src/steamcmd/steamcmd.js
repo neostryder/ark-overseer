@@ -62,32 +62,37 @@ export function createSteamCmd({
     if (branch !== 'public') args.push('-beta', branch);
     if (validate) args.push('validate');
     args.push('+quit');
-    // SteamCMD can print an error and then succeed on its own retry, so the last result line decides.
-    let outcome;
-    let steamError;
-    const { code } = await runner(exePath, args, {
-      cwd: root,
-      signal,
-      onLine: (line) => {
-        const parsed = parseSteamCmdLine(line);
-        if (parsed?.kind === 'progress')
-          progress?.(
-            parsed.fraction,
-            `${parsed.phase[0].toUpperCase()}${parsed.phase.slice(1)}: ${(parsed.doneBytes / 1e9).toFixed(1)} of ${(parsed.totalBytes / 1e9).toFixed(1)} GB`,
-          );
-        if (parsed?.kind === 'success') {
-          outcome = parsed.message.includes('fully installed.') ? 'installed' : 'up to date';
-          steamError = undefined;
-        }
-        if (parsed?.kind === 'error') {
-          steamError = parsed.message;
-          outcome = undefined;
-        }
-      },
-    });
-    if (steamError) throw new Error(steamError);
-    if (!outcome) throw new Error(`SteamCMD finished without reporting success (exit code ${code})`);
-    return { output: outcome };
+    // A SteamCMD that was installed moments ago answers its first app_update with "Missing configuration"
+    // and accepts the same command the next time, so that one error is tried again once.
+    for (let attempt = 1; ; attempt++) {
+      // SteamCMD can print an error and then succeed on its own retry, so the last result line decides.
+      let outcome;
+      let steamError;
+      const { code } = await runner(exePath, args, {
+        cwd: root,
+        signal,
+        onLine: (line) => {
+          const parsed = parseSteamCmdLine(line);
+          if (parsed?.kind === 'progress')
+            progress?.(
+              parsed.fraction,
+              `${parsed.phase[0].toUpperCase()}${parsed.phase.slice(1)}: ${(parsed.doneBytes / 1e9).toFixed(1)} of ${(parsed.totalBytes / 1e9).toFixed(1)} GB`,
+            );
+          if (parsed?.kind === 'success') {
+            outcome = parsed.message.includes('fully installed.') ? 'installed' : 'up to date';
+            steamError = undefined;
+          }
+          if (parsed?.kind === 'error') {
+            steamError = parsed.message;
+            outcome = undefined;
+          }
+        },
+      });
+      if (steamError && attempt === 1 && /Missing configuration/i.test(steamError)) continue;
+      if (steamError) throw new Error(steamError);
+      if (!outcome) throw new Error(`SteamCMD finished without reporting success (exit code ${code})`);
+      return { output: outcome };
+    }
   }
   function readManifest(installDir) {
     return readAppManifest(installDir);
