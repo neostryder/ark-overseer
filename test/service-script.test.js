@@ -200,3 +200,93 @@ test('uninstall keeps a data folder whose database cannot be read', { skip }, (t
   );
   assert.ok(fs.existsSync(path.join(serviceRoot, 'data', 'overseer.db')));
 });
+
+const COMMIT = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
+
+test('the archive unpacking strips the single top-level folder GitHub puts in its zips', { skip }, (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-unpack-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const source = path.join(root, 'src', 'ark-overseer-abc123');
+  fs.mkdirSync(path.join(source, 'tools'), { recursive: true });
+  fs.writeFileSync(path.join(source, 'package.json'), '{}');
+  fs.writeFileSync(path.join(source, 'tools', 'service.ps1'), 'x');
+  const zip = path.join(root, 'archive.zip');
+  const packed = spawnSync(
+    'pwsh',
+    ['-NoProfile', '-Command', `Compress-Archive -Path '${source}' -DestinationPath '${zip}'`],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  assert.equal(packed.status, 0, packed.stderr);
+  const dest = path.join(root, 'dest');
+  const result = spawnSync(
+    'pwsh',
+    ['-NoProfile', '-File', 'tools/service.ps1', '-UnpackArchive', zip, '-UnpackDestination', dest],
+    { cwd: process.cwd(), encoding: 'utf8', windowsHide: true },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(fs.existsSync(path.join(dest, 'package.json')));
+  assert.ok(fs.existsSync(path.join(dest, 'tools', 'service.ps1')));
+  // The top folder is gone: the app is at the destination root, as git archive would leave it.
+  assert.ok(!fs.existsSync(path.join(dest, 'ark-overseer-abc123')));
+});
+
+test('service install dry run with an archive unpacks it instead of exporting a commit', { skip }, (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-archive-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const appDir = path.join(root, 'repo');
+  const serviceRoot = path.join(root, 'ProgramData', 'ARK Overseer');
+  fs.mkdirSync(path.join(appDir, 'vendor'), { recursive: true });
+  fs.mkdirSync(path.join(appDir, 'node_modules'), { recursive: true });
+  const shawl = path.join(appDir, 'vendor', 'shawl.zip');
+  const psh = path.join(appDir, 'vendor', 'pwsh.zip');
+  fs.writeFileSync(shawl, 'fake shawl');
+  fs.writeFileSync(psh, 'fake pwsh');
+  const archive = path.join(root, 'archive.zip');
+  fs.writeFileSync(archive, 'fake archive');
+  const result = spawnSync(
+    'pwsh',
+    [
+      '-NoProfile',
+      '-File',
+      'tools/service.ps1',
+      'install',
+      '-DryRun',
+      '-AppDir',
+      appDir,
+      '-Root',
+      serviceRoot,
+      '-ShawlZip',
+      shawl,
+      '-PwshZip',
+      psh,
+      '-Archive',
+      archive,
+      '-Commit',
+      COMMIT,
+      '-ServiceName',
+      `ArkOverseerTest${process.pid}`,
+    ],
+    { cwd: process.cwd(), encoding: 'utf8', windowsHide: true },
+  );
+  const output = result.stdout + result.stderr;
+  const steps = output.split(/\r?\n/).filter((line) => line.startsWith('STEP: '));
+  assert.ok(
+    steps.some((line) => line.startsWith('STEP: Unpack the GitHub archive') && line.includes(archive)),
+    output,
+  );
+  // No git is used for a GitHub archive.
+  assert.ok(
+    steps.every((line) => !line.startsWith('STEP: Export commit')),
+    output,
+  );
+  assert.ok(steps.some((line) => line.includes('robocopy.exe') && line.includes(path.join(appDir, 'node_modules'))));
+  // Network Service can read the deployed app but the folder stops inheriting write access.
+  assert.ok(
+    steps.some(
+      (line) =>
+        line.includes('*S-1-5-20:(OI)(CI)RX') &&
+        line.includes('/inheritance:r') &&
+        line.includes(path.join(serviceRoot, 'app')),
+    ),
+  );
+});

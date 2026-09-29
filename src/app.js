@@ -16,6 +16,7 @@ import { serverPaths } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
 import { parseCron, describeCron } from './scheduler/cron.js';
 import { createCatalog } from './maps/catalog.js';
+import { readCheckout, buildUpdateRequest, writeUpdateRequest, UPDATE_CHANNELS } from './updater.js';
 import { createArtResolver, findModPreview } from './maps/art.js';
 import { saveInventory } from './maps/inventory.js';
 import { findModMaps, withModMaps } from './maps/mod-maps.js';
@@ -66,6 +67,8 @@ export const API_MESSAGES = {
   sameMap: 'The server is already on that map.',
   jobRunning: 'Another job is queued or running for this server. Wait for it to finish, then try again.',
   clusterChoice: 'Choose whether this setting changes for the cluster or only this server.',
+  updateUnavailable: 'Checking GitHub for releases is not available in this copy.',
+  badUpdateChannel: 'Choose Stable, Beta or Edge.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -130,6 +133,8 @@ export function createApp({
   clusterExec,
   rankFields,
   updateInfo = () => ({ commit: null, startedAt: null, available: false, lastUpdate: null }),
+  // The GitHub release checker. Tests pass one that talks to a local fake server.
+  releases = null,
   allowedHosts = [],
   log = console.error,
   now = () => Date.now(),
@@ -259,6 +264,32 @@ export function createApp({
       );
       return { enabled: Boolean(teamDomain), teamDomain: teamDomain || '', aud: aud || '' };
     }),
+  );
+  // The checkout the This computer page picked, read without running git as the service account.
+  router.add('GET', '/api/update/checkout', ({ query }) => readCheckout(query.path));
+  // The newest release on a channel. The checker caches the answer for ten minutes, so a page open and
+  // a Check now within that window do not ask GitHub twice.
+  router.add('GET', '/api/update/releases', async ({ query }) => {
+    if (!releases) throw error(503, API_MESSAGES.updateUnavailable);
+    const channel = query.channel || 'stable';
+    if (!UPDATE_CHANNELS.includes(channel)) throw error(400, API_MESSAGES.badUpdateChannel);
+    return releases.check(channel);
+  });
+  // The service may only write a small request file. The elevated updater reads it and checks it again,
+  // and never takes the repository, an archive or a command from here.
+  router.add(
+    'POST',
+    '/api/host/update',
+    protectedRoute(
+      'host.update_request',
+      'host',
+      ({ body }) => {
+        const request = buildUpdateRequest(body, new Date(now()).toISOString());
+        writeUpdateRequest(dataDir, request);
+        return { ok: true, source: request.source, channel: request.channel ?? null, ref: request.ref ?? null };
+      },
+      (ctx) => ({ source: ctx.body.source, channel: ctx.body.channel ?? null, ref: ctx.body.ref ?? null }),
+    ),
   );
   router.add('GET', '/api/host', async () => ({
     platform: process.platform,

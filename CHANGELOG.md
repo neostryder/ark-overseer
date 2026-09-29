@@ -6,6 +6,7 @@ All notable changes to ARK Overseer are listed here.
 
 ### Added
 
+- [Visible] [UI] [Server] **Update from GitHub.** The This computer page can update from GitHub. Pick Stable, Beta or Edge, read the release notes, and go back to an earlier release if a new one causes trouble. Updating from a checkout folder still works.
 - [Visible] [UI] [Security] **Cloudflare Access sign-in.** If ARK Overseer sits behind Cloudflare Access, add your team domain and AUD tag on the This computer page, and anyone who gets through Access skips the second password prompt. With those two boxes empty nothing changes.
 - [Visible] [UI] [Settings] **Settings search finds settings by meaning.** The Settings page searches every category again. Typing "baby" lists every matching setting from any category, each labeled with where it lives. A phrase no setting's words match, such as "make dinos grow up faster", brings up the settings closest in meaning, like Baby Mature Speed Multiplier, as fields you can edit right there. If searching by meaning isn't available, the page says so.
 - [Visible] [Server] **Update button.** On the computer that runs the service, the This computer page shows the commit it runs and an Update button. Windows asks for administrator approval, the service redeploys the checkout's last commit and restarts, and the page reloads when it's back. The page also shows whether the last update worked.

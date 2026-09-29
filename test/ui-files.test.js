@@ -62,6 +62,13 @@ test('the sprite holds every planned icon and every icon the pages use', () => {
   for (const [name, file] of used) assert.ok(symbols.has(name), `missing icon ${name} in ${file}`);
 });
 
+test('the updates card writes release notes as plain text, never as markup', () => {
+  const source = fs.readFileSync(path.join(publicDir, 'js/components/ao-host-settings.js'), 'utf8');
+  assert.doesNotMatch(source, /innerHTML/);
+  assert.doesNotMatch(source, /insertAdjacentHTML/);
+  assert.match(source, /el\('p', view\.newest\.notes\)/);
+});
+
 test('every STRINGS property referenced by browser JavaScript exists', () => {
   const known = new Set();
   function collect(value, prefix = '') {

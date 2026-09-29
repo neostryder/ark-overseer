@@ -1155,6 +1155,82 @@ test('the version route reports what updateInfo gives, and needs a signed-in ses
   assert.deepEqual(await (await fetch(`${url}/api/version`, { headers: { Cookie: cookie } })).json(), info);
 });
 
+test('the update request route writes the strict shape, audits it, and refuses the rest', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t, {
+    releases: { check: async (channel) => ({ ok: true, channel }) },
+  });
+  const requestFile = path.join(root, 'data', 'update-request.json');
+  assert.equal((await fetch(`${url}/api/host/update`, json({ source: 'checkout' }, cookie))).status, 400);
+  const checkout = await fetch(
+    `${url}/api/host/update`,
+    json({ source: 'checkout', checkout: 'C:\\Repositories\\ark-overseer' }, cookie),
+  );
+  assert.equal(checkout.status, 200);
+  const saved = JSON.parse(fs.readFileSync(requestFile, 'utf8'));
+  assert.deepEqual(Object.keys(saved).sort(), ['checkout', 'requestedAt', 'source']);
+  assert.equal(saved.source, 'checkout');
+  assert.equal(saved.checkout, 'C:\\Repositories\\ark-overseer');
+  assert.ok(!Number.isNaN(Date.parse(saved.requestedAt)));
+  const audit = db.prepare("SELECT * FROM audit_events WHERE action = 'host.update_request'").get();
+  assert.ok(audit);
+  assert.match(audit.detail_json, /checkout/);
+  // GitHub carries the channel and ref, and never a repository.
+  const github = await fetch(
+    `${url}/api/host/update`,
+    json({ source: 'github', channel: 'beta', ref: 'v1.2.3-beta.1', repository: 'evil/evil' }, cookie),
+  );
+  assert.equal(github.status, 200);
+  const savedGithub = JSON.parse(fs.readFileSync(requestFile, 'utf8'));
+  assert.deepEqual(Object.keys(savedGithub).sort(), ['channel', 'ref', 'requestedAt', 'source']);
+  assert.equal(savedGithub.channel, 'beta');
+  assert.equal(savedGithub.ref, 'v1.2.3-beta.1');
+  for (const bad of [
+    { source: 'ftp' },
+    { source: 'checkout', checkout: '\\\\server\\share' },
+    { source: 'checkout', checkout: 'relative\\path' },
+    { source: 'github', channel: 'nightly' },
+    { source: 'github', ref: 'v1.2' },
+  ]) {
+    const response = await fetch(`${url}/api/host/update`, json(bad, cookie));
+    assert.equal(response.status, 400, JSON.stringify(bad));
+  }
+});
+
+test('the release check route needs a signed-in session, a real channel and a checker', async (t) => {
+  const asked = [];
+  const { url, cookie } = await fixtureWith(t, {
+    releases: {
+      check: async (channel) => {
+        asked.push(channel);
+        return { ok: true, channel, newest: null, history: [] };
+      },
+    },
+  });
+  assert.equal((await fetch(`${url}/api/update/releases?channel=stable`)).status, 401);
+  assert.deepEqual(
+    await (await fetch(`${url}/api/update/releases?channel=beta`, { headers: { Cookie: cookie } })).json(),
+    { ok: true, channel: 'beta', newest: null, history: [] },
+  );
+  assert.deepEqual(asked, ['beta']);
+  assert.equal(
+    (await fetch(`${url}/api/update/releases?channel=nightly`, { headers: { Cookie: cookie } })).status,
+    400,
+  );
+  const noChecker = await fixtureWith(t);
+  assert.equal(
+    (await fetch(`${noChecker.url}/api/update/releases?channel=stable`, { headers: { Cookie: noChecker.cookie } }))
+      .status,
+    503,
+  );
+  // The checkout reader is reached through the route and reports a plain message for a bad folder.
+  const missing = await (
+    await fetch(`${url}/api/update/checkout?path=${encodeURIComponent('C:\\nope\\nope')}`, {
+      headers: { Cookie: cookie },
+    })
+  ).json();
+  assert.equal(missing.ok, false);
+});
+
 // Switching maps: the request is checked here and again by the job, which does the work.
 const switchTree = (root, folderName, { name, maps, plugin = 'Plugin' }) => {
   const dir = path.join(modsFolder(path.join(root, 'ASA')), folderName, plugin);

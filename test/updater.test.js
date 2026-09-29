@@ -3,8 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readUpdateInfo } from '../src/updater.js';
-import { isLocalPage, shortCommit, updateFinished } from '../public/js/lib/update.js';
+import { readUpdateInfo, readCheckout, buildUpdateRequest } from '../src/updater.js';
+import {
+  isLocalPage,
+  shortCommit,
+  updateFinished,
+  updateCard,
+  releaseLabel,
+  newestRelease,
+  earlierReleases,
+} from '../public/js/lib/update.js';
 
 function tree(t) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-updater-'));
@@ -77,4 +85,156 @@ test('the page helpers', () => {
   assert.equal(updateFinished(before, null), false);
   assert.equal(updateFinished(before, { startedAt: '2026-09-28T20:05:00.000Z' }), true);
   assert.equal(updateFinished({ startedAt: null }, { startedAt }), false);
+});
+
+function checkout(t, { name = 'ark-overseer' } = {}) {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ao-checkout-'));
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(base, 'package.json'), JSON.stringify({ name, version: '1.2.3' }));
+  fs.mkdirSync(path.join(base, '.git'));
+  return base;
+}
+
+test('the checkout reader follows a loose ref without running git', (t) => {
+  const base = checkout(t);
+  fs.writeFileSync(path.join(base, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  fs.mkdirSync(path.join(base, '.git', 'refs', 'heads'), { recursive: true });
+  fs.writeFileSync(path.join(base, '.git', 'refs', 'heads', 'main'), `${COMMIT}\n`);
+  const result = readCheckout(base);
+  assert.equal(result.ok, true);
+  assert.equal(result.commit, COMMIT);
+  assert.ok(!Number.isNaN(Date.parse(result.date)), result.date);
+});
+
+test('the checkout reader reads a packed ref when there is no loose one', (t) => {
+  const base = checkout(t);
+  fs.writeFileSync(path.join(base, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  fs.writeFileSync(
+    path.join(base, '.git', 'packed-refs'),
+    `# pack-refs with: peeled fully-peeled sorted\n${COMMIT} refs/heads/main\n`,
+  );
+  const result = readCheckout(base);
+  assert.equal(result.ok, true);
+  assert.equal(result.commit, COMMIT);
+});
+
+test('the checkout reader accepts a detached HEAD', (t) => {
+  const base = checkout(t);
+  fs.writeFileSync(path.join(base, '.git', 'HEAD'), `${COMMIT}\n`);
+  assert.equal(readCheckout(base).commit, COMMIT);
+});
+
+test('the checkout reader reports a missing folder and a folder that is not a checkout', (t) => {
+  const missing = readCheckout(path.join(os.tmpdir(), `ao-missing-${process.pid}-${Date.now()}`));
+  assert.equal(missing.ok, false);
+  assert.ok(missing.message);
+  const other = checkout(t, { name: 'not-overseer' });
+  fs.writeFileSync(path.join(other, '.git', 'HEAD'), `${COMMIT}\n`);
+  const result = readCheckout(other);
+  assert.equal(result.ok, false);
+  assert.match(result.message, /ARK Overseer checkout/);
+  // A checkout whose ref cannot be resolved is unreadable rather than wrong.
+  const broken = checkout(t);
+  fs.writeFileSync(path.join(broken, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  assert.equal(readCheckout(broken).ok, false);
+});
+
+test('the update request keeps the strict shape and refuses what it may not choose', () => {
+  const at = '2026-09-29T12:00:00.000Z';
+  assert.deepEqual(buildUpdateRequest({ source: 'checkout', checkout: 'C:\\Repositories\\ark-overseer' }, at), {
+    source: 'checkout',
+    requestedAt: at,
+    checkout: 'C:\\Repositories\\ark-overseer',
+  });
+  assert.deepEqual(buildUpdateRequest({ source: 'github', channel: 'beta', ref: 'v1.2.3-beta.1' }, at), {
+    source: 'github',
+    requestedAt: at,
+    channel: 'beta',
+    ref: 'v1.2.3-beta.1',
+  });
+  assert.deepEqual(
+    buildUpdateRequest({ source: 'github', channel: 'edge', ref: 'a'.repeat(40) }, at).ref,
+    'a'.repeat(40),
+  );
+  for (const bad of [
+    {},
+    { source: 'ftp' },
+    { source: 'checkout', checkout: 'relative\\path' },
+    { source: 'checkout', checkout: '\\\\server\\share' },
+    { source: 'github', channel: 'nightly' },
+    { source: 'github', ref: 'v1.2' },
+    { source: 'github', ref: 'abc123' },
+  ])
+    assert.throws(() => buildUpdateRequest(bad, at), /choose|full folder|Stable|install/i, JSON.stringify(bad));
+});
+
+test('the updates card shows the right thing for each source and channel', () => {
+  const release = (tag, body) => ({ kind: 'release', tag, commit: null, body, publishedAt: '2026-01-01T00:00:00Z' });
+  const stable = {
+    ok: true,
+    channel: 'stable',
+    newest: release('v1.2.0', 'Release notes'),
+    history: [release('v1.1.0', 'Older')],
+  };
+  const view = updateCard({ source: 'github', channel: 'stable', check: stable });
+  assert.equal(view.newest.label, 'v1.2.0');
+  assert.equal(view.newest.notes, 'Release notes');
+  assert.deepEqual(
+    view.history.map((item) => item.label),
+    ['v1.1.0'],
+  );
+  assert.equal(newestRelease(stable).tag, 'v1.2.0');
+  assert.equal(releaseLabel(release('v1.1.0')), 'v1.1.0');
+  assert.equal(earlierReleases(stable).length, 1);
+
+  const edge = updateCard({
+    source: 'github',
+    channel: 'edge',
+    check: {
+      ok: true,
+      channel: 'edge',
+      newest: { kind: 'commit', tag: null, commit: COMMIT, body: 'Latest' },
+      history: [],
+    },
+  });
+  assert.equal(edge.newest.label, '5bd26cf');
+  assert.deepEqual(edge.history, []);
+
+  const fromCheckout = updateCard({
+    source: 'checkout',
+    checkout: { ok: true, commit: COMMIT, date: '2026-01-01T00:00:00Z' },
+  });
+  assert.equal(fromCheckout.newest.label, '5bd26cf');
+  assert.equal(fromCheckout.newest.notes, null);
+  assert.deepEqual(fromCheckout.history, []);
+
+  const failed = updateCard({ source: 'github', channel: 'stable', check: { ok: false, message: 'GitHub is busy.' } });
+  assert.equal(failed.message, 'GitHub is busy.');
+  assert.equal(failed.newest, null);
+  const badCheckout = updateCard({ source: 'checkout', checkout: { ok: false, message: 'No checkout.' } });
+  assert.equal(badCheckout.message, 'No checkout.');
+});
+
+test('readUpdateInfo reports the package version and the last update source', (t) => {
+  const d = tree(t);
+  fs.writeFileSync(path.join(d.root, 'package.json'), JSON.stringify({ name: 'ark-overseer', version: '1.4.2' }));
+  fs.writeFileSync(
+    path.join(d.dataDir, 'updater.json'),
+    JSON.stringify({ appDir: 'C:\\x', link: 'ark-overseer-update' }),
+  );
+  fs.writeFileSync(
+    path.join(d.logsDir, 'update-result.json'),
+    JSON.stringify({
+      ok: true,
+      endedAt: '2026-09-28T19:00:00Z',
+      source: 'github',
+      channel: 'beta',
+      ref: 'v1.4.2-beta.1',
+    }),
+  );
+  const info = readUpdateInfo({ ...d, startedAt, serviceMode: true });
+  assert.equal(info.version, '1.4.2');
+  assert.equal(info.lastUpdate.source, 'github');
+  assert.equal(info.lastUpdate.channel, 'beta');
+  assert.equal(info.lastUpdate.ref, 'v1.4.2-beta.1');
 });

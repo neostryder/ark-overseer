@@ -32,6 +32,7 @@ import { createFleetHandlers } from './fleet/handlers.js';
 import { createTransferHandlers } from './fleet/transfer.js';
 import { completeClone, reconcileInterruptedClones, reconcilePendingMoves } from './fleet/recovery.js';
 import { readUpdateInfo } from './updater.js';
+import { createReleaseChecker } from './releases.js';
 import { DEFAULT_HOST, listen } from './http/listen.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
@@ -139,6 +140,7 @@ export async function start() {
   const logsDir = path.resolve(process.env.OVERSEER_LOGS || path.join(dataDir, '..', 'logs'));
   const app = createApp({
     updateInfo: () => readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode }),
+    releases: createReleaseChecker(),
     db,
     dataDir,
     catalog,

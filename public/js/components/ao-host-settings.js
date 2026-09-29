@@ -3,7 +3,8 @@ import { STRINGS } from '../strings.js';
 import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
-import { isLocalPage, shortCommit, updateFinished } from '../lib/update.js';
+import { isLocalPage, shortCommit, updateFinished, updateCard } from '../lib/update.js';
+import { createInstallFolderPicker } from '../lib/install-folder.js';
 
 const POLL_MS = 15000;
 const UPDATE_POLL_MS = 3000;
@@ -43,6 +44,8 @@ export class AoHostSettings extends HTMLElement {
     // apart from gaming mode, so the update and picture cards still show when gaming mode can't load.
     this.showArt = (await api.get('/api/maps').catch(() => null))?.showArt ?? true;
     this.version = await api.get('/api/version').catch(() => null);
+    // A check when the page opens, cached on the server for ten minutes. It is never repeated on a timer.
+    if (this.version?.available) this.check = await api.get('/api/update/releases?channel=stable').catch(() => null);
     try {
       this.data = await api.get('/api/gaming');
       this.render();
@@ -195,15 +198,19 @@ export class AoHostSettings extends HTMLElement {
     const s = STRINGS.host,
       v = this.version;
     if (!v) return [];
-    const card = el('section', undefined, 'card host-card');
+    const card = el('section', undefined, 'card host-card update-card');
     card.append(el('h2', s.updateTitle));
     const time = v.startedAt ? relativeTime(v.startedAt) : '';
     card.append(
       el(
         'p',
         v.commit
-          ? s.version.replace('{commit}', shortCommit(v.commit)).replace('{time}', time)
-          : s.versionUnknown.replace('{time}', time),
+          ? s.runningVersion
+              .replace('{version}', v.version ?? '?')
+              .replace('{commit}', shortCommit(v.commit))
+              .replace('{time}', time)
+          : s.runningVersionNoCommit.replace('{version}', v.version ?? '?').replace('{time}', time),
+        'muted',
       ),
     );
     const last = v.lastUpdate;
@@ -217,25 +224,179 @@ export class AoHostSettings extends HTMLElement {
           last.ok ? 'muted' : 'error-message',
         ),
       );
-    if (v.available && !isLocalPage(location.hostname)) card.append(el('p', s.updateRemote, 'muted'));
-    else if (v.available) {
-      const button = el('button', s.updateButton.replace('{folder}', v.appDir), 'button primary');
-      button.type = 'button';
-      const note = el('p', '', 'muted');
-      note.setAttribute('aria-live', 'polite');
-      button.addEventListener('click', () => this.startUpdate(button, note));
-      card.append(button, el('p', s.updateHelp, 'muted'), note);
+    if (!v.available) return [card];
+    if (!isLocalPage(location.hostname)) {
+      card.append(el('p', s.updateRemote, 'muted'));
+      return [card];
     }
+
+    const source = document.createElement('select');
+    source.append(new Option(s.sourceCheckout, 'checkout'), new Option(s.sourceGithub, 'github'));
+    source.value = this.updateSource ?? 'checkout';
+    card.append(field(s.sourceLegend, source).wrap);
+
+    const body = el('div', undefined, 'update-body');
+    const note = el('p', '', 'muted');
+    note.setAttribute('aria-live', 'polite');
+    const message = el('p', '', 'error-message');
+    message.setAttribute('aria-live', 'polite');
+    card.append(body, note, message);
+    source.addEventListener('change', () => {
+      this.updateSource = source.value;
+      this.renderUpdateBody(body, note, message);
+    });
+    this.renderUpdateBody(body, note, message);
     return [card];
   }
-  // The link starts tools/update.ps1 on this computer. The page then waits for the service to come back
-  // as a new process and reloads; while it restarts, a failed check is expected and just tried again.
-  startUpdate(button, note) {
+  renderUpdateBody(container, note, message) {
+    note.textContent = '';
+    message.textContent = '';
+    container.replaceChildren();
+    if (this.updateSource === 'github') this.renderGithub(container, note, message);
+    else this.renderCheckout(container, note, message);
+  }
+  // The recorded checkout is the default. Browse picks another folder with the shared folder browser,
+  // and the folder is read without running git, so an unreadable one only shows a plain message.
+  renderCheckout(container, note, message) {
+    const s = STRINGS.host,
+      v = this.version;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = this.checkoutPath ?? v.appDir ?? '';
+    const folder = field(s.checkoutFolder, input);
+    const info = el('p', '', 'muted');
+    info.setAttribute('aria-live', 'polite');
+    const button = el('button', s.updateFromCheckout, 'button primary');
+    button.type = 'button';
+    button.disabled = true;
+    const read = async (folderPath) => {
+      this.checkoutPath = folderPath;
+      info.className = 'muted';
+      info.textContent = s.checkoutReading;
+      button.disabled = true;
+      this.checkout = await api
+        .get(`/api/update/checkout?path=${encodeURIComponent(folderPath)}`)
+        .catch((error) => ({ ok: false, message: error.message }));
+      const view = updateCard({ source: 'checkout', checkout: this.checkout });
+      if (this.checkout.ok) {
+        info.className = 'muted';
+        info.textContent = s.checkoutRead
+          .replace('{commit}', view.newest.label)
+          .replace('{date}', this.checkout.date ? new Date(this.checkout.date).toLocaleString() : '');
+        button.disabled = false;
+      } else {
+        info.className = 'error-message';
+        info.textContent = s.checkoutUnknown.replace('{message}', this.checkout.message);
+      }
+    };
+    input.addEventListener('input', () => void read(input.value.trim()));
+    button.addEventListener('click', () =>
+      this.beginUpdate(button, note, message, { source: 'checkout', checkout: input.value.trim() }),
+    );
+    container.append(folder.wrap, createInstallFolderPicker(input, v.appDir ?? 'C:\\'), info, button);
+    container.append(el('p', s.checkoutHelp, 'muted'));
+    void read(input.value.trim());
+  }
+  // GitHub releases: a channel picker, the newest release and its notes as plain text, and for Stable
+  // and Beta the earlier releases to go back to. The server caches the answer for ten minutes.
+  renderGithub(container, note, message) {
+    const s = STRINGS.host;
+    const channel = document.createElement('select');
+    for (const [value, label] of [
+      ['stable', s.channelStable],
+      ['beta', s.channelBeta],
+      ['edge', s.channelEdge],
+    ])
+      channel.append(new Option(label, value));
+    channel.value = this.updateChannel ?? 'stable';
+    const newest = el('div', undefined, 'update-newest');
+    const history = el('div', undefined, 'update-history');
+    const check = el('button', s.checkNow, 'button secondary');
+    check.type = 'button';
+    const button = el('button', s.updateFromGithub, 'button primary');
+    button.type = 'button';
+    button.disabled = true;
+    const show = async (value) => {
+      this.updateChannel = value;
+      this.selectedRef = null;
+      message.textContent = '';
+      newest.replaceChildren(el('p', s.checking, 'muted'));
+      history.replaceChildren();
+      button.disabled = true;
+      check.disabled = true;
+      const result = await api
+        .get(`/api/update/releases?channel=${encodeURIComponent(value)}`)
+        .catch((error) => ({ ok: false, message: error.message }));
+      this.check = result;
+      check.disabled = false;
+      this.renderReleaseResult(newest, history, button);
+    };
+    channel.addEventListener('change', () => void show(channel.value));
+    check.addEventListener('click', () => void show(channel.value));
+    button.addEventListener('click', () =>
+      this.beginUpdate(button, note, message, {
+        source: 'github',
+        channel: this.updateChannel,
+        ...(this.selectedRef ? { ref: this.selectedRef } : {}),
+      }),
+    );
+    const actions = el('div', undefined, 'button-row');
+    actions.append(check, button);
+    container.append(field(s.channel, channel).wrap, newest, history, actions, el('p', s.githubHelp, 'muted'));
+    void show(channel.value);
+  }
+  renderReleaseResult(newest, history, button) {
+    const s = STRINGS.host,
+      view = updateCard({ source: 'github', channel: this.updateChannel, check: this.check });
+    newest.replaceChildren();
+    if (view.message) newest.append(el('p', view.message, 'error-message'));
+    else if (!view.newest) newest.append(el('p', s.noReleases, 'muted'));
+    else {
+      const label = view.newest.commit && !view.newest.tag ? s.newestCommit : s.newest;
+      newest.append(
+        el('p', label.replace('{version}', view.newest.label).replace('{commit}', view.newest.label), 'host-state'),
+      );
+      if (view.newest.notes) {
+        newest.append(el('h3', s.notes));
+        newest.append(el('p', view.newest.notes));
+      }
+      button.disabled = false;
+    }
+    history.replaceChildren();
+    if (view.history.length) {
+      history.append(el('h3', s.earlier));
+      for (const item of view.history) {
+        const row = el('div', undefined, 'update-history-row');
+        row.append(el('span', item.label));
+        const pick = el('button', s.useRelease, 'button quiet');
+        pick.type = 'button';
+        pick.addEventListener('click', () => {
+          this.selectedRef = item.tag ?? item.commit;
+          row.classList.add('chosen');
+          document.querySelector('ao-toast')?.show(s.selected.replace('{version}', item.label));
+        });
+        row.append(pick);
+        history.append(row);
+      }
+    }
+  }
+  // The link starts tools/update.ps1 on this computer after the page has written the request file. The
+  // page then waits for the service to come back as a new process and reloads.
+  async beginUpdate(button, note, message, request) {
     const s = STRINGS.host,
       before = this.version;
     button.disabled = true;
     note.className = 'muted';
     note.textContent = s.updateWaiting;
+    message.textContent = '';
+    try {
+      await api.post('/api/host/update', request);
+    } catch (error) {
+      button.disabled = false;
+      note.textContent = '';
+      message.textContent = error.message;
+      return;
+    }
     location.href = `${before.link}:`;
     const deadline = Date.now() + UPDATE_WAIT_MINUTES * 60000;
     clearInterval(this.updateTimer);

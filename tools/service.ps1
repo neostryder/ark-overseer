@@ -17,9 +17,39 @@ param(
   [switch]$Force,
   [switch]$RemoveData,
   [switch]$DryRun,
+  # A GitHub archive to deploy instead of git archive. update.ps1 downloads it and passes the commit.
+  [string]$Archive,
+  [string]$Commit,
+  # Lets the archive unpacking be exercised on its own, without installing anything.
+  [Parameter(DontShow)][string]$UnpackArchive,
+  [Parameter(DontShow)][string]$UnpackDestination,
   [Parameter(DontShow)][string]$ServiceName = 'ArkOverseer'
 )
 $ErrorActionPreference = 'Stop'
+
+# GitHub zips hold a single top-level folder, such as ark-overseer-<sha>. The app is unpacked from the
+# folder's contents, so the deployed tree is the same shape as the one git archive produces.
+function Expand-GitHubArchive([string]$Archive, [string]$Destination) {
+  $staging = Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-unpack-$([guid]::NewGuid().ToString('N'))"
+  try {
+    Expand-Archive -LiteralPath $Archive -DestinationPath $staging -Force
+    $roots = @(Get-ChildItem -LiteralPath $staging -Force)
+    $source = if ($roots.Count -eq 1 -and $roots[0].PSIsContainer) { $roots[0].FullName } else { $staging }
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    Get-ChildItem -LiteralPath $source -Force | ForEach-Object {
+      Move-Item -LiteralPath $_.FullName -Destination $Destination -Force
+    }
+  }
+  finally {
+    Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+if ($UnpackArchive) {
+  if (-not $UnpackDestination) { Write-Output 'FAIL: -UnpackDestination is required with -UnpackArchive.'; exit 1 }
+  Expand-GitHubArchive -Archive $UnpackArchive -Destination $UnpackDestination
+  exit 0
+}
 if (-not $ShawlZip) { $ShawlZip = Join-Path $AppDir 'vendor\shawl-v1.9.0-win64.zip' }
 if (-not $PwshZip) { $PwshZip = Join-Path $AppDir 'vendor\PowerShell-7.6.6-win-x64.zip' }
 $Hashes = @{
@@ -147,25 +177,45 @@ if ($Action -eq 'install') {
   }
 
   # The new copy of the app is built beside the running one while the old service still runs, so a failed
-  # export or copy leaves the service as it was. Only committed files are deployed. node_modules is copied
-  # from the checkout, since the runtime has no npm.
-  $commit = git -C $AppDir rev-parse --verify HEAD 2>$null
-  if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail "$AppDir is not a git checkout with a commit to deploy."; $commit = 'HEAD' }
-  elseif (git -C $AppDir status --porcelain) { Write-Output "NOTE: $AppDir has uncommitted changes. They are not deployed; the service runs commit $commit." }
-  if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules. Run npm ci there first." }
-  $archive = Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-$commit.zip"
+  # export or copy leaves the service as it was. A checkout deploys its last commit; a GitHub archive is
+  # deployed as downloaded. node_modules is copied from the running app or the checkout, since the runtime
+  # has no npm.
+  if ($Archive) {
+    if ($Commit -notmatch '^[0-9a-f]{40}$') { Fail 'The archive needs a 40-character commit id.'; $Commit = 'HEAD' }
+    if (-not (Test-Path -LiteralPath $Archive)) { Fail "Missing archive: $Archive" }
+    $commit = $Commit
+    # A GitHub install has no checkout, so the running app keeps the dependencies it already has.
+    $modulesFrom = if (Test-Path -LiteralPath (Join-Path $App 'node_modules')) { $App } else { $AppDir }
+    if (-not (Test-Path -LiteralPath (Join-Path $modulesFrom 'node_modules'))) { Fail "$modulesFrom has no node_modules. Install from a checkout once, then update from GitHub." }
+  }
+  else {
+    $commit = git -C $AppDir rev-parse --verify HEAD 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail "$AppDir is not a git checkout with a commit to deploy."; $commit = 'HEAD' }
+    elseif (git -C $AppDir status --porcelain) { Write-Output "NOTE: $AppDir has uncommitted changes. They are not deployed; the service runs commit $commit." }
+    if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules. Run npm ci there first." }
+    $modulesFrom = $AppDir
+  }
+  $zipPath = if ($Archive) { $Archive } else { Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-$commit.zip" }
   foreach ($leftover in @($AppNew, $AppOld)) {
     if ($DryRun -or (Test-Path -LiteralPath $leftover)) {
       Invoke-Step "Remove $leftover" "Remove-Item $(Quote $leftover) -Recurse -Force" { if (Test-Path -LiteralPath $leftover) { Remove-Item -LiteralPath $leftover -Recurse -Force } }
     }
   }
-  Invoke-Native "Export commit $commit" 'git' @('-C', $AppDir, 'archive', '--format=zip', '-o', $archive, $commit)
-  Invoke-Step 'Unpack the app' "Expand-Archive $(Quote $archive) $(Quote $AppNew)" {
-    Expand-Archive -LiteralPath $archive -DestinationPath $AppNew -Force
-    Remove-Item -LiteralPath $archive
-    Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline
+  if ($Archive) {
+    Invoke-Step 'Unpack the GitHub archive' "Expand-GitHubArchive $(Quote $zipPath) $(Quote $AppNew)" {
+      Expand-GitHubArchive -Archive $zipPath -Destination $AppNew
+      Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline
+    }
   }
-  Invoke-Native 'Copy node_modules' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @((Join-Path $AppDir 'node_modules'), (Join-Path $AppNew 'node_modules'), '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1') 7
+  else {
+    Invoke-Native "Export commit $commit" 'git' @('-C', $AppDir, 'archive', '--format=zip', '-o', $zipPath, $commit)
+    Invoke-Step 'Unpack the app' "Expand-Archive $(Quote $zipPath) $(Quote $AppNew)" {
+      Expand-Archive -LiteralPath $zipPath -DestinationPath $AppNew -Force
+      Remove-Item -LiteralPath $zipPath
+      Set-Content -LiteralPath (Join-Path $AppNew '.deployed-commit') -Value $commit -NoNewline
+    }
+  }
+  Invoke-Native 'Copy node_modules' (Join-Path $env:SystemRoot 'System32\robocopy.exe') @((Join-Path $modulesFrom 'node_modules'), (Join-Path $AppNew 'node_modules'), '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1') 7
 
   # Creates the service entry. Also used to put the previous service back when an update fails.
   function Register-OverseerService {
@@ -219,9 +269,11 @@ if ($Action -eq 'install') {
       Invoke-Step 'Copy the search model' "Copy-Item $(Quote $modelSource) $(Quote $modelCache) -Recurse" { Copy-Item -LiteralPath $modelSource -Destination $modelCache -Recurse }
     }
 
-    # Inherited grants on the folder reach everything inside it, so no /T is needed.
+    # The deployed app and runtime are readable and runnable by Network Service, never writable, so a
+    # compromised service cannot change the code an administrator is about to run. Inheritance is dropped
+    # so the create-folder grant ProgramData hands every user cannot reach in here.
     foreach ($dir in @($App, $Runtime)) {
-      Invoke-Native "Let Network Service read $dir" $Icacls @($dir, '/grant', "${NetworkService}:(OI)(CI)RX")
+      Invoke-Native "Let Network Service read $dir and stop inherited write access" $Icacls @($dir, '/inheritance:r', '/grant:r', "${System}:(OI)(CI)F", "${Administrators}:(OI)(CI)F", "${NetworkService}:(OI)(CI)RX")
     }
     # The database holds the password hash and the session secret, so data and logs drop the
     # read access every local user inherits from ProgramData.
@@ -230,7 +282,7 @@ if ($Action -eq 'install') {
     }
     $folders = @($GrantFolder)
     if ((Test-Path -LiteralPath (Join-Path $Data 'overseer.db')) -and $node) {
-      $folders += @(& $node (Join-Path $AppDir 'tools\list-install-folders.js') $Data)
+      $folders += @(& $node (Join-Path $App 'tools\list-install-folders.js') $Data)
     }
     foreach ($dir in ($folders | Where-Object { $_ } | Select-Object -Unique)) {
       if (-not (Test-Path -LiteralPath $dir)) { Write-Output "SKIP: $dir does not exist."; continue }

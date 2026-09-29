@@ -806,6 +806,38 @@ pre {
 .host-form .error-message {
   margin: 6px 0 0;
 }
+.update-card .update-body,
+.update-newest,
+.update-history {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.update-newest p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.update-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 44px;
+}
+.update-history-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.update-history-row .button {
+  flex: none;
+}
+.update-history-row.chosen {
+  color: var(--gold);
+}
+.update-card .update-body > .button {
+  justify-self: start;
+}
 /* Map pictures keep Steam's 460:215 shape whether or not the picture has loaded. */
 .map-current,
 .map-saves,
