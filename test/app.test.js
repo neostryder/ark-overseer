@@ -145,18 +145,18 @@ test('Access settings validate, save empty values to turn off, and refuse key fe
   const { cookie } = await setup(url);
   const save = (body) => fetch(`${url}/api/access`, putJson(body, cookie));
   for (const body of [
-    { teamDomain: 'https://rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) },
-    { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'g'.repeat(64) },
-    { teamDomain: 'rpgm.cloudflareaccess.com', aud: '' },
+    { teamDomain: 'https://example.cloudflareaccess.com', aud: 'a'.repeat(64) },
+    { teamDomain: 'example.cloudflareaccess.com', aud: 'g'.repeat(64) },
+    { teamDomain: 'example.cloudflareaccess.com', aud: '' },
   ]) {
     const response = await save(body);
     assert.equal(response.status, 400);
   }
-  const saved = await save({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) });
+  const saved = await save({ teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64) });
   assert.equal(saved.status, 200);
   assert.equal(
     db.prepare("SELECT access_team_domain FROM hosts WHERE name = 'local'").get().access_team_domain,
-    'rpgm.cloudflareaccess.com',
+    'example.cloudflareaccess.com',
   );
   failKeys = true;
   const refused = await save({ teamDomain: 'other.cloudflareaccess.com', aud: 'b'.repeat(64) });
@@ -164,7 +164,7 @@ test('Access settings validate, save empty values to turn off, and refuse key fe
   assert.match((await refused.json()).error, /keys could not be reached/i);
   assert.equal(
     db.prepare("SELECT access_team_domain FROM hosts WHERE name = 'local'").get().access_team_domain,
-    'rpgm.cloudflareaccess.com',
+    'example.cloudflareaccess.com',
   );
   assert.equal((await (await save({ teamDomain: '', aud: '' })).json()).enabled, false);
 });
@@ -184,7 +184,7 @@ test('Access signs in without a cookie and logs each subject once per hour', asy
     (
       await fetch(
         `${url}/api/access`,
-        putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie),
+        putJson({ teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie),
       )
     ).status,
     200,
@@ -205,7 +205,10 @@ test('a valid Access token does not bypass the Origin check on a state change', 
     accessJwtVerify: async () => ({ payload: { sub: 'cf-user-1', email: 'owner@example.test' } }),
   });
   const { cookie } = await setup(url);
-  await fetch(`${url}/api/access`, putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie));
+  await fetch(
+    `${url}/api/access`,
+    putJson({ teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie),
+  );
   const response = await fetch(
     `${url}/api/access`,
     putJson({ teamDomain: '', aud: '' }, null, {
@@ -222,7 +225,10 @@ test('signing out with Access returns the Cloudflare session message and the acc
     accessJwtVerify: async () => ({ payload: { sub: 'cf-user-1', email: 'owner@example.test' } }),
   });
   const { cookie } = await setup(url);
-  await fetch(`${url}/api/access`, putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie));
+  await fetch(
+    `${url}/api/access`,
+    putJson({ teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie),
+  );
   const logout = json({}, undefined);
   logout.headers['Cf-Access-Jwt-Assertion'] = 'valid-access-token';
   const response = await fetch(`${url}/api/auth/logout`, logout);

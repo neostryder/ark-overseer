@@ -4,6 +4,8 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-29
+
 ### Added
 
 - [Visible] [Data] **The map list updates without a release.** ARK Overseer checks once a day for a newer map list in this repository and uses it when it is newer than its own. If the check fails, the list that shipped stays in use.

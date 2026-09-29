@@ -46,10 +46,10 @@ test('the Access settings component renders saved values and sends them on save'
     calls.push([path, options.method, options.body ? JSON.parse(options.body) : null]);
     const data =
       options.method === 'PUT'
-        ? { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' }
+        ? { teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' }
         : {
             enabled: true,
-            teamDomain: 'rpgm.cloudflareaccess.com',
+            teamDomain: 'example.cloudflareaccess.com',
             aud: 'a'.repeat(64),
             publicHost: 'ark.example.test',
           };
@@ -67,7 +67,7 @@ test('the Access settings component renders saved values and sends them on save'
     const inputs = actualForm.children.slice(0, 3).map((label) => label.children[1]);
     assert.deepEqual(
       inputs.map((input) => input.value),
-      ['rpgm.cloudflareaccess.com', 'a'.repeat(64), 'ark.example.test'],
+      ['example.cloudflareaccess.com', 'a'.repeat(64), 'ark.example.test'],
     );
     await actualForm.listeners.submit({ preventDefault() {} });
     assert.deepEqual(calls, [
@@ -75,7 +75,7 @@ test('the Access settings component renders saved values and sends them on save'
       [
         '/api/access',
         'PUT',
-        { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' },
+        { teamDomain: 'example.cloudflareaccess.com', aud: 'a'.repeat(64), publicHost: 'ark.example.test' },
       ],
     ]);
     assert.equal(actualForm.children[3].textContent, STRINGS.access.publicHostHelp);

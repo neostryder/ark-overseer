@@ -127,7 +127,7 @@ test('the Host header must name this computer, an IP address or a configured nam
     assert.equal(hostAllowed(host), true, host);
   for (const host of ['evil.test:3310', 'localhost.evil.test', '', undefined])
     assert.equal(hostAllowed(host), false, String(host));
-  assert.equal(hostAllowed('ark.rpgm.tools', ['ark.rpgm.tools']), true);
+  assert.equal(hostAllowed('ark.example.test', ['ark.example.test']), true);
 });
 
 test('first-time setup creates the account and signs in for 90 days', async (t) => {

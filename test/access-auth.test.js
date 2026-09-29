@@ -27,7 +27,7 @@ async function fixture(t, factory = async () => createLocalJWKSet(jwks)) {
   const db = openDatabase(':memory:');
   t.after(() => db.close());
   db.prepare(
-    "INSERT INTO hosts (name, created_at, updated_at, access_team_domain, access_aud) VALUES ('local', 'x', 'x', 'rpgm.cloudflareaccess.com', ?)",
+    "INSERT INTO hosts (name, created_at, updated_at, access_team_domain, access_aud) VALUES ('local', 'x', 'x', 'example.cloudflareaccess.com', ?)",
   ).run('a'.repeat(64));
   const auth = createAuth({
     db,
@@ -44,7 +44,7 @@ async function fixture(t, factory = async () => createLocalJWKSet(jwks)) {
   };
 }
 async function token({
-  issuer = 'https://rpgm.cloudflareaccess.com',
+  issuer = 'https://example.cloudflareaccess.com',
   audience = 'a'.repeat(64),
   exp = NOW / 1000 + 300,
   key = privateKey,
@@ -111,7 +111,7 @@ test('saving Access settings replaces the cached key set', async (t) => {
   const jwt = await token();
   assert.ok(await h.auth.identify(req(jwt)));
   assert.equal(made, 1);
-  await h.auth.saveAccessSettings('rpgm.cloudflareaccess.com', 'a'.repeat(64));
+  await h.auth.saveAccessSettings('example.cloudflareaccess.com', 'a'.repeat(64));
   assert.ok(await h.auth.identify(req(jwt)));
   assert.equal(made, 2);
 });

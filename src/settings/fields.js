@@ -40,7 +40,7 @@ const SESSION_NAME_META = {
   maxLength: SESSION_NAME_MAX_LENGTH,
   pattern: NO_QUESTION_MARK,
   patternHelp: 'Cannot contain "?".',
-  description: 'The server name shown in the in-game server browser. Example: set to "Neo Olympus" and that is exactly what appears when someone searches the unofficial server list.',
+  description: 'The server name shown in the in-game server browser. Example: set to "Bear Valley" and that is exactly what appears when someone searches the unofficial server list.',
 };
 
 const SETTINGS_FIELDS = [

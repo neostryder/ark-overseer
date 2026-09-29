@@ -274,7 +274,7 @@ test('server deletion applies dependent row actions and host deletion is restric
 test('usernames are unique without regard to case', () => {
   withDatabase((db) => {
     db.prepare('INSERT INTO users (username, created_at, updated_at) VALUES (?, ?, ?)').run(
-      'Aaron',
+      'Alex',
       timestamp,
       timestamp,
     );
@@ -282,7 +282,7 @@ test('usernames are unique without regard to case', () => {
       () =>
         db
           .prepare('INSERT INTO users (username, created_at, updated_at) VALUES (?, ?, ?)')
-          .run('aaron', timestamp, timestamp),
+          .run('alex', timestamp, timestamp),
       /UNIQUE constraint failed/,
     );
   });
@@ -486,14 +486,14 @@ test('migration 12 adds optional Access settings to existing hosts and checks th
     assert.equal(host.access_team_domain, null);
     assert.equal(host.access_aud, null);
     db.prepare('UPDATE hosts SET access_team_domain = ?, access_aud = ? WHERE name = ?').run(
-      'rpgm.cloudflareaccess.com',
+      'example.cloudflareaccess.com',
       'a'.repeat(64),
       'local',
     );
     for (const [domain, aud] of [
-      ['https://rpgm.cloudflareaccess.com', 'a'.repeat(64)],
-      ['rpgm.cloudflareaccess.com/path', 'a'.repeat(64)],
-      ['rpgm.cloudflareaccess.com', 'g'.repeat(64)],
+      ['https://example.cloudflareaccess.com', 'a'.repeat(64)],
+      ['example.cloudflareaccess.com/path', 'a'.repeat(64)],
+      ['example.cloudflareaccess.com', 'g'.repeat(64)],
     ])
       assert.throws(
         () =>

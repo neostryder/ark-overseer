@@ -79,7 +79,7 @@ test('outside service mode, or with bad options, nothing is offered', (t) => {
 
 test('the page helpers', () => {
   for (const host of ['localhost', '127.0.0.1', '[::1]', 'LOCALHOST']) assert.equal(isLocalPage(host), true, host);
-  for (const host of ['192.168.2.10', 'ark.rpgm.tools', 'eru']) assert.equal(isLocalPage(host), false, host);
+  for (const host of ['192.168.2.10', 'ark.example.test', 'eru']) assert.equal(isLocalPage(host), false, host);
   assert.equal(shortCommit(COMMIT), '5bd26cf');
   assert.equal(shortCommit(null), null);
   const before = { startedAt };
