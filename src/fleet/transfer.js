@@ -228,6 +228,14 @@ export function createTransferHandlers({
         if (running(supervisor, source.id))
           await saveWorld(source, { rcon, getRconPassword, fsOps, sleep, signal, now });
         abortIf(signal);
+        // A Steam-client install can be cloned on a machine where SteamCMD was never set up, and the
+        // validation after the copy needs it. Setting it up first means a failed download stops the job
+        // before a copy of tens of gigabytes rather than after it.
+        if (!steamcmd.isInstalled()) {
+          progress(0.05, MESSAGES.settingUpSteamcmd);
+          await steamcmd.installSelf({ signal });
+          abortIf(signal);
+        }
         progress(0.1, MESSAGES.copying);
         await copyInstall(source.install_path, target.path, {
           copyWorld: input.copyWorld,

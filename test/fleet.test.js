@@ -91,6 +91,7 @@ function transfer(f, overrides = {}) {
     },
   };
   const steamcmd = {
+    isInstalled: () => true,
     appUpdate: async (value) => {
       calls.push(['validate', value]);
       return { output: 'ok' };
@@ -368,6 +369,7 @@ test('failed and cancelled clones remove their own folder and rows', async (t) =
   const failed = f.target('failed');
   const w = transfer(f, {
     steamcmd: {
+      isInstalled: () => true,
       appUpdate: async () => {
         throw new Error('validate failed');
       },
@@ -1172,4 +1174,51 @@ test('new components keep visible labels in the shared strings file', () => {
     assert.doesNotMatch(source, /createTextNode\(['"`][A-Za-z]/);
     assert.doesNotMatch(source, /\.ask\(['"`][A-Za-z]/);
   }
+});
+
+test('clone sets up SteamCMD before copying when it is not installed', async (t) => {
+  const f = fixture(t);
+  const target = f.target('needs-steamcmd');
+  const events = [];
+  let installed = false;
+  const w = transfer(f, {
+    steamcmd: {
+      isInstalled: () => installed,
+      installSelf: async () => {
+        events.push(['setup', fs.existsSync(path.join(target, 'ShooterGame'))]);
+        installed = true;
+      },
+      appUpdate: async () => {
+        events.push(['validate']);
+        return { output: 'ok' };
+      },
+      readManifest: () => ({ fullyInstalled: true, buildId: '42' }),
+    },
+  });
+  await w.handlers['server.clone'](
+    ctx(1, reserve(f, target), { name: 'Needs SteamCMD', sessionName: 'Needs SteamCMD', path: target }),
+  );
+  assert.deepEqual(events, [['setup', false], ['validate']]);
+  assert.equal(fs.existsSync(path.join(target, 'ShooterGame')), true);
+});
+
+test('clone stops before copying and cleans up when SteamCMD cannot be set up', async (t) => {
+  const f = fixture(t);
+  const target = f.target('no-steamcmd');
+  const w = transfer(f, {
+    steamcmd: {
+      isInstalled: () => false,
+      installSelf: async () => {
+        throw new Error('SteamCMD download failed: HTTP 503');
+      },
+    },
+  });
+  await assert.rejects(
+    w.handlers['server.clone'](
+      ctx(1, reserve(f, target), { name: 'No SteamCMD', sessionName: 'No SteamCMD', path: target }),
+    ),
+    /SteamCMD download failed/,
+  );
+  assert.equal(fs.existsSync(target), false);
+  assert.equal(f.db.prepare("SELECT 1 FROM servers WHERE name = 'No SteamCMD'").get(), undefined);
 });

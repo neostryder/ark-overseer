@@ -26,6 +26,7 @@ export const MESSAGES = {
   saveFailed: 'The world could not be saved before copying.',
   copying: 'Copying server files.',
   validating: 'Validating the new install.',
+  settingUpSteamcmd: 'Setting up SteamCMD.',
   pathTooLong: 'This folder path is too long for some of the server files. Choose a shorter one, such as D:\\ARK.',
 };
 export const folderKey = (value) =>
