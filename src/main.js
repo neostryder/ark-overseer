@@ -32,6 +32,7 @@ import { createFleetHandlers } from './fleet/handlers.js';
 import { createTransferHandlers } from './fleet/transfer.js';
 import { completeClone, reconcileInterruptedClones, reconcilePendingMoves } from './fleet/recovery.js';
 import { readUpdateInfo } from './updater.js';
+import { DEFAULT_HOST, listen } from './http/listen.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
 // 20 s, which leaves time to close everything else.
@@ -162,7 +163,7 @@ export async function start() {
     rankFields: (query, fields) => rankFields(query, fields || SETTINGS_FIELDS),
   });
   const port = Number(process.env.OVERSEER_PORT || 3310),
-    host = process.env.OVERSEER_HOST || '0.0.0.0';
+    host = process.env.OVERSEER_HOST || DEFAULT_HOST;
   try {
     await reconcileInterruptedClones({ db, dataDir });
     const moved = reconcilePendingMoves({ db });
@@ -233,10 +234,7 @@ export async function start() {
         );
     supervisor.startPolling();
     await gaming.start();
-    await new Promise((resolve, reject) => {
-      app.server.once('error', reject);
-      app.server.listen(port, host, resolve);
-    });
+    await listen(app.server, port, host);
   } catch (error) {
     await jobs.stop({ abort: true, timeoutMs: JOB_STOP_MS });
     scheduler.stop();
