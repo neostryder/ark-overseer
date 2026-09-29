@@ -28,6 +28,9 @@ import { createRestoreHandlers, reconcilePendingRestores } from './backups/resto
 import { createSettingsSnapshotHandlers } from './backups/settings-snapshots.js';
 import { createDrift } from './settings/drift.js';
 import { createClusterHandlers } from './clusters/handlers.js';
+import { createFleetHandlers } from './fleet/handlers.js';
+import { createTransferHandlers } from './fleet/transfer.js';
+import { completeClone, reconcileInterruptedClones, reconcilePendingMoves } from './fleet/recovery.js';
 import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
@@ -101,8 +104,22 @@ export async function start() {
     }),
     ...drift.handlers,
     ...createClusterHandlers({ db, supervisor, drift, rcon: rconCommand, getRconPassword }),
+    ...createFleetHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
+    ...createTransferHandlers({
+      db,
+      dataDir,
+      supervisor,
+      steamcmd,
+      drift,
+      rcon: rconCommand,
+      getRconPassword,
+      listListeners: () => readListeners({ runner }),
+    }),
   };
   const jobs = createJobEngine({ db, handlers });
+  jobs.subscribe(({ type, job }) => {
+    if (type === 'succeeded' && job.kind === 'server.clone') completeClone(db, job.id);
+  });
   drift.attach(jobs);
   const scheduler = createScheduler({ db, jobs });
   const listListeners = () => readListeners({ runner });
@@ -147,6 +164,18 @@ export async function start() {
   const port = Number(process.env.OVERSEER_PORT || 3310),
     host = process.env.OVERSEER_HOST || '0.0.0.0';
   try {
+    await reconcileInterruptedClones({ db, dataDir });
+    const moved = reconcilePendingMoves({ db });
+    for (const item of moved.filter(
+      (entry) => entry.pathUpdated && !['rebaselined', 'started'].includes(entry.stage),
+    )) {
+      const row = db
+        .prepare(
+          'SELECT s.*, i.path AS install_path FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+        )
+        .get(item.serverId);
+      if (row) await drift.recordBaseline(row, 'move_settled');
+    }
     // A map switch cut off by the last shutdown is undone first, so a server that was running comes back
     // on the map it had before, and one still running on the new map is restarted onto the old one.
     const undone = reconcilePendingSwitches({ db }).filter((entry) => entry.changed && entry.wasRunning);
@@ -195,6 +224,12 @@ export async function start() {
         .start(item.serverId)
         .catch((error) =>
           console.error(`Starting server ${item.serverId} after an interrupted restore failed: ${error.message}`),
+        );
+    for (const item of moved.filter((entry) => entry.wasRunning))
+      void supervisor
+        .start(item.serverId)
+        .catch((error) =>
+          console.error(`Starting server ${item.serverId} after an interrupted move failed: ${error.message}`),
         );
     supervisor.startPolling();
     await gaming.start();

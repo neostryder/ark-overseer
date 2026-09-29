@@ -29,6 +29,9 @@ export const FILE_JOBS = [
   'cluster.restart',
   'cluster.start',
   'cluster.stop',
+  'server.clone',
+  'server.move',
+  'fleet.action',
 ];
 const NOTE_MAX = 200;
 const ACTIVE = new Set(['running', 'starting', 'unknown']);

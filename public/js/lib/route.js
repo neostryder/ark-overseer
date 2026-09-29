@@ -1,4 +1,5 @@
 const patterns = [
+  [/^#\/servers$/, () => ({ screen: 'servers' })],
   [/^#\/clusters\/(\d+)$/, (m) => ({ screen: 'cluster', id: Number(m[1]) })],
   [/^#\/clusters$/, () => ({ screen: 'clusters' })],
   [/^#\/servers\/(\d+)\/overview$/, (m) => ({ screen: 'overview', id: Number(m[1]) })],
@@ -32,6 +33,6 @@ export function buildRoute(route) {
     Number(route.id) > 0
   )
     return `#/servers/${Number(route.id)}/${route.screen}`;
-  if (['jobs', 'account', 'host', 'setup', 'clusters'].includes(route?.screen)) return `#/${route.screen}`;
+  if (['jobs', 'account', 'host', 'setup', 'clusters', 'servers'].includes(route?.screen)) return `#/${route.screen}`;
   return '#/';
 }

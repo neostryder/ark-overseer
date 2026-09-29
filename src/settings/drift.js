@@ -81,7 +81,15 @@ export const ACTIONS = ['adopt', 'revert', 'merge'];
 export const RESOLVE_JOB = 'server.settings_resolve';
 // Jobs that change the files under a server without going through this module. While one is queued or
 // running, the files are not compared: they are part way between two states.
-const OTHER_FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore', 'server.cluster_apply'];
+const OTHER_FILE_JOBS = [
+  'server.switch_map',
+  'server.restore',
+  'server.settings_restore',
+  'server.cluster_apply',
+  'server.move',
+  'server.clone',
+  'fleet.action',
+];
 const ACTIVE = new Set(['running', 'starting', 'unknown']);
 // The states a server may be in when the put-back before a start is allowed to write its files.
 const START_STATES = new Set(['stopped', 'crashed']);
@@ -338,9 +346,9 @@ export function createDrift({
     Boolean(
       db
         .prepare(
-          `SELECT 1 FROM jobs WHERE kind IN (${OTHER_FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND server_id = ? LIMIT 1`,
+          `SELECT 1 FROM jobs WHERE kind IN (${OTHER_FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND (server_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?)) LIMIT 1`,
         )
-        .get(...OTHER_FILE_JOBS, id),
+        .get(...OTHER_FILE_JOBS, id, id),
     );
   const resolveQueued = (id) =>
     Boolean(

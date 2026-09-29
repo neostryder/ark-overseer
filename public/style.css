@@ -111,6 +111,11 @@ a {
   text-transform: uppercase;
   color: var(--muted);
   margin: 28px 8px 8px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
 }
 .server-link {
   display: flex;
@@ -1344,9 +1349,17 @@ code {
     font-size: 1.4rem;
     flex: none;
   }
-  .fleet-rail .rail-heading,
   .fleet-rail .server-text {
     display: none;
+  }
+  .fleet-rail .rail-heading {
+    justify-content: center;
+    font-size: 0;
+    margin-inline: 0;
+  }
+  .fleet-rail .rail-heading .icon {
+    width: 20px;
+    height: 20px;
   }
   .fleet-rail .server-link {
     display: grid;
@@ -1412,6 +1425,7 @@ code {
     display: flex;
   }
   .rail-expanded .fleet-rail .rail-heading {
+    font-size: 0.78rem;
     display: block;
   }
   .rail-expanded .fleet-rail .server-link {
@@ -1720,6 +1734,89 @@ code {
   }
   .rail-expanded .fleet-rail .rail-clusters {
     font-size: inherit;
+  }
+}
+.servers-screen,
+.servers-list,
+.fleet-action-form,
+.transfer-form {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  container-type: inline-size;
+}
+.servers-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.servers-row img {
+  width: 110px;
+  max-width: 25%;
+  aspect-ratio: 460 / 215;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.servers-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fleet-select-all {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.servers-screen input[type='checkbox'],
+.transfer-form input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  accent-color: var(--gold);
+}
+.folder-picker-list:not([hidden]) {
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.folder-picker-list .button {
+  min-height: 44px;
+  text-align: left;
+}
+.fleet-action-form select,
+.fleet-action-form input,
+.transfer-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: #10120e;
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+}
+.transfer-form input[type='checkbox'] {
+  width: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+@container (max-width: 480px) {
+  .servers-row {
+    flex-wrap: wrap;
+  }
+  .servers-info {
+    flex: 1;
+  }
+}
+@media (pointer: coarse) {
+  .servers-screen input[type='checkbox'],
+  .transfer-form input[type='checkbox'] {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

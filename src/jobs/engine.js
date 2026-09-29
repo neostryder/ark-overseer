@@ -1,5 +1,6 @@
 import { nowIso, transaction } from '../db/index.js';
 import { redact } from '../util/redact.js';
+import path from 'node:path';
 
 const INTERRUPTED = 'The manager stopped while this job was running.';
 // setTimeout treats anything longer than this (about 24.8 days) as 1 ms, which would turn a job
@@ -40,7 +41,9 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       targets: JSON.parse(row.targets_json || '{"servers":[],"installs":[]}'),
       progress: row.progress,
       message: row.message,
-      params: JSON.parse(row.params_json),
+      params: Object.fromEntries(
+        Object.entries(JSON.parse(row.params_json)).filter(([key]) => !key.endsWith('Password')),
+      ),
       result: row.result_json === null ? null : JSON.parse(row.result_json),
       error: row.error,
       runAfter: row.run_after,
@@ -96,19 +99,21 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
   function busyTargets() {
     const serverIds = new Set();
     const installIds = new Set();
+    const paths = new Set();
     for (const { job } of [...running.values(), ...stranded.values()]) {
       if (job.serverId !== null) serverIds.add(job.serverId);
       if (job.installId !== null) installIds.add(job.installId);
       for (const id of job.targets?.servers ?? []) serverIds.add(id);
       for (const id of job.targets?.installs ?? []) installIds.add(id);
+      for (const value of job.targets?.paths ?? []) paths.add(path.win32.normalize(value).toLowerCase());
     }
-    return { serverIds: [...serverIds], installIds: [...installIds] };
+    return { serverIds: [...serverIds], installIds: [...installIds], paths: [...paths] };
   }
 
   // The oldest eligible queued job, with busy servers and installs filtered out in SQL, so a long
   // backlog is never loaded into memory just to pick one row.
   function nextEligible() {
-    const { serverIds, installIds } = busyTargets();
+    const { serverIds, installIds, paths } = busyTargets();
     const conditions = ["state = 'queued'", '(run_after IS NULL OR run_after <= ?)'];
     const values = [nowIso()];
     if (serverIds.length) {
@@ -129,6 +134,10 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
         ),
       ];
       conditions.push(`NOT (${overlap.join(' OR ')})`);
+    }
+    for (const target of paths) {
+      conditions.push("NOT EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.paths') WHERE lower(value) = ?)");
+      values.push(target);
     }
     return db.prepare(`SELECT id FROM jobs WHERE ${conditions.join(' AND ')} ORDER BY id ASC LIMIT 1`).get(...values);
   }

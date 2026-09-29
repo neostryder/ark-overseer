@@ -30,7 +30,7 @@ export const MESSAGES = {
   nextRestart: 'The running server uses the shared settings after its next restart.',
   probeLeft: 'ARK Overseer could not remove its test file from the cluster folder. You can delete {path} yourself.',
   progress: '{action}: {name} ({index} of {count}).',
-  actions: { restart: 'Restarting', start: 'Starting', stop: 'Stopping' },
+  actions: { restart: 'Restarting', start: 'Starting', stop: 'Stopping', update: 'Updating' },
 };
 
 const shareable = new Map(

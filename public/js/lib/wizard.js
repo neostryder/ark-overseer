@@ -1,3 +1,5 @@
+import { validInstallFolder } from './install-folder.js';
+
 const SESSION_NAME_MAX_LENGTH = 60;
 
 export const MAPS = [
@@ -69,10 +71,7 @@ export function validateServerStep(values) {
     values.maxPlayers > PLAYER_LIMIT.max
   )
     result.maxPlayers = errors.maxPlayers;
-  if (
-    !values.installId &&
-    (!isAbsolute(values.installPath) || /[\\/]steamapps[\\/]common[\\/]/i.test(values.installPath))
-  )
+  if (!values.installId && !validInstallFolder(values.installPath, values.installs, { allowUnc: true }))
     result.installPath = errors.installPath;
   return result;
 }

@@ -3,6 +3,7 @@ import { STRINGS } from '../strings.js';
 import { icon } from '../lib/icon.js';
 import { stateName, relativeTime } from '../lib/format.js';
 import { mapName } from '../lib/wizard.js';
+import { createInstallFolderPicker, validInstallFolder } from '../lib/install-folder.js';
 export class AoServerOverview extends HTMLElement {
   async connectedCallback() {
     this.serverId = this.getAttribute('server-id');
@@ -26,6 +27,8 @@ export class AoServerOverview extends HTMLElement {
     }
   }
   render() {
+    this.transferKind = null;
+    this.transferPanel = null;
     const s = this.server,
       status = s.status || {},
       state = status.observedState || 'unknown';
@@ -69,6 +72,23 @@ export class AoServerOverview extends HTMLElement {
     this.message.className = 'error-message';
     this.message.setAttribute('aria-live', 'polite');
     this.append(this.message);
+    const transfers = document.createElement('div');
+    transfers.className = 'button-row';
+    for (const kind of ['clone', 'move']) {
+      const button = document.createElement('button');
+      button.className = 'button secondary';
+      button.textContent = STRINGS.overview[kind];
+      button.addEventListener('click', () => {
+        this.transferKind = this.transferKind === kind ? null : kind;
+        this.transferPanel?.remove();
+        if (this.transferKind) {
+          this.transferPanel = this.renderTransfer(kind);
+          transfers.after(this.transferPanel);
+        }
+      });
+      transfers.append(button);
+    }
+    this.append(transfers);
     const cards = document.createElement('div');
     cards.className = 'detail-grid';
     const statusSince = status.startedAt ? relativeTime(status.startedAt) : STRINGS.overview.unknown;
@@ -101,6 +121,12 @@ export class AoServerOverview extends HTMLElement {
       cards.append(card);
     }
     this.append(cards);
+    if (s.lastMove?.message) {
+      const move = document.createElement('p');
+      move.className = 'card restart-banner';
+      move.textContent = s.lastMove.message;
+      this.append(move);
+    }
     if (install.latest_build_id && install.build_id !== install.latest_build_id) {
       const notice = document.createElement('p');
       notice.className = 'card restart-banner';
@@ -133,20 +159,106 @@ export class AoServerOverview extends HTMLElement {
       this.append(check);
     }
   }
+  renderTransfer(kind) {
+    const w = STRINGS.overview;
+    const panel = document.createElement('form');
+    panel.className = 'card transfer-form';
+    const heading = document.createElement('h2');
+    heading.textContent = w[kind];
+    panel.append(heading);
+    const field = (label, value = '', type = 'text') => {
+      const wrap = document.createElement('label');
+      wrap.className = 'field-label';
+      const title = document.createElement('span');
+      title.textContent = label;
+      const input = document.createElement('input');
+      input.type = type;
+      if (type === 'checkbox') input.checked = Boolean(value);
+      else input.value = value;
+      wrap.append(title, input);
+      panel.append(wrap);
+      return input;
+    };
+    const name = kind === 'clone' ? field(w.cloneName, `${this.server.name} copy`) : null;
+    const session = kind === 'clone' ? field(w.cloneSession, `${this.server.session_name} copy`) : null;
+    const folder = field(w.folder);
+    folder.placeholder = w.folderExample;
+    panel.append(
+      createInstallFolderPicker(
+        folder,
+        this.server.install.source === 'steam-client' ? 'C:\\' : this.server.install.path,
+      ),
+    );
+    const help = document.createElement('p');
+    help.className = 'muted';
+    help.textContent = kind === 'move' ? `${w.folderHelp} ${w.moveHelp}` : w.folderHelp;
+    panel.append(help);
+    const world = kind === 'clone' ? field(w.copyWorld, false, 'checkbox') : null;
+    const admin = kind === 'clone' ? field(w.adminPassword, '', 'password') : null;
+    const join = kind === 'clone' ? field(w.joinPassword, '', 'password') : null;
+    const space = document.createElement('p');
+    space.className = 'muted';
+    space.setAttribute('aria-live', 'polite');
+    panel.append(space);
+    const submit = document.createElement('button');
+    submit.className = 'button primary';
+    submit.type = 'submit';
+    submit.textContent = kind === 'clone' ? w.submitClone : w.submitMove;
+    panel.append(submit);
+    panel.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      this.message.textContent = '';
+      space.textContent = w.spaceChecking;
+      try {
+        const installs = await api.get('/api/installs');
+        if (!validInstallFolder(folder.value, installs)) throw new Error(w.folderHelp);
+        const checked = await api.get(
+          `/api/host/free-space?path=${encodeURIComponent(folder.value)}&serverId=${this.serverId}`,
+        );
+        space.textContent = w.space
+          .replace('{free}', (checked.freeBytes / 1e9).toFixed(1))
+          .replace('{needed}', (checked.requiredBytes / 1e9).toFixed(1));
+        const body =
+          kind === 'clone'
+            ? {
+                path: folder.value,
+                name: name.value,
+                sessionName: session.value,
+                copyWorld: world.checked,
+                ...(admin.value ? { adminPassword: admin.value } : {}),
+                ...(join.value ? { joinPassword: join.value } : {}),
+              }
+            : { path: folder.value };
+        const job = await api.post(`/api/servers/${this.serverId}/${kind}`, body);
+        this.follow(job.jobId, kind);
+      } catch (cause) {
+        this.message.textContent = cause.message;
+        submit.disabled = false;
+      }
+    });
+    return panel;
+  }
   disconnectedCallback() {
     clearTimeout(this.pollTimer);
     this.pollTimer = null;
   }
   // Polls the update check until it ends, then reloads to show the result, or the reason it failed.
-  follow(jobId) {
+  follow(jobId, kind = 'update') {
     const tick = async () => {
       this.pollTimer = null;
       if (!this.isConnected) return;
       try {
         const job = (await api.get('/api/jobs')).find((item) => item.id === jobId);
         if (job && !['queued', 'running'].includes(job.state)) {
+          if (kind === 'clone' && job.state === 'succeeded') {
+            await this.closest('ao-app')?.loadServers();
+            window.location.hash = `#/servers/${job.result.serverId}/overview`;
+            return;
+          }
           await this.load();
           if (job.state !== 'succeeded') this.message.textContent = job.error || STRINGS.overview.checkFailed;
+          else if (kind === 'move') this.message.textContent = job.result.message;
           return;
         }
       } catch (error) {

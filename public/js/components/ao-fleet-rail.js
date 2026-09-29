@@ -82,9 +82,12 @@ export class AoFleetRail extends HTMLElement {
     expand.addEventListener('click', () =>
       this.dispatchEvent(new CustomEvent('rail-toggle', { detail: { opener: expand } })),
     );
-    const heading = document.createElement('h2');
+    const heading = document.createElement('a');
     heading.className = 'rail-heading';
-    heading.textContent = STRINGS.fleet.servers;
+    heading.href = '#/servers';
+    heading.title = STRINGS.fleet.servers;
+    heading.setAttribute('aria-label', STRINGS.fleet.servers);
+    heading.append(icon('server'), document.createTextNode(STRINGS.fleet.servers));
     this.append(brand, expand, heading);
     if (!this.servers?.length) {
       const empty = document.createElement('p');

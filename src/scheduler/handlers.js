@@ -23,6 +23,8 @@ export const PLAYER_MESSAGES = {
     }`,
   restarting: 'Saving the world and restarting now.',
   updating: 'Saving the world and stopping for the update now.',
+  move: (n) =>
+    `Server maintenance in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back once its files are moved, which can take a while.`,
   switching: 'Saving the world and changing the map now.',
   restoring: 'Shutting down to restore a backup now.',
   cancelled: 'The restart is off. Keep playing.',
@@ -124,6 +126,7 @@ export function createScheduleHandlers({
 
     'install.auto_update': async (ctx) => {
       const { job, params = {}, signal, progress } = ctx;
+      const countdownSignal = ctx.countdownSignal ?? signal;
       const check = await checkInstall(job.installId, signal);
       if (!check.updateAvailable) return { updated: false, ...check };
       const servers = db.prepare(`${serverSql} WHERE s.install_id = ? ORDER BY s.id`).all(job.installId);
@@ -139,7 +142,7 @@ export function createScheduleHandlers({
             params.countdownMinutes ?? [15, 5, 1],
             PLAYER_MESSAGES.update,
             announce,
-            signal,
+            countdownSignal,
             progress,
           );
           await Promise.all(running.map((server) => tell(server, announce, PLAYER_MESSAGES.updating).catch(() => {})));
@@ -165,7 +168,7 @@ export function createScheduleHandlers({
         await runInstall({ db, steamcmd }, ctx, 'update');
       } catch (error) {
         failure = error;
-        if (signal.aborted && !stopped.length)
+        if (countdownSignal.aborted && !stopped.length)
           await Promise.all(running.map((server) => tell(server, announce, PLAYER_MESSAGES.cancelled).catch(() => {})));
       }
       for (const server of stopped) {

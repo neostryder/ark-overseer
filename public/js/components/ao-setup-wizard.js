@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { byteSize, jobState } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
+import { createInstallFolderPicker } from '../lib/install-folder.js';
 import {
   MAPS,
   PRESETS,
@@ -194,7 +195,7 @@ export class AoSetupWizard extends HTMLElement {
       }
     }
     if (this.step === 'server') {
-      if (!this.showErrors(validateServerStep(s))) return;
+      if (!this.showErrors(validateServerStep({ ...s, installs: this.installs }))) return;
     }
     if (this.step === 'network' && !this.showErrors(validatePorts(s))) return;
     if (this.step === 'passwords') {
@@ -360,7 +361,11 @@ export class AoSetupWizard extends HTMLElement {
     if (!s.installId) {
       const folder = input('installPath');
       folder.placeholder = w.folderExample;
-      panel.append(field(w.folder, folder, 'installPath'), node('p', w.folderHelp, 'muted'));
+      panel.append(
+        field(w.folder, folder, 'installPath'),
+        createInstallFolderPicker(folder, this.host?.path || 'C:\\'),
+        node('p', w.folderHelp, 'muted'),
+      );
     }
     panel.append(field(w.name, input('name'), 'name'));
     panel.append(field(w.sessionName, input('sessionName'), 'sessionName'));

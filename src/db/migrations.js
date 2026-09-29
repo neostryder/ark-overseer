@@ -320,6 +320,32 @@ export const MIGRATIONS = [
         );
     },
   },
+  {
+    version: 11,
+    name: 'pending_transfers',
+    up: `
+      CREATE TABLE pending_moves (
+        job_id INTEGER PRIMARY KEY,
+        server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+        source_path TEXT NOT NULL,
+        target_path TEXT NOT NULL,
+        was_running INTEGER NOT NULL CHECK (was_running IN (0, 1)),
+        stage TEXT NOT NULL
+      );
+      CREATE TABLE pending_clones (
+        job_id INTEGER PRIMARY KEY,
+        install_id INTEGER NOT NULL,
+        target_path TEXT NOT NULL,
+        created_root INTEGER NOT NULL DEFAULT 0,
+        server_id INTEGER
+      );
+      CREATE TABLE pending_clone_paths (
+        job_id INTEGER NOT NULL,
+        relative_path TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('file', 'directory')),
+        PRIMARY KEY (job_id, relative_path)
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

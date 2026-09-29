@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SETTINGS_FIELDS } from '../src/settings/fields.js';
 import { validateField } from '../public/js/lib/settings.js';
+import { validInstallFolder } from '../public/js/lib/install-folder.js';
 import {
   MAPS,
   PRESETS,
@@ -136,6 +137,21 @@ test('install and dashboard folders use the same absolute-path rule as the serve
     validateServerStep({ ...good, name: `  ${'x'.repeat(64)}  `, installPath: 'D:\\A' }, SETTINGS_FIELDS),
     {},
   );
+});
+
+test('shared install folder checks reject used, relative, Steam and traversal paths', () => {
+  const installs = [{ path: 'D:\\ARK\\Existing' }];
+  assert.equal(validInstallFolder('D:/ARK/New', installs), true);
+  for (const value of [
+    'relative',
+    'D:\\ARK\\..\\Other',
+    'D:\\Steam\\steamapps\\common\\ASA',
+    'd:/ark/existing',
+    '\\\\host\\share\\ASA',
+    '\\\\?\\D:\\ASA',
+  ])
+    assert.equal(validInstallFolder(value, installs), false, value);
+  assert.equal(validInstallFolder('\\\\host\\share\\ASA', [], { allowUnc: true }), true);
 });
 test('settings body includes preset and admin password but omits blank join password', () => {
   const body = settingsBody({ adminPassword: 'secret', joinPassword: '', presetId: 'relaxed' });

@@ -24,6 +24,8 @@ import { registerBackupRoutes, FILE_JOBS } from './backups/api.js';
 import { createDrift, settingKeys } from './settings/drift.js';
 import { registerDriftRoutes } from './settings/api.js';
 import { registerClusterRoutes } from './clusters/api.js';
+import { registerFleetRoutes } from './fleet/api.js';
+import { clonePasswords } from './fleet/secrets.js';
 import {
   clusterRow,
   memberRows,
@@ -88,7 +90,7 @@ function must(value) {
 function serverRow(db, id) {
   return db
     .prepare(
-      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id WHERE s.id = ?',
+      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.branch AS install_branch, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id WHERE s.id = ?',
     )
     .get(id);
 }
@@ -171,14 +173,17 @@ export function createApp({
       return result;
     };
   // The jobs that change the files under a server, or stop and start it in steps that must not be interleaved.
-  const fileJobRunning = (serverId) =>
-    Boolean(
+  const fileJobRunning = (serverId) => {
+    const server = db.prepare('SELECT install_id FROM servers WHERE id = ?').get(serverId);
+    if (!server) return false;
+    return Boolean(
       db
         .prepare(
-          `SELECT 1 FROM jobs WHERE kind IN (${FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND (server_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?)) LIMIT 1`,
+          `SELECT 1 FROM jobs WHERE kind IN (${FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND (server_id = ? OR install_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?) OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.installs') WHERE value = ?)) LIMIT 1`,
         )
-        .get(...FILE_JOBS, serverId, serverId),
+        .get(...FILE_JOBS, serverId, server.install_id, serverId, server.install_id),
     );
+  };
   const showArt = () => Boolean(hostRow()?.show_map_art ?? 1);
   for (const [key, route] of Object.entries(auth.routes)) {
     const urls = {
@@ -399,9 +404,18 @@ export function createApp({
       .all()
       .map((row) => shapeServer(row, supervisor, unseen));
   router.add('GET', '/api/servers', () => listServers(unseenDrift()));
-  router.add('GET', '/api/servers/:id', ({ params }) =>
-    shapeServer(must(serverRow(db, params.id)), supervisor, unseenDrift()),
-  );
+  router.add('GET', '/api/servers/:id', ({ params }) => {
+    const server = shapeServer(must(serverRow(db, params.id)), supervisor, unseenDrift());
+    const move = db
+      .prepare(
+        "SELECT result_json FROM jobs WHERE kind = 'server.move' AND server_id = ? AND state = 'succeeded' ORDER BY id DESC LIMIT 1",
+      )
+      .get(server.id);
+    const result = move?.result_json ? JSON.parse(move.result_json) : null;
+    if (result && pathKey(result.target) === pathKey(server.install.path)) server.lastMove = result;
+    return server;
+  });
+  registerFleetRoutes({ router, db, jobs, protectedRoute, must, error, serverRow });
   registerClusterRoutes({
     router,
     db,
@@ -814,8 +828,14 @@ export function createApp({
     'POST',
     '/api/jobs/:id/cancel',
     protectedRoute('job.cancel', 'job', ({ params }) => {
-      if (!jobs.get(params.id)) throw error(404, API_MESSAGES.notFound);
-      return { cancelled: jobs.cancel(params.id) };
+      const job = jobs.get(params.id);
+      if (!job) throw error(404, API_MESSAGES.notFound);
+      const cancelled = jobs.cancel(params.id);
+      if (cancelled && jobs.get(params.id)?.state === 'cancelled' && job.kind === 'server.clone') {
+        clonePasswords(db).delete(job.id);
+        db.prepare('DELETE FROM installs WHERE id = ?').run(job.installId);
+      }
+      return { cancelled };
     }),
   );
   router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
