@@ -139,6 +139,8 @@ export function readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode 
           source: typeof result.source === 'string' ? result.source : null,
           channel: typeof result.channel === 'string' ? result.channel : null,
           ref: typeof result.ref === 'string' ? result.ref : null,
+          asset: typeof result.asset === 'string' ? result.asset : null,
+          sha256: typeof result.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(result.sha256) ? result.sha256 : null,
           message: typeof result.message === 'string' ? result.message.slice(0, 500) : null,
         }
       : null;
@@ -147,6 +149,7 @@ export function readUpdateInfo({ root, dataDir, logsDir, startedAt, serviceMode 
     commit,
     startedAt,
     available: Boolean(serviceMode && link && appDir),
+    package: options?.package === true,
     link: serviceMode ? link : null,
     appDir: serviceMode ? appDir : null,
     logsDir: serviceMode ? logsDir : null,

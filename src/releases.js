@@ -39,7 +39,47 @@ export function compareVersions(a, b) {
   return betaA < betaB ? -1 : 1;
 }
 
-function releaseItem(release) {
+function packageAsset(release) {
+  const tag = release?.tag_name;
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  if (tag === 'edge') {
+    const matches = assets.filter((asset) =>
+      /^ark-overseer-\d+\.\d+\.\d+-edge\.[0-9a-f]{7,40}-win-x64\.zip$/.test(asset?.name ?? ''),
+    );
+    if (matches.length !== 1) return null;
+    const asset = matches[0];
+    const version = asset.name.slice('ark-overseer-'.length, -'-win-x64.zip'.length);
+    const checksum = assets.filter((item) => item?.name === `${asset.name}.sha256`);
+    if (checksum.length !== 1) return null;
+    return { name: asset.name, size: Number.isFinite(asset.size) ? asset.size : null, version };
+  }
+  const parsed = parseTag(tag);
+  if (!parsed) return null;
+  const version = `${parsed.major}.${parsed.minor}.${parsed.patch}${parsed.beta === null ? '' : `-beta.${parsed.beta}`}`;
+  const name = `ark-overseer-${version}-win-x64.zip`;
+  const matches = assets.filter((asset) => asset?.name === name);
+  const checksums = assets.filter((asset) => asset?.name === `${name}.sha256`);
+  if (matches.length !== 1 || checksums.length !== 1) return null;
+  return { name, size: Number.isFinite(matches[0].size) ? matches[0].size : null, version };
+}
+
+function releaseItem(release, { requirePackage = true } = {}) {
+  const asset = packageAsset(release);
+  if (requirePackage && !asset) return null;
+  if (release?.tag_name === 'edge') {
+    if (!asset) return null;
+    return {
+      kind: 'edge',
+      tag: 'edge',
+      version: asset.version,
+      beta: null,
+      body: typeof release.body === 'string' ? release.body : '',
+      url: typeof release.html_url === 'string' ? release.html_url : null,
+      publishedAt: typeof release.published_at === 'string' ? release.published_at : null,
+      commit: asset.version.match(/edge\.([0-9a-f]+)$/)?.[1] ?? null,
+      asset,
+    };
+  }
   const parsed = parseTag(release?.tag_name);
   if (!parsed) return null;
   return {
@@ -51,18 +91,22 @@ function releaseItem(release) {
     url: typeof release.html_url === 'string' ? release.html_url : null,
     publishedAt: typeof release.published_at === 'string' ? release.published_at : null,
     commit: null,
+    asset,
   };
 }
 
 // The releases that count for a channel, newest first. Drafts and tags that are not vX.Y.Z or
 // vX.Y.Z-beta.N are dropped. Stable keeps only plain versions; Beta keeps plain versions and betas.
 export function selectReleases(releases, channel) {
-  return (Array.isArray(releases) ? releases : [])
-    .filter((release) => !release?.draft)
-    .map(releaseItem)
-    .filter(Boolean)
-    .filter((item) => (channel === 'stable' ? item.beta === null : true))
-    .sort((a, b) => compareVersions(b.tag, a.tag));
+  return (
+    (Array.isArray(releases) ? releases : [])
+      .filter((release) => !release?.draft)
+      // Releases without both package files cannot be installed by the elevated updater.
+      .map((release) => releaseItem(release))
+      .filter(Boolean)
+      .filter((item) => (channel === 'stable' ? item.beta === null : true))
+      .sort((a, b) => compareVersions(b.tag, a.tag))
+  );
 }
 
 function messageFor(error) {
@@ -94,30 +138,17 @@ async function fetchJson({ fetchImpl, url, headers }) {
 
 async function loadChannel({ baseUrl, repo, fetchImpl, channel }) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'ark-overseer' };
-  if (channel === 'edge') {
-    const commit = await fetchJson({ fetchImpl, url: `${baseUrl}/repos/${repo}/commits/main`, headers });
-    const sha = typeof commit?.sha === 'string' ? commit.sha : null;
-    if (!sha) throw Object.assign(new Error(RELEASE_MESSAGES.unreadable), { code: 'unreadable' });
-    return {
-      ok: true,
-      channel,
-      newest: {
-        kind: 'commit',
-        tag: null,
-        version: null,
-        commit: sha,
-        body: typeof commit?.commit?.message === 'string' ? commit.commit.message : '',
-        url: typeof commit?.html_url === 'string' ? commit.html_url : null,
-        publishedAt: commit?.commit?.committer?.date ?? null,
-      },
-      history: [],
-    };
-  }
   const releases = await fetchJson({
     fetchImpl,
     url: `${baseUrl}/repos/${repo}/releases?per_page=100`,
     headers,
   });
+  if (channel === 'edge') {
+    const release = Array.isArray(releases) ? releases.find((item) => !item?.draft && item?.tag_name === 'edge') : null;
+    const newest = release && releaseItem(release);
+    if (!newest) throw Object.assign(new Error(RELEASE_MESSAGES.noReleases), { code: 'unreadable' });
+    return { ok: true, channel, newest, history: [] };
+  }
   const items = selectReleases(releases, channel);
   if (!items.length) throw Object.assign(new Error(RELEASE_MESSAGES.noReleases), { code: 'unreadable' });
   const [newest, ...history] = items;

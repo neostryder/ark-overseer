@@ -9,13 +9,16 @@
 param(
   [string]$Root = 'C:\ProgramData\ARK Overseer',
   [switch]$Elevated,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$FunctionsOnly,
+  [string]$ApiBase = 'https://api.github.com',
+  [string[]]$AllowedHosts = @('github.com', 'api.github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com')
 )
 $ErrorActionPreference = 'Stop'
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin = ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin -and -not $DryRun) {
+if (-not $isAdmin -and -not $DryRun -and -not $FunctionsOnly) {
   if ($Elevated) { exit 1 }
   $pwsh = (Get-Process -Id $PID).Path
   # The link starts the PowerShell kept in the service's runtime folder, which the install may replace.
@@ -37,8 +40,6 @@ if (-not $isAdmin -and -not $DryRun) {
 
 # The published repository. updater.json may override it; the request may not.
 $Repository = 'neostryder/ark-overseer'
-$ApiBase = 'https://api.github.com'
-$CodeloadBase = 'https://codeload.github.com'
 $TagPattern = '^v\d+\.\d+\.\d+(-beta\.\d+)?$'
 $CommitPattern = '^[0-9a-f]{40}$'
 $MaxRequestAge = [TimeSpan]::FromMinutes(15)
@@ -69,37 +70,159 @@ function Compare-Tag([string]$A, [string]$B) {
 
 function Get-GitHubJson([string]$Url) {
   $headers = @{ 'User-Agent' = 'ark-overseer'; 'Accept' = 'application/vnd.github+json' }
-  return Invoke-RestMethod -Uri $Url -Headers $headers
+  return Invoke-RestMethod -Uri $Url -Headers $headers | ForEach-Object { $_ }
 }
 
-# Which commit a tag points at. An annotated tag is peeled to the commit it wraps.
-function Resolve-Commit([string]$Ref) {
-  if ($Ref -match $CommitPattern) { return $Ref }
-  $response = Get-GitHubJson "$ApiBase/repos/$repository/git/ref/tags/$Ref"
-  $object = $response.object
-  if ($object.type -eq 'tag') { $object = (Get-GitHubJson $object.url).object }
-  if ($object.sha -notmatch $CommitPattern) { throw "The tag $Ref did not point at a commit." }
-  return $object.sha
-}
-
-# The newest ref on a channel, for a request that did not name one.
-function Get-NewestRef([string]$Channel) {
+function Get-ReleaseAssets($Release, [string]$Channel) {
+  $assets = @($Release.assets)
   if ($Channel -eq 'edge') {
-    $commit = Get-GitHubJson "$ApiBase/repos/$repository/commits/main"
-    if ($commit.sha -notmatch $CommitPattern) { throw 'main had no commit.' }
-    return @{ ref = $commit.sha; commit = $commit.sha; tag = $null }
+    $packages = @($assets | Where-Object { $_.name -match '^ark-overseer-\d+\.\d+\.\d+-edge\.[0-9a-f]{7,40}-win-x64\.zip$' })
+    if ($packages.Count -ne 1) { return $null }
+    $package = $packages[0]
+    $version = $package.name.Substring('ark-overseer-'.Length, $package.name.Length - 'ark-overseer-'.Length - '-win-x64.zip'.Length)
   }
-  $releases = Get-GitHubJson "$ApiBase/repos/$repository/releases?per_page=100"
-  $best = $null
-  foreach ($release in @($releases)) {
-    if ($release.draft) { continue }
-    if ($release.tag_name -notmatch $TagPattern) { continue }
-    if ($Channel -eq 'stable' -and $release.tag_name -match '-beta\.') { continue }
-    if (-not $best -or (Compare-Tag $release.tag_name $best) -gt 0) { $best = $release.tag_name }
+  else {
+    if ($Release.tag_name -notmatch $TagPattern) { return $null }
+    $version = $Release.tag_name.Substring(1)
+    $expected = "ark-overseer-$version-win-x64.zip"
+    $packages = @($assets | Where-Object { $_.name -ceq $expected })
+    if ($packages.Count -ne 1) { return $null }
+    $package = $packages[0]
   }
-  if (-not $best) { throw "No releases were found for $Channel." }
-  return @{ ref = $best; commit = (Resolve-Commit $best); tag = $best }
+  $checksums = @($assets | Where-Object { $_.name -ceq "$($package.name).sha256" })
+  if ($checksums.Count -ne 1) { return $null }
+  return @{ package = $package; checksum = $checksums[0]; version = $version }
 }
+
+function Get-NewestRef([string]$Channel) {
+  $releases = @(Get-GitHubJson "$ApiBase/repos/$repository/releases?per_page=100")
+  if ($Channel -eq 'edge') {
+    $release = $releases | Where-Object { -not $_.draft -and $_.tag_name -ceq 'edge' } | Select-Object -First 1
+    $assets = if ($release) { Get-ReleaseAssets $release $Channel } else { $null }
+    if (-not $assets) { throw 'No installable Edge package was found.' }
+    return @{ ref = $assets.version; commit = ($assets.version -split '\.')[-1]; tag = 'edge'; release = $release; assets = $assets }
+  }
+  $candidates = foreach ($release in $releases) {
+    if ($release.draft -or $release.tag_name -notmatch $TagPattern) { continue }
+    if ($Channel -eq 'stable' -and $release.tag_name -match '-beta\.') { continue }
+    $assets = Get-ReleaseAssets $release $Channel
+    if (-not $assets) { continue } # Releases without both package assets cannot be installed or offered for rollback.
+    [pscustomobject]@{ release = $release; assets = $assets }
+  }
+  $best = $null
+  foreach ($candidate in $candidates) {
+    if (-not $best -or (Compare-Tag $candidate.release.tag_name $best.release.tag_name) -gt 0) { $best = $candidate }
+  }
+  if (-not $best) { throw "No installable releases were found for $Channel." }
+  return @{ ref = $best.release.tag_name; commit = $null; tag = $best.release.tag_name; release = $best.release; assets = $best.assets }
+}
+
+function Test-AllowedAssetUri([string]$Url, [string[]]$Hosts) {
+  try {
+    $uri = [uri]$Url
+    if (($uri.Scheme -ne 'https' -and -not ($uri.Scheme -eq 'http' -and $uri.IsLoopback)) -or $uri.UserInfo) { return $false }
+    return $Hosts -contains $uri.Host.ToLowerInvariant()
+  } catch { return $false }
+}
+
+function Receive-Asset([string]$Url, [string]$Path, [string[]]$Hosts, [long]$MaxBytes) {
+  $current = [uri]$Url
+  $handler = [Net.Http.HttpClientHandler]::new()
+  $handler.AllowAutoRedirect = $false
+  $client = [Net.Http.HttpClient]::new($handler)
+  try {
+    for ($redirect = 0; $redirect -le 5; $redirect++) {
+      if (-not (Test-AllowedAssetUri $current.AbsoluteUri $Hosts)) { throw 'The package asset URL has an unapproved host.' }
+      $response = $client.GetAsync($current, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+      if ([int]$response.StatusCode -in @(301, 302, 303, 307, 308)) {
+        $location = $response.Headers.Location
+        $response.Dispose()
+        if (-not $location -or $redirect -eq 5) { throw 'The package asset redirect is invalid.' }
+        $current = [uri]::new($current, $location)
+        continue
+      }
+      if (-not $response.IsSuccessStatusCode) { throw 'The package asset could not be downloaded.' }
+      $contentLength = $response.Content.Headers.ContentLength
+      if ($contentLength -gt $MaxBytes) {
+        $response.Dispose()
+        Test-AssetSize $contentLength $MaxBytes | Out-Null
+      }
+      $input = $response.Content.ReadAsStream()
+      $output = [IO.File]::Create($Path)
+      try {
+        $buffer = [byte[]]::new(65536); $total = 0L
+        while (($read = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
+          $total += $read
+          Test-AssetSize $total $MaxBytes | Out-Null
+          $output.Write($buffer, 0, $read)
+        }
+      } finally { $output.Dispose(); $input.Dispose(); $response.Dispose() }
+      return
+    }
+  } finally { $client.Dispose(); $handler.Dispose() }
+}
+
+function Test-ZipEntryPath([string]$Name) {
+  if (-not $Name -or $Name.StartsWith('/') -or $Name.StartsWith('\\') -or $Name -match '^[A-Za-z]:') { return $false }
+  $parts = $Name.Replace('\', '/').Split('/')
+  if ($parts | Where-Object { $_ -eq '..' }) { return $false }
+  return $true
+}
+
+function Expand-ReleasePackage([string]$Zip, [string]$Destination, [string]$ExpectedVersion) {
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [IO.Compression.ZipFile]::OpenRead($Zip)
+  try {
+    $top = $null
+    foreach ($entry in $archive.Entries) {
+      if (-not (Test-ZipEntryPath $entry.FullName)) { throw 'The package contains an unsafe path.' }
+      $first = ($entry.FullName.Replace('\', '/').Split('/'))[0]
+      if (-not $first) { throw 'The package contains an invalid path.' }
+      if ($null -eq $top) { $top = $first } elseif ($top -cne $first) { throw 'The package must contain one top folder.' }
+      if ($entry.FullName.TrimEnd('/', '\') -eq $first -and -not $entry.FullName.EndsWith('/') -and -not $entry.FullName.EndsWith('\')) {
+        throw 'The package must contain one top folder.'
+      }
+    }
+  } finally { $archive.Dispose() }
+  [IO.Compression.ZipFile]::ExtractToDirectory($Zip, $Destination)
+  $folders = @(Get-ChildItem -LiteralPath $Destination -Directory)
+  if ($folders.Count -ne 1) { throw 'The package must contain one top folder.' }
+  $app = $folders[0].FullName
+  $releaseFile = Join-Path $app 'RELEASE.json'
+  if (-not (Test-Path -LiteralPath $releaseFile)) { throw 'The package has no RELEASE.json.' }
+  $release = Get-Content -LiteralPath $releaseFile -Raw | ConvertFrom-Json
+  if ($release.version -cne $ExpectedVersion) { throw 'The package version does not match the release.' }
+  if ($release.commit -notmatch $CommitPattern) { throw 'The package commit is invalid.' }
+  return @{ app = $app; commit = $release.commit }
+}
+
+function Test-PackageHash([string]$Zip, [string]$ChecksumPath, [string]$Digest) {
+  $hash = (Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash.ToLowerInvariant()
+  $checksumText = Get-Content -LiteralPath $ChecksumPath -Raw
+  if ($checksumText -notmatch "(?i)\b$hash\b") {
+    Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
+    throw 'The package SHA-256 does not match its checksum file.'
+  }
+  if ($Digest -and $Digest -cnotmatch "^sha256:$hash$") {
+    Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
+    throw 'The package SHA-256 does not match the GitHub asset digest.'
+  }
+  return $hash
+}
+
+function Test-AssetSize([long]$Size, [long]$MaxBytes = 629145600) {
+  if ($Size -gt $MaxBytes) { throw 'The package download is larger than 600 MB.' }
+  return $true
+}
+
+function Remove-UpdateTemp([string]$Path) {
+  if ($Path -and (Test-Path -LiteralPath $Path)) {
+    Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+# Tests dot-source the validation helpers without entering the update request path.
+if ($FunctionsOnly) { return }
 
 $data = Join-Path $Root 'data'
 $logs = Join-Path $Root 'logs'
@@ -160,49 +283,60 @@ $grant = @($options.grantFolder | Where-Object { $_ })
 $appDir = if ($request.source -eq 'checkout') { $request.checkout } elseif ($fromCheckout) { $options.appDir } else { Join-Path $Root 'app' }
 $ref = $request.ref
 $commit = $null
-$downloadUrl = $null
-$resolveUrl = $null
-$zip = $null
+$assetName = $null
+$verifiedSha256 = $null
+$downloadRoot = $null
+$packageInfo = $null
+$channel = if ($request.channel) { $request.channel } else { 'stable' }
 
 if ($request.source -eq 'github') {
-  if (-not $ref) {
-    if ($DryRun) {
-      $resolveUrl = if ($request.channel -eq 'edge') { "$ApiBase/repos/$repository/commits/main" } else { "$ApiBase/repos/$repository/releases?per_page=100" }
-      $ref = '<newest>'
-    }
-    else {
-      $newest = Get-NewestRef $(if ($request.channel) { $request.channel } else { 'stable' })
-      $ref = $newest.ref
-      $commit = $newest.commit
-    }
-  }
-  $downloadUrl = "$CodeloadBase/$repository/zip/$ref"
-  if ($ref -match $CommitPattern) {
-    if (-not $commit) { $commit = $ref }
-  }
-  elseif (-not $commit) {
-    $resolveUrl = "$ApiBase/repos/$repository/git/ref/tags/$ref"
-    if ($DryRun) { $commit = '<commit>' }
-  }
   if ($DryRun) {
-    if (-not $zip) {
-      $zip = Join-Path ([IO.Path]::GetTempPath()) 'ark-overseer-download\archive.zip'
-    }
+    $ref = if ($ref) { $ref } else { '<newest>' }
+    $assetName = if ($channel -eq 'edge') { 'ark-overseer-<version>-edge.<commit>-win-x64.zip' } else { "ark-overseer-$($ref -replace '^v','')-win-x64.zip" }
+    $downloadRoot = Join-Path ([IO.Path]::GetTempPath()) 'ark-overseer-update-package'
+    $appDir = Join-Path $downloadRoot 'package'
+    # A package install uses the service script shipped with that package when no checkout was recorded.
+    if (-not $fromCheckout) { $serviceScript = Join-Path $appDir 'tools\service.ps1' }
   }
   else {
-    if (-not $commit) { $commit = Resolve-Commit $ref }
-    $downloadRoot = Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-download-$([guid]::NewGuid().ToString('N'))"
-    New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null
-    # Only administrators and SYSTEM may reach the downloaded archive.
-    & $Icacls $downloadRoot '/inheritance:r' '/grant:r' "${Administrators}:(OI)(CI)F" "${System}:(OI)(CI)F" | Out-Null
-    $zip = Join-Path $downloadRoot 'archive.zip'
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $zip -MaximumRedirection 5
+    $selected = Get-NewestRef $channel
+    if ($ref) {
+      $selected = @(Get-GitHubJson "$ApiBase/repos/$repository/releases?per_page=100") | Where-Object { $_.tag_name -ceq $ref -or ($channel -eq 'edge' -and $_.tag_name -ceq 'edge') } | ForEach-Object {
+        $assets = Get-ReleaseAssets $_ $channel
+        if ($assets) { @{ ref = if ($channel -eq 'edge') { $assets.version } else { $_.tag_name }; commit = $null; tag = $_.tag_name; release = $_; assets = $assets } }
+      } | Select-Object -First 1
+      if (-not $selected) { throw 'That release does not have an installable package.' }
+    }
+    $ref = $selected.ref
+    $assetName = $selected.assets.package.name
+    Test-AssetSize ([long]$selected.assets.package.size) | Out-Null
+    $downloadRoot = Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-update-package-$([guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Path $downloadRoot | Out-Null
+    $zip = Join-Path $downloadRoot 'package.zip'
+    $checksumPath = Join-Path $downloadRoot 'package.sha256'
+    try {
+      # Only administrators and SYSTEM may read package downloads and their extracted contents.
+      & $Icacls $downloadRoot '/inheritance:r' '/grant:r' "${Administrators}:(OI)(CI)F" "${System}:(OI)(CI)F" | Out-Null
+      Receive-Asset $selected.assets.package.browser_download_url $zip $AllowedHosts 629145600
+      Receive-Asset $selected.assets.checksum.browser_download_url $checksumPath $AllowedHosts 1048576
+      $verifiedSha256 = Test-PackageHash $zip $checksumPath $selected.assets.package.digest
+      $packageInfo = Expand-ReleasePackage $zip (Join-Path $downloadRoot 'unpacked') $selected.assets.version
+      $commit = $packageInfo.commit
+      $appDir = $packageInfo.app
+      if (-not $fromCheckout) {
+        # This bundled service script has the same trust as the package being installed.
+        $serviceScript = Join-Path $appDir 'tools\service.ps1'
+      }
+    }
+    catch {
+      Remove-UpdateTemp $downloadRoot
+      throw
+    }
   }
 }
 
-$shown = "$serviceScript install -Force -Start -AppDir `"$appDir`" -Root `"$Root`" -Port $([int]$options.port)"
+$shown = "$serviceScript install -Force -Start$(if ($request.source -eq 'github') { ' -Package' }) -AppDir `"$appDir`" -Root `"$Root`" -Port $([int]$options.port)"
 if ($grant.Count) { $shown += ' -GrantFolder ' + (($grant | ForEach-Object { "`"$_`"" }) -join ',') }
-if ($request.source -eq 'github') { $shown += " -Archive `"$zip`" -Commit `"$commit`"" }
 
 if ($DryRun) {
   Write-Output "CHECK: source $($request.source)"
@@ -210,8 +344,7 @@ if ($DryRun) {
   else {
     Write-Output "CHECK: channel $(if ($request.channel) { $request.channel } else { 'stable' })"
     Write-Output "CHECK: ref $ref"
-    if ($resolveUrl) { Write-Output "API: $resolveUrl" }
-    Write-Output "URL: $downloadUrl"
+    Write-Output "ASSET: $assetName"
   }
   Write-Output "UPDATE: $shown"
   exit 0
@@ -219,20 +352,30 @@ if ($DryRun) {
 
 $started = (Get-Date).ToUniversalTime().ToString('o')
 $lines = [System.Collections.Generic.List[string]]::new()
+$ifGithub = $request.source -eq 'github'
+if ($ifGithub) {
+  $lines.Add("Release: $ref")
+  $lines.Add("Asset: $assetName")
+  if ($verifiedSha256) { $lines.Add("SHA-256: $verifiedSha256") }
+}
 $code = 0
 try {
   # Called in this process, so the array of folders binds to -GrantFolder as an array. An exit inside
   # service.ps1 ends only that script and sets LASTEXITCODE.
   $global:LASTEXITCODE = 0
-  $arguments = @('install', '-Force', '-Start', '-AppDir', $appDir, '-Root', $Root, '-Port', [int]$options.port)
+  $arguments = @('install', '-Force', '-Start')
+  $arguments += @('-AppDir', $appDir, '-Root', $Root, '-Port', [int]$options.port)
   if ($grant.Count) { $arguments += @('-GrantFolder') + $grant }
-  if ($request.source -eq 'github') { $arguments += @('-Archive', $zip, '-Commit', $commit) }
+  if ($request.source -eq 'github') { $arguments += @('-Package') }
   & $serviceScript @arguments *>&1 | ForEach-Object { $lines.Add("$_") }
   $code = $LASTEXITCODE
 }
 catch {
   $lines.Add("ERROR: $($_.Exception.Message)")
   $code = 1
+}
+finally {
+  Remove-UpdateTemp $downloadRoot
 }
 $failure = $lines | Where-Object { $_ -match '^(FAIL|ERROR): ' } | Select-Object -Last 1
 $commitFile = Join-Path $Root 'app\.deployed-commit'
@@ -245,6 +388,8 @@ $result = [ordered]@{
   source    = $request.source
   channel   = $request.channel
   ref       = $ref
+  asset     = $assetName
+  sha256    = $verifiedSha256
   commit    = if ($deployed) { $deployed } else { $commit }
   message   = if ($failure) { $failure -replace '^(FAIL|ERROR): ', '' } else { $null }
 }

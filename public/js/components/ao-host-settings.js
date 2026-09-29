@@ -3,7 +3,7 @@ import { STRINGS } from '../strings.js';
 import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
-import { isLocalPage, shortCommit, updateFinished, updateCard } from '../lib/update.js';
+import { isLocalPage, shortCommit, updateFinished, updateCard, updateSources } from '../lib/update.js';
 import { createInstallFolderPicker } from '../lib/install-folder.js';
 
 const POLL_MS = 15000;
@@ -26,6 +26,17 @@ function field(text, control, help) {
   if (help) wrap.append(el('p', help, 'muted'));
   wrap.append(error);
   return { wrap, error };
+}
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes,
+    unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
 }
 
 export class AoHostSettings extends HTMLElement {
@@ -231,9 +242,11 @@ export class AoHostSettings extends HTMLElement {
     }
 
     const source = document.createElement('select');
-    source.append(new Option(s.sourceCheckout, 'checkout'), new Option(s.sourceGithub, 'github'));
-    source.value = this.updateSource ?? 'checkout';
-    card.append(field(s.sourceLegend, source).wrap);
+    for (const value of updateSources(v))
+      source.append(new Option(value === 'github' ? s.sourceGithub : s.sourceCheckout, value));
+    source.value = v.package ? 'github' : (this.updateSource ?? 'checkout');
+    this.updateSource = source.value;
+    if (!v.package) card.append(field(s.sourceLegend, source).wrap);
 
     const body = el('div', undefined, 'update-body');
     const note = el('p', '', 'muted');
@@ -360,6 +373,8 @@ export class AoHostSettings extends HTMLElement {
         newest.append(el('h3', s.notes));
         newest.append(el('p', view.newest.notes));
       }
+      if (view.newest.size !== null)
+        newest.append(el('p', s.downloadSize.replace('{size}', formatBytes(view.newest.size)), 'muted'));
       button.disabled = false;
     }
     history.replaceChildren();

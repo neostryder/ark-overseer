@@ -119,6 +119,7 @@ export const STRINGS = {
     checkoutReading: 'Reading the checkout.',
     newest: 'Newest on this channel: {version}',
     newestCommit: 'Newest commit on main: {commit}',
+    downloadSize: 'Download size: {size}',
     notes: 'Release notes',
     earlier: 'Earlier releases',
     useRelease: 'Use this one',

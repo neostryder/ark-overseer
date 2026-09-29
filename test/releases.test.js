@@ -10,8 +10,6 @@ import {
   RELEASE_MESSAGES,
 } from '../src/releases.js';
 
-const SHA = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
-
 const RELEASES = [
   {
     tag_name: 'v1.1.0',
@@ -62,6 +60,24 @@ const RELEASES = [
     published_at: '2026-01-06T00:00:00Z',
   },
 ];
+for (const release of RELEASES) {
+  if (!/^v\d+\.\d+\.\d+(-beta\.\d+)?$/.test(release.tag_name)) continue;
+  const version = release.tag_name.slice(1);
+  const name = `ark-overseer-${version}-win-x64.zip`;
+  release.assets = [
+    { name, size: 1024, browser_download_url: `https://github.com/${name}` },
+    { name: `${name}.sha256`, size: 80, browser_download_url: `https://github.com/${name}.sha256` },
+  ];
+}
+const EDGE_RELEASE = {
+  tag_name: 'edge',
+  draft: false,
+  body: 'Latest work',
+  assets: [
+    { name: 'ark-overseer-1.4.2-edge.abcdef0-win-x64.zip', size: 2048 },
+    { name: 'ark-overseer-1.4.2-edge.abcdef0-win-x64.zip.sha256' },
+  ],
+};
 
 async function fakeGitHub(t, routes) {
   const requests = [];
@@ -82,7 +98,6 @@ async function fakeGitHub(t, routes) {
 }
 
 const releasesUrl = `/repos/${UPDATE_REPO}/releases?per_page=100`;
-const mainUrl = `/repos/${UPDATE_REPO}/commits/main`;
 
 test('tags parse only as vX.Y.Z or vX.Y.Z-beta.N and versions compare by number', () => {
   assert.deepEqual(parseTag('v1.2.3'), { major: 1, minor: 2, patch: 3, beta: null, tag: 'v1.2.3' });
@@ -107,6 +122,22 @@ test('Stable skips betas, drafts and tags that are not plain versions, and keeps
   assert.equal(stable[0].body, 'Two');
 });
 
+test('releases without exact package assets are skipped, including duplicate packages', () => {
+  const releases = [
+    { ...RELEASES[1], assets: [] },
+    { ...RELEASES[0], assets: [...RELEASES[0].assets, RELEASES[0].assets[0]] },
+    {
+      ...RELEASES[2],
+      assets: [{ ...RELEASES[2].assets[0], name: 'ark-overseer-1.3.0-beta.1-win-arm64.zip' }, RELEASES[2].assets[1]],
+    },
+    RELEASES[2],
+  ];
+  assert.deepEqual(
+    selectReleases(releases, 'beta').map((item) => item.tag),
+    ['v1.3.0-beta.1'],
+  );
+});
+
 test('Beta takes the newest of the plain releases and the betas', () => {
   const beta = selectReleases(RELEASES, 'beta');
   assert.deepEqual(
@@ -129,6 +160,16 @@ test('the checker reads the newest stable release and the earlier ones from GitH
   assert.equal(requests.length, 1);
 });
 
+test('a release without the package is skipped by the GitHub channel check', async (t) => {
+  const releases = RELEASES.map((release) => ({ ...release }));
+  releases.find((release) => release.tag_name === 'v1.2.0').assets = [];
+  const { baseUrl } = await fakeGitHub(t, { [releasesUrl]: { body: releases } });
+  const result = await createReleaseChecker({ baseUrl }).check('stable');
+  assert.equal(result.ok, true);
+  assert.equal(result.newest.tag, 'v1.1.0');
+  assert.deepEqual(result.history, []);
+});
+
 test('the checker takes the newest beta when the channel is Beta', async (t) => {
   const { baseUrl } = await fakeGitHub(t, { [releasesUrl]: { body: RELEASES } });
   const result = await createReleaseChecker({ baseUrl }).check('beta');
@@ -140,23 +181,17 @@ test('the checker takes the newest beta when the channel is Beta', async (t) => 
   );
 });
 
-test('Edge reads the head of main and has no earlier releases', async (t) => {
-  const { baseUrl, requests } = await fakeGitHub(t, {
-    [mainUrl]: {
-      body: {
-        sha: SHA,
-        commit: { message: 'Latest work', committer: { date: '2026-02-01T00:00:00Z' } },
-        html_url: 'c',
-      },
-    },
-  });
+test('Edge reads the rolling edge release package and has no earlier releases', async (t) => {
+  const { baseUrl, requests } = await fakeGitHub(t, { [releasesUrl]: { body: [EDGE_RELEASE] } });
   const result = await createReleaseChecker({ baseUrl }).check('edge');
   assert.equal(result.ok, true);
-  assert.equal(result.newest.kind, 'commit');
-  assert.equal(result.newest.commit, SHA);
+  assert.equal(result.newest.kind, 'edge');
+  assert.equal(result.newest.version, '1.4.2-edge.abcdef0');
+  assert.equal(result.newest.commit, 'abcdef0');
+  assert.equal(result.newest.asset.size, 2048);
   assert.equal(result.newest.body, 'Latest work');
   assert.deepEqual(result.history, []);
-  assert.deepEqual(requests, [mainUrl]);
+  assert.deepEqual(requests, [releasesUrl]);
 });
 
 test('a second check within ten minutes is served from the cache, and after that GitHub is asked again', async (t) => {
@@ -186,9 +221,9 @@ test('a rate limit and a network failure are plain messages, and the rest keeps 
   assert.equal(limitedResult.ok, false);
   assert.equal(limitedResult.message, RELEASE_MESSAGES.rateLimited);
   // A later channel that succeeds still answers while another one failed.
-  const ok = await fakeGitHub(t, { [mainUrl]: { body: { sha: SHA, commit: {} } } });
+  const ok = await fakeGitHub(t, { [releasesUrl]: { body: RELEASES } });
   const checker = createReleaseChecker({ baseUrl: ok.baseUrl });
-  assert.equal((await checker.check('edge')).ok, true);
+  assert.equal((await checker.check('stable')).ok, true);
 
   // A closed port is a network failure, not a crash.
   const closed = http.createServer();

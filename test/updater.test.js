@@ -12,6 +12,7 @@ import {
   releaseLabel,
   newestRelease,
   earlierReleases,
+  updateSources,
 } from '../public/js/lib/update.js';
 
 function tree(t) {
@@ -45,6 +46,7 @@ test('a deployed service with the update link offers the update and reports the 
   assert.equal(info.logsDir, d.logsDir);
   assert.equal(info.lastUpdate.ok, false);
   assert.equal(info.lastUpdate.message.length, 500);
+  assert.equal(info.package, false);
 });
 
 test('outside service mode, or with bad options, nothing is offered', (t) => {
@@ -169,7 +171,14 @@ test('the update request keeps the strict shape and refuses what it may not choo
 });
 
 test('the updates card shows the right thing for each source and channel', () => {
-  const release = (tag, body) => ({ kind: 'release', tag, commit: null, body, publishedAt: '2026-01-01T00:00:00Z' });
+  const release = (tag, body) => ({
+    kind: 'release',
+    tag,
+    version: tag.slice(1),
+    commit: null,
+    body,
+    publishedAt: '2026-01-01T00:00:00Z',
+  });
   const stable = {
     ok: true,
     channel: 'stable',
@@ -179,6 +188,7 @@ test('the updates card shows the right thing for each source and channel', () =>
   const view = updateCard({ source: 'github', channel: 'stable', check: stable });
   assert.equal(view.newest.label, 'v1.2.0');
   assert.equal(view.newest.notes, 'Release notes');
+  assert.equal(view.newest.size, null);
   assert.deepEqual(
     view.history.map((item) => item.label),
     ['v1.1.0'],
@@ -193,11 +203,19 @@ test('the updates card shows the right thing for each source and channel', () =>
     check: {
       ok: true,
       channel: 'edge',
-      newest: { kind: 'commit', tag: null, commit: COMMIT, body: 'Latest' },
+      newest: {
+        kind: 'edge',
+        tag: 'edge',
+        version: '1.4.2-edge.abcdef0',
+        commit: 'abcdef0',
+        body: 'Latest',
+        asset: { size: 2048 },
+      },
       history: [],
     },
   });
-  assert.equal(edge.newest.label, '5bd26cf');
+  assert.equal(edge.newest.label, '1.4.2-edge.abcdef0');
+  assert.equal(edge.newest.size, 2048);
   assert.deepEqual(edge.history, []);
 
   const fromCheckout = updateCard({
@@ -230,6 +248,8 @@ test('readUpdateInfo reports the package version and the last update source', (t
       source: 'github',
       channel: 'beta',
       ref: 'v1.4.2-beta.1',
+      asset: 'ark-overseer-1.4.2-beta.1-win-x64.zip',
+      sha256: 'a'.repeat(64),
     }),
   );
   const info = readUpdateInfo({ ...d, startedAt, serviceMode: true });
@@ -237,4 +257,13 @@ test('readUpdateInfo reports the package version and the last update source', (t
   assert.equal(info.lastUpdate.source, 'github');
   assert.equal(info.lastUpdate.channel, 'beta');
   assert.equal(info.lastUpdate.ref, 'v1.4.2-beta.1');
+  assert.equal(info.lastUpdate.asset, 'ark-overseer-1.4.2-beta.1-win-x64.zip');
+  assert.equal(info.lastUpdate.sha256, 'a'.repeat(64));
+  assert.deepEqual(updateSources({ package: true }), ['github']);
+  assert.deepEqual(updateSources({}), ['checkout', 'github']);
+  fs.writeFileSync(
+    path.join(d.dataDir, 'updater.json'),
+    JSON.stringify({ appDir: 'C:\\x', link: 'ark-overseer-update', package: true }),
+  );
+  assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).package, true);
 });

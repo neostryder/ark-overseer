@@ -11,6 +11,9 @@ export function updateFinished(before, after) {
 
 export const UPDATE_SOURCES = ['checkout', 'github'];
 export const UPDATE_CHANNELS = ['stable', 'beta', 'edge'];
+export function updateSources(info) {
+  return info?.package === true ? ['github'] : UPDATE_SOURCES;
+}
 
 // The label shown for a release or a commit: the tag, or the short commit id for Edge.
 export function releaseLabel(item) {
@@ -51,11 +54,12 @@ export function updateCard({ source, channel, check, checkout }) {
     message: check && check.ok === false ? check.message : null,
     newest: newest
       ? {
-          label: releaseLabel(newest),
+          label: newest.kind === 'edge' ? (newest.version ?? releaseLabel(newest)) : releaseLabel(newest),
           notes: newest.body ?? null,
           tag: newest.tag ?? null,
           commit: newest.commit ?? null,
           date: newest.publishedAt ?? null,
+          size: newest.asset?.size ?? null,
         }
       : null,
     history: earlierReleases(check).map((item) => ({
