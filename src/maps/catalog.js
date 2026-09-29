@@ -96,9 +96,14 @@ async function readLimited(response, limit) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+// The published copy of the bundled catalog. A newer map list reaches every install from here without a
+// release; OVERSEER_CATALOG_URL replaces it, and an empty value turns the refresh off.
+export const DEFAULT_CATALOG_URL =
+  'https://raw.githubusercontent.com/neostryder/ark-overseer/main/src/maps/catalog.json';
+
 export function createCatalog({
   dataDir,
-  url = process.env.OVERSEER_CATALOG_URL,
+  url = process.env.OVERSEER_CATALOG_URL ?? DEFAULT_CATALOG_URL,
   fetch = globalThis.fetch,
   log = console.error,
 }) {

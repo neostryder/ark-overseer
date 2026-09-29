@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { validateCatalog, createCatalog, scheduleCatalogRefresh } from '../src/maps/catalog.js';
+import { validateCatalog, createCatalog, scheduleCatalogRefresh, DEFAULT_CATALOG_URL } from '../src/maps/catalog.js';
 
 const bundled = JSON.parse(fs.readFileSync(new URL('../src/maps/catalog.json', import.meta.url), 'utf8'));
 const official = { id: 'Extra_WP', name: 'Extra', kind: 'official', steamAppId: 1 };
@@ -259,4 +259,53 @@ test('the daily refresh runs at once, then on a timer that does not keep the pro
   assert.equal(refreshes, 2);
   stop();
   assert.deepEqual(cleared, [timer]);
+});
+
+function withCatalogEnv(value, run) {
+  const saved = process.env.OVERSEER_CATALOG_URL;
+  if (value === undefined) delete process.env.OVERSEER_CATALOG_URL;
+  else process.env.OVERSEER_CATALOG_URL = value;
+  const restore = () =>
+    saved === undefined ? delete process.env.OVERSEER_CATALOG_URL : (process.env.OVERSEER_CATALOG_URL = saved);
+  return run().finally(restore);
+}
+
+test('with no URL configured, the catalog refreshes from the published copy of the bundled file', async (t) => {
+  await withCatalogEnv(undefined, async () => {
+    const seen = [];
+    const catalog = createCatalog({
+      dataDir: folder(t),
+      fetch: async (url) => (seen.push(url), response(catalogOf(bundled.version))),
+      log: () => {},
+    });
+    await catalog.refresh();
+    assert.deepEqual(seen, [DEFAULT_CATALOG_URL]);
+    assert.match(
+      DEFAULT_CATALOG_URL,
+      /^https:\/\/raw\.githubusercontent\.com\/neostryder\/ark-overseer\/main\/src\/maps\/catalog\.json$/,
+    );
+  });
+});
+
+test('an empty OVERSEER_CATALOG_URL turns the refresh off and a set one replaces the default', async (t) => {
+  await withCatalogEnv('', async () => {
+    let calls = 0;
+    const catalog = createCatalog({
+      dataDir: folder(t),
+      fetch: async () => (calls++, response(catalogOf(99))),
+      log: () => {},
+    });
+    assert.equal(await catalog.refresh(), false);
+    assert.equal(calls, 0);
+  });
+  await withCatalogEnv('https://example.test/own.json', async () => {
+    const seen = [];
+    const catalog = createCatalog({
+      dataDir: folder(t),
+      fetch: async (url) => (seen.push(url), response(catalogOf(bundled.version))),
+      log: () => {},
+    });
+    await catalog.refresh();
+    assert.deepEqual(seen, ['https://example.test/own.json']);
+  });
 });
