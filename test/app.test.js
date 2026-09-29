@@ -11,7 +11,7 @@ import { createApp, API_MESSAGES } from '../src/app.js';
 import { createAuth, AUTH_MESSAGES } from '../src/auth/auth.js';
 import { modsFolder } from '../src/maps/art.js';
 
-async function fixture(t) {
+async function fixture(t, appOptions = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-app-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const db = openDatabase(':memory:');
@@ -45,6 +45,7 @@ async function fixture(t) {
     isElevated: async () => true,
     rankFields: async (q, fields) => [{ key: q, count: fields.length }],
     log: () => {},
+    ...appOptions,
   });
   fs.mkdirSync(path.join(root, 'public'), { recursive: true });
   fs.writeFileSync(path.join(root, 'public', 'login.html'), 'login');
@@ -75,6 +76,11 @@ async function fixture(t) {
 const json = (value, cookie) => ({
   method: 'POST',
   headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+  body: JSON.stringify(value),
+});
+const putJson = (value, cookie, extra = {}) => ({
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...extra },
   body: JSON.stringify(value),
 });
 async function setup(url) {
@@ -126,6 +132,103 @@ test('sign in, cookie flags, lockout, sign out, protected API and page access wo
   const out = await fetch(`${url}/api/auth/logout`, json({}, cookie));
   assert.equal(out.status, 200);
   assert.match(out.headers.get('set-cookie'), /Max-Age=0/);
+});
+
+test('Access settings validate, save empty values to turn off, and refuse key fetch failures', async (t) => {
+  let failKeys = false;
+  const { url, db } = await fixture(t, {
+    accessKeySetFactory: async () => {
+      if (failKeys) throw new Error('private fetch detail');
+      return Object.assign(() => {}, { reload: async () => {} });
+    },
+  });
+  const { cookie } = await setup(url);
+  const save = (body) => fetch(`${url}/api/access`, putJson(body, cookie));
+  for (const body of [
+    { teamDomain: 'https://rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) },
+    { teamDomain: 'rpgm.cloudflareaccess.com', aud: 'g'.repeat(64) },
+    { teamDomain: 'rpgm.cloudflareaccess.com', aud: '' },
+  ]) {
+    const response = await save(body);
+    assert.equal(response.status, 400);
+  }
+  const saved = await save({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) });
+  assert.equal(saved.status, 200);
+  assert.equal(
+    db.prepare("SELECT access_team_domain FROM hosts WHERE name = 'local'").get().access_team_domain,
+    'rpgm.cloudflareaccess.com',
+  );
+  failKeys = true;
+  const refused = await save({ teamDomain: 'other.cloudflareaccess.com', aud: 'b'.repeat(64) });
+  assert.equal(refused.status, 400);
+  assert.match((await refused.json()).error, /keys could not be reached/i);
+  assert.equal(
+    db.prepare("SELECT access_team_domain FROM hosts WHERE name = 'local'").get().access_team_domain,
+    'rpgm.cloudflareaccess.com',
+  );
+  assert.equal((await (await save({ teamDomain: '', aud: '' })).json()).enabled, false);
+});
+
+test('Access signs in without a cookie and logs each subject once per hour', async (t) => {
+  const clock = { now: Date.now() };
+  const { url, db } = await fixture(t, {
+    now: () => clock.now,
+    accessKeySetFactory: async () => Object.assign(() => {}, { reload: async () => {} }),
+    accessJwtVerify: async (token) => {
+      if (token !== 'valid-access-token') throw new Error('invalid');
+      return { payload: { sub: 'cf-user-1', email: 'owner@example.test' } };
+    },
+  });
+  const { cookie } = await setup(url);
+  assert.equal(
+    (
+      await fetch(
+        `${url}/api/access`,
+        putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie),
+      )
+    ).status,
+    200,
+  );
+  const headers = { 'Cf-Access-Jwt-Assertion': 'valid-access-token' };
+  for (let i = 0; i < 3; i++) assert.equal((await fetch(`${url}/api/access`, { headers })).status, 200);
+  const audit = db.prepare("SELECT action, detail_json FROM audit_events WHERE action = 'auth.access.login'").all();
+  assert.equal(audit.length, 1);
+  assert.deepEqual(JSON.parse(audit[0].detail_json), { email: 'owner@example.test' });
+  clock.now += 3600000;
+  assert.equal((await fetch(`${url}/api/access`, { headers })).status, 200);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events WHERE action = 'auth.access.login'").get().n, 2);
+});
+
+test('a valid Access token does not bypass the Origin check on a state change', async (t) => {
+  const { url } = await fixture(t, {
+    accessKeySetFactory: async () => Object.assign(() => {}, { reload: async () => {} }),
+    accessJwtVerify: async () => ({ payload: { sub: 'cf-user-1', email: 'owner@example.test' } }),
+  });
+  const { cookie } = await setup(url);
+  await fetch(`${url}/api/access`, putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie));
+  const response = await fetch(
+    `${url}/api/access`,
+    putJson({ teamDomain: '', aud: '' }, null, {
+      'Cf-Access-Jwt-Assertion': 'valid-access-token',
+      Origin: 'https://elsewhere.test',
+    }),
+  );
+  assert.equal(response.status, 403);
+});
+
+test('signing out with Access returns the Cloudflare session message and the account page displays it', async (t) => {
+  const { url } = await fixture(t, {
+    accessKeySetFactory: async () => Object.assign(() => {}, { reload: async () => {} }),
+    accessJwtVerify: async () => ({ payload: { sub: 'cf-user-1', email: 'owner@example.test' } }),
+  });
+  const { cookie } = await setup(url);
+  await fetch(`${url}/api/access`, putJson({ teamDomain: 'rpgm.cloudflareaccess.com', aud: 'a'.repeat(64) }, cookie));
+  const logout = json({}, undefined);
+  logout.headers['Cf-Access-Jwt-Assertion'] = 'valid-access-token';
+  const response = await fetch(`${url}/api/auth/logout`, logout);
+  assert.equal((await response.json()).message, AUTH_MESSAGES.accessSignedOut);
+  const account = fs.readFileSync(new URL('../public/js/components/ao-account.js', import.meta.url), 'utf8');
+  assert.match(account, /window\.alert\(result\.message\)/);
 });
 
 test('install validation, job queueing, server port conflicts and supervisor actions work', async (t) => {

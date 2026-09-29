@@ -114,6 +114,14 @@ export const STRINGS = {
     lastUpdateOk: 'The last update finished {time}.',
     lastUpdateFailed: 'The last update failed {time}: {message}',
   },
+  access: {
+    title: 'Cloudflare Access',
+    help: 'A valid Cloudflare Access sign in lets you open ARK Overseer without another password.',
+    teamDomain: 'Access team domain',
+    aud: 'Application AUD tag',
+    save: 'Save',
+    saved: 'Cloudflare Access settings saved.',
+  },
   maps: {
     title: 'Maps',
     loading: 'Loading maps',
@@ -619,6 +627,7 @@ export const STRINGS = {
     confirmRemove: 'Remove this passkey?',
     passkey: 'Passkey',
     signOut: 'Sign out',
+    accessSignedOut: 'Signed out of ARK Overseer. Cloudflare Access stays signed in until its session ends.',
     changed: 'Password changed.',
   },
   wizard: {

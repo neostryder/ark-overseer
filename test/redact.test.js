@@ -20,6 +20,14 @@ test('redact masks ini-style and header-style secrets', () => {
   assert.ok(!redact('Cf-Access-Jwt-Assertion: eyJ.abc.def').includes('eyJ.abc.def'));
 });
 
+test('a request log line never exposes a Cloudflare Access assertion', () => {
+  const token = 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZG1pbiJ9.signature';
+  const line = `Request headers: Cf-Access-Jwt-Assertion: ${token} Host: ark.example.test`;
+  const masked = redact(line);
+  assert.ok(masked.includes(`Cf-Access-Jwt-Assertion: ${MASK}`));
+  assert.ok(!masked.includes(token));
+});
+
 test('redact leaves ordinary lines unchanged', () => {
   const line = '[2026.09.27-18.00.00:000][  0]LogInit: Server ready, 12 players, map Astraeos_WP';
   assert.strictEqual(redact(line), line);

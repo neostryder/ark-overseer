@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
 import { isLocalPage, shortCommit, updateFinished } from '../lib/update.js';
@@ -152,7 +153,14 @@ export class AoHostSettings extends HTMLElement {
 
     this.statusBlock = el('section', undefined, 'card host-status');
     this.statusBlock.setAttribute('aria-live', 'polite');
-    this.replaceChildren(el('h1', s.title), ...this.updateCards(), card, this.mapArtCard(), this.statusBlock);
+    this.replaceChildren(
+      el('h1', s.title),
+      ...this.updateCards(),
+      card,
+      this.mapArtCard(),
+      document.createElement('ao-access-settings'),
+      this.statusBlock,
+    );
     this.renderStatus();
   }
   // Saved the moment it is toggled, since it is one switch with nothing to review.

@@ -346,6 +346,24 @@ export const MIGRATIONS = [
         PRIMARY KEY (job_id, relative_path)
       );`,
   },
+  {
+    version: 12,
+    name: 'cloudflare_access',
+    up: `
+      ALTER TABLE hosts ADD COLUMN access_team_domain TEXT CHECK (
+        access_team_domain IS NULL OR (
+          length(access_team_domain) BETWEEN 1 AND 253 AND
+          access_team_domain NOT GLOB '*[^A-Za-z0-9.-]*' AND
+          access_team_domain NOT LIKE '.%' AND access_team_domain NOT LIKE '%.' AND
+          access_team_domain NOT LIKE '%..%' AND
+          access_team_domain NOT GLOB '-*' AND access_team_domain NOT GLOB '*-' AND
+          access_team_domain NOT GLOB '*.-*' AND access_team_domain NOT GLOB '*-.*'
+        )
+      );
+      ALTER TABLE hosts ADD COLUMN access_aud TEXT CHECK (
+        access_aud IS NULL OR (length(access_aud) = 64 AND access_aud NOT GLOB '*[^A-Fa-f0-9]*')
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

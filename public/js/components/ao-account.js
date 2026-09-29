@@ -83,7 +83,8 @@ export class AoAccount extends HTMLElement {
     out.append(icon('sign-out'), STRINGS.account.signOut);
     out.addEventListener('click', async () => {
       try {
-        await api.post('/api/auth/logout', {});
+        const result = await api.post('/api/auth/logout', {});
+        if (result.message === STRINGS.account.accessSignedOut) window.alert(result.message);
       } finally {
         window.location.assign('/login.html');
       }

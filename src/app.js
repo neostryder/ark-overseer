@@ -61,6 +61,8 @@ export const API_MESSAGES = {
   gamingUnavailable: 'Gaming mode did not start with ARK Overseer, so its settings cannot be read or saved.',
   installHasServer: 'This install already runs {name}. Each server needs its own install.',
   badMapArt: 'Send enabled as true or false.',
+  badAccessSettings: 'Enter both a plain team hostname and a 64 character AUD, or leave both empty.',
+  accessKeysUnavailable: 'Cloudflare Access keys could not be reached. Check the team domain and try again.',
   sameMap: 'The server is already on that map.',
   jobRunning: 'Another job is queued or running for this server. Wait for it to finish, then try again.',
   clusterChoice: 'Choose whether this setting changes for the cluster or only this server.',
@@ -142,8 +144,10 @@ export function createApp({
   catalog = createCatalog({ dataDir, url: null, log }),
   artResolver = createArtResolver({ dataDir, log }),
   findMods = findModMaps,
+  accessKeySetFactory,
+  accessJwtVerify,
 }) {
-  const auth = createAuth({ db, now }),
+  const auth = createAuth({ db, now, accessKeySetFactory, accessJwtVerify }),
     router = createRouter({ log }),
     previews = new Map();
   const settingsDrift = drift ?? createDrift({ db, dataDir, supervisor, rcon, getRconPassword, now, log });
@@ -210,6 +214,52 @@ export function createApp({
     });
   }
   router.add('GET', '/api/version', () => updateInfo());
+  router.add('GET', '/api/access', () => {
+    const row = hostRow();
+    const teamDomain = row?.access_team_domain ?? '';
+    const aud = row?.access_aud ?? '';
+    return { enabled: Boolean(teamDomain && aud), teamDomain, aud };
+  });
+  router.add(
+    'PUT',
+    '/api/access',
+    protectedRoute('access.save', 'host', async ({ body }) => {
+      const teamDomain = typeof body.teamDomain === 'string' ? body.teamDomain.trim() : null;
+      const aud = typeof body.aud === 'string' ? body.aud.trim() : null;
+      const validHost =
+        teamDomain === '' ||
+        (typeof teamDomain === 'string' &&
+          teamDomain.length <= 253 &&
+          teamDomain.split('.').length >= 2 &&
+          teamDomain.split('.').every((label) => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(label)));
+      const validAud = aud === '' || (typeof aud === 'string' && /^[A-Fa-f0-9]{64}$/.test(aud));
+      if (!validHost || !validAud || Boolean(teamDomain) !== Boolean(aud))
+        throw error(400, API_MESSAGES.badAccessSettings);
+      if (teamDomain) {
+        try {
+          await auth.saveAccessSettings(teamDomain, aud);
+        } catch {
+          throw error(400, API_MESSAGES.accessKeysUnavailable);
+        }
+      } else await auth.saveAccessSettings('', '');
+      const stamp = new Date(now()).toISOString();
+      let host = hostRow();
+      if (!host) {
+        const id = Number(
+          db.prepare("INSERT INTO hosts (created_at, updated_at, name) VALUES (?, ?, 'local')").run(stamp, stamp)
+            .lastInsertRowid,
+        );
+        host = { id };
+      }
+      db.prepare('UPDATE hosts SET updated_at = ?, access_team_domain = ?, access_aud = ? WHERE id = ?').run(
+        stamp,
+        teamDomain || null,
+        aud || null,
+        host.id,
+      );
+      return { enabled: Boolean(teamDomain), teamDomain: teamDomain || '', aud: aud || '' };
+    }),
+  );
   router.add('GET', '/api/host', async () => ({
     platform: process.platform,
     arch: process.arch,
@@ -962,6 +1012,8 @@ export function createApp({
     }
     const authRoute = pathname.startsWith('/api/auth/');
     const user = await auth.identify(req, res);
+    if (req.accessAuditEmail !== undefined && user)
+      audit(db, user, 'auth.access.login', 'user', user.id, { email: req.accessAuditEmail });
     if (!authRoute && !isPublic(pathname)) {
       if (!user) {
         if (pathname.startsWith('/api/')) {

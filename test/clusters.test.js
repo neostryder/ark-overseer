@@ -87,7 +87,7 @@ test('migration 10 preserves populated servers and schedules and adds cluster fi
     db.prepare(
       "INSERT INTO schedules (id, server_id, kind, cron, created_at, updated_at) VALUES (1, 1, 'restart', '0 5 * * *', ?, ?)",
     ).run(T, T);
-    assert.deepEqual(migrate(db, { dataDir: 'C:\\Test Data' }), [10, 11]);
+    assert.deepEqual(migrate(db, { dataDir: 'C:\\Test Data' }), [10, 11, 12]);
     assert.equal(db.prepare('SELECT cluster_id, cluster_overrides_json FROM servers').get().cluster_id, 1);
     assert.equal(db.prepare('SELECT settings_json, notes FROM clusters').get().settings_json, '{}');
     assert.equal(

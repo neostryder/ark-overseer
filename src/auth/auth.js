@@ -8,11 +8,13 @@ export const AUTH_MESSAGES = {
   short: 'Use at least 10 characters.',
   remote: 'Set the first password on the computer that runs ARK Overseer.',
   signedOut: 'Signed out. Sign in again to continue.',
+  accessSignedOut: 'Signed out of ARK Overseer. Cloudflare Access stays signed in until its session ends.',
   crossSite: 'This request came from another site, so it was blocked. Reload ARK Overseer and try again.',
   passkeyFailed: "The passkey didn't verify. Try again, or sign in with the password.",
   alreadySetUp: 'A password is already set. Sign in with it.',
   wrongCurrent: "That isn't the current password.",
   unknownHost: "ARK Overseer doesn't answer on this address. Open it by this computer's name or IP address.",
+  accessKeyUnavailable: 'Cloudflare Access keys could not be reached. Check the team domain and try again.',
 };
 const DAY = 86400000;
 const SCRYPT = { N: 1 << 15, r: 8, p: 1 };
@@ -131,10 +133,61 @@ function statusError(status, message) {
   error.status = status;
   return error;
 }
-export function createAuth({ db, now = () => Date.now(), loopback = isLoopbackSocket }) {
+export function createAuth({
+  db,
+  now = () => Date.now(),
+  loopback = isLoopbackSocket,
+  accessKeySetFactory = async (teamDomain) => {
+    const { createRemoteJWKSet } = await import('jose');
+    return createRemoteJWKSet(new URL(`https://${teamDomain}/cdn-cgi/access/certs`));
+  },
+  accessJwtVerify,
+}) {
   const limiter = new Map(),
-    challenges = new Map();
+    challenges = new Map(),
+    accessAudit = new Map();
+  let accessJwks = null;
   const user = () => db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+  const accessSettings = () =>
+    db.prepare("SELECT access_team_domain, access_aud FROM hosts WHERE name = 'local'").get();
+  async function prepareAccessKeys(teamDomain) {
+    const jwks = await accessKeySetFactory(teamDomain);
+    if (typeof jwks.reload === 'function') await jwks.reload();
+    return jwks;
+  }
+  async function saveAccessSettings(teamDomain, aud) {
+    if (!teamDomain || !aud) {
+      accessJwks = null;
+      return;
+    }
+    const next = await prepareAccessKeys(teamDomain);
+    accessJwks = next;
+  }
+  function takeAccessAudit(subject, email) {
+    const current = now();
+    for (const [key, time] of accessAudit) if (current - time >= 3600000) accessAudit.delete(key);
+    if (accessAudit.has(subject)) return false;
+    accessAudit.set(subject, current);
+    return true;
+  }
+  async function verifyAccess(req) {
+    const { access_team_domain: teamDomain, access_aud: aud } = accessSettings() || {};
+    const token = req.headers['cf-access-jwt-assertion'];
+    if (!teamDomain || !aud || typeof token !== 'string' || !token) return null;
+    try {
+      const jwks = accessJwks ?? (accessJwks = await prepareAccessKeys(teamDomain));
+      const { jwtVerify } = accessJwtVerify ? { jwtVerify: accessJwtVerify } : await import('jose');
+      const { payload } = await jwtVerify(token, jwks, {
+        issuer: `https://${teamDomain}`,
+        audience: aud,
+        currentDate: new Date(now()),
+      });
+      if (typeof payload.sub !== 'string' || !payload.sub) return null;
+      return { subject: payload.sub, email: typeof payload.email === 'string' ? payload.email : '' };
+    } catch {
+      return null;
+    }
+  }
   const hasPassword = () => Boolean(user()?.password_hash);
   function cookie(req, res, payload, row) {
     const parts = [`${COOKIE}=${signSession(row.session_secret, payload)}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
@@ -172,6 +225,14 @@ export function createAuth({ db, now = () => Date.now(), loopback = isLoopbackSo
   async function identify(req, res) {
     const row = user();
     if (!row?.password_hash || !row.session_secret) return null;
+    if (!row.disabled) {
+      const identity = await verifyAccess(req);
+      if (identity) {
+        req.accessSignedIn = true;
+        if (takeAccessAudit(identity.subject, identity.email)) req.accessAuditEmail = identity.email;
+        return row;
+      }
+    }
     const payload = verifySession(row.session_secret, parseCookies(req.headers.cookie)[COOKIE], now());
     if (!payload || payload.uid !== row.id || row.disabled) return null;
     if (res && payload.rem && now() - payload.iat > DAY)
@@ -256,7 +317,7 @@ export function createAuth({ db, now = () => Date.now(), loopback = isLoopbackSo
     },
     logout: async ({ req, res }) => {
       clear(req, res);
-      return { ok: true };
+      return { ok: true, message: req.accessSignedIn ? AUTH_MESSAGES.accessSignedOut : AUTH_MESSAGES.signedOut };
     },
     password: async ({ req, res, body = {} }) => {
       const row = await identify(req);
@@ -403,5 +464,5 @@ export function createAuth({ db, now = () => Date.now(), loopback = isLoopbackSo
       .run(body.id, signed.id).changes;
     return { removed: removed > 0 };
   };
-  return { identify, routes };
+  return { identify, routes, saveAccessSettings };
 }
