@@ -1,5 +1,17 @@
 import path from 'node:path';
 
+export const MESSAGES = { badCluster: 'Cluster launch settings are invalid.' };
+
+// Node joins verbatim Windows arguments with spaces. Quote ordinary arguments using Windows
+// backslash rules, but preserve the quotes after ClusterDirOverride= for Unreal's parser.
+export function buildWindowsCommandLine(args) {
+  const quote = (arg) => {
+    if (!/[\s"]/.test(arg)) return arg;
+    return `"${arg.replace(/(\\*)"/g, (_, slashes) => `${slashes}${slashes}\\"`).replace(/(\\+)$/, '$1$1')}"`;
+  };
+  return args.map((arg) => (arg.startsWith('-ClusterDirOverride="') ? arg : quote(arg))).join(' ');
+}
+
 export function serverPaths(installPath) {
   const exePath = path.win32.join(installPath, 'ShooterGame', 'Binaries', 'Win64', 'ArkAscendedServer.exe');
   const exeDir = path.win32.dirname(exePath);
@@ -30,5 +42,10 @@ export function buildLaunch(server, install) {
   args.push(`-WinLiveMaxPlayers=${server.max_players}`, '-log');
   if (mods.length) args.push(`-mods=${mods.join(',')}`);
   if (settings.disableBattlEye) args.push('-NoBattlEye');
+  if (server.cluster_key && server.shared_dir) {
+    if (!/^[A-Za-z0-9]{16}$/.test(server.cluster_key) || /["\r\n]/.test(server.shared_dir))
+      throw new TypeError(MESSAGES.badCluster);
+    args.push(`-clusterid=${server.cluster_key}`, `-ClusterDirOverride="${server.shared_dir}"`);
+  }
   return { exePath: paths.exePath, cwd: paths.exeDir, args };
 }

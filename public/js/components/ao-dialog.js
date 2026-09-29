@@ -46,6 +46,10 @@ export class AoDialog extends HTMLElement {
     const resolve = this.pending;
     this.pending = null;
     if (this.dialog.open) this.dialog.close();
+    if (this.choiceButtons) {
+      this.dialog.querySelector('.button-row').replaceChildren(...this.defaultButtons);
+      this.choiceButtons = false;
+    }
     this.opener?.focus?.();
     resolve?.(answer);
   }
@@ -57,6 +61,34 @@ export class AoDialog extends HTMLElement {
     this.dialog.querySelector('.button.primary').textContent = confirmText;
     this.dialog.showModal();
     this.dialog.querySelector('button').focus();
+    return new Promise((resolve) => {
+      this.pending = resolve;
+    });
+  }
+  async choose(title, message, choices) {
+    if (this.pending) this.finish(null);
+    this.opener = document.activeElement;
+    this.titleNode.textContent = title;
+    this.messageNode.textContent = message;
+    const actions = this.dialog.querySelector('.button-row');
+    this.defaultButtons ??= [...actions.children];
+    const buttons = choices.map(({ value, label }) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'button secondary';
+      button.textContent = label;
+      button.addEventListener('click', () => this.finish(value));
+      return button;
+    });
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'button quiet';
+    cancel.textContent = STRINGS.dialog.cancel;
+    cancel.addEventListener('click', () => this.finish(null));
+    actions.replaceChildren(...buttons, cancel);
+    this.choiceButtons = true;
+    this.dialog.showModal();
+    buttons[0]?.focus();
     return new Promise((resolve) => {
       this.pending = resolve;
     });

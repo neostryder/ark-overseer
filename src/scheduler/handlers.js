@@ -7,6 +7,9 @@ import { defaultSleep, createTell, runCountdown } from './countdown.js';
 export const PLAYER_MESSAGES = {
   restart: (n) =>
     `Restart in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back a few minutes later.`,
+  clusterRestart: (n) =>
+    `Restart in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the other servers in this cluster stay up while this one restarts.`,
+  clusterRestartNow: 'Saving the world and restarting now. The other servers in this cluster stay up.',
   update: (n) =>
     `Update in ${n} ${n === 1 ? 'minute' : 'minutes'}. The world is saved first, and the server is back once the update installs.`,
   switchMap: (n, map) =>

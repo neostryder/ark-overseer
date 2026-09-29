@@ -43,6 +43,13 @@ export class AoServerOverview extends HTMLElement {
     label.textContent = `${stateName(state)}${status.crashLoop ? ` · ${STRINGS.overview.crashLoop}` : ''}`;
     pill.append(dot, label);
     this.append(pill);
+    if (s.cluster_id) {
+      const cluster = document.createElement('a');
+      cluster.href = `#/clusters/${s.cluster_id}`;
+      cluster.className = 'button quiet overview-cluster';
+      cluster.textContent = `${STRINGS.overview.cluster}: ${s.cluster_name}`;
+      this.append(cluster);
+    }
     const controls = document.createElement('div');
     controls.className = 'button-row';
     for (const [action, text, allowed] of [

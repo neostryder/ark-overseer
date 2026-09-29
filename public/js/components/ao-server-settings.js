@@ -1,6 +1,8 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import './ao-settings-drift.js';
+import { clusterEditChoice, clusterFieldState } from '../lib/clusters.js';
+import { createSettingInput, readSettingInput } from '../lib/settings-controls.js';
 import {
   groupFields,
   searchFields,
@@ -8,7 +10,6 @@ import {
   pendingChanges,
   buildPutBody,
   validateField,
-  controlValue,
 } from '../lib/settings.js';
 function changeCount(count) {
   return `${count} ${count === 1 ? STRINGS.settings.change : STRINGS.settings.changes}`;
@@ -29,10 +30,12 @@ export class AoServerSettings extends HTMLElement {
     this.replaceChildren();
     this.textContent = STRINGS.app.loading;
     try {
-      [this.fields, this.loaded] = await Promise.all([
+      [this.fields, this.loaded, this.server] = await Promise.all([
         api.get('/api/settings/fields'),
         api.get(`/api/servers/${this.id}/settings`),
+        api.get(`/api/servers/${this.id}`),
       ]);
+      this.cluster = this.server.cluster_id ? await api.get(`/api/clusters/${this.server.cluster_id}`) : null;
       this.loaded ||= {};
       this.edited = { ...this.loaded };
       this.groups = groupFields(this.fields);
@@ -223,29 +226,17 @@ export class AoServerSettings extends HTMLElement {
     const label = document.createElement('label');
     label.className = 'field-label';
     label.textContent = field.label;
-    const input = document.createElement('input');
-    input.id = `setting-${field.key}`;
-    input.name = field.key;
-    const current = this.edited[field.key] ?? null;
-    const display = controlValue(field, current);
-    const def = display.isDefault;
-    if (field.type === 'bool') {
-      input.type = 'checkbox';
-      input.checked = Boolean(display.value);
-      input.className = 'toggle';
-    } else {
-      input.type =
-        field.type === 'password' ? 'password' : field.type === 'int' || field.type === 'float' ? 'number' : 'text';
-      if (field.type === 'int' || field.type === 'float')
-        input.inputMode = field.type === 'int' ? 'numeric' : 'decimal';
-      input.enterKeyHint = 'done';
-      input.value = display.value === '(none)' || display.value === '(game default)' ? '' : String(display.value ?? '');
-      if (field.min !== undefined) input.min = field.min;
-      if (field.max !== undefined) input.max = field.max;
-      if (field.step !== undefined) input.step = field.step;
-      if (field.maxLength) input.maxLength = field.maxLength;
+    const clusterState = clusterFieldState(field.key, this.cluster, this.server?.cluster_overrides_json);
+    if (clusterState === 'inherited') {
+      const badge = document.createElement('small');
+      badge.className = 'badge cluster-badge';
+      const fromCluster = STRINGS.settings.fromCluster;
+      badge.textContent = fromCluster.replace('{name}', this.cluster.name);
+      row.append(badge);
     }
-    input.disabled = Boolean(field.locked || field.launchFlag);
+    const current = this.edited[field.key] ?? null;
+    const { input, display } = createSettingInput(field, current, `setting-${field.key}`);
+    const def = display.isDefault;
     label.htmlFor = input.id;
     input.addEventListener('input', () => this.updateField(field, input));
     input.addEventListener('change', () => this.updateField(field, input));
@@ -304,18 +295,31 @@ export class AoServerSettings extends HTMLElement {
       });
       row.append(unset);
     }
+    if (clusterState === 'override') {
+      const restore = document.createElement('button');
+      restore.className = 'button quiet';
+      restore.type = 'button';
+      restore.textContent = STRINGS.settings.removeOverride;
+      restore.addEventListener('click', async () => {
+        if (
+          this.hasChanges() &&
+          !(await document.querySelector('ao-dialog').ask(STRINGS.settings.title, STRINGS.settings.confirmLeave))
+        )
+          return;
+        const overrides = this.server.cluster_overrides_json.filter((key) => key !== field.key);
+        try {
+          await api.put(`/api/servers/${this.id}/cluster-overrides`, { overrides });
+          await this.load();
+        } catch (cause) {
+          this.saveError.textContent = cause.message;
+        }
+      });
+      row.append(restore);
+    }
     return row;
   }
   updateField(field, input) {
-    const raw = field.type === 'bool' ? input.checked : input.value;
-    const value =
-      field.type === 'int' && raw !== ''
-        ? Number(raw)
-        : field.type === 'float' && raw !== ''
-          ? Number(raw)
-          : raw === ''
-            ? null
-            : raw;
+    const value = readSettingInput(field, input);
     this.edited[field.key] = value;
     const error = validateField(field, value);
     const node = this.querySelector(`[data-error-for="${CSS.escape(field.key)}"]`);
@@ -355,13 +359,29 @@ export class AoServerSettings extends HTMLElement {
       STRINGS.settings.save,
     );
     if (!approved) return;
+    let clusterChoice;
+    if (clusterEditChoice(changes, this.cluster, this.server?.cluster_overrides_json)) {
+      const choiceText = STRINGS.settings.clusterChoice;
+      clusterChoice = await dialog.choose(
+        STRINGS.settings.clusterChoiceTitle,
+        choiceText.replace('{name}', this.cluster.name),
+        [
+          { value: 'keep', label: STRINGS.settings.keepOwn },
+          { value: 'cluster', label: STRINGS.settings.changeCluster },
+        ],
+      );
+      if (!clusterChoice) return;
+    }
     this.saveError.textContent = '';
     try {
-      await api.put(`/api/servers/${this.id}/settings`, buildPutBody(changes, this.fields));
+      await api.put(`/api/servers/${this.id}/settings`, {
+        ...buildPutBody(changes, this.fields),
+        ...(clusterChoice ? { clusterChoice } : {}),
+      });
       this.loaded = { ...this.edited };
       const server = await api.get(`/api/servers/${this.id}`).catch(() => null);
       this.needsRestart = server?.status?.observedState === 'running';
-      this.render();
+      await this.load();
       // The save has recorded what it wrote, so the banner is read again.
       this.driftEl.refresh();
       document.querySelector('ao-toast').show(STRINGS.settings.saved);

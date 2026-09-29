@@ -8,6 +8,7 @@ import './components/ao-dialog.js';
 import './components/ao-toast.js';
 import './components/ao-fleet-rail.js';
 import './components/ao-server-overview.js';
+import './components/ao-clusters.js';
 import './components/ao-server-settings.js';
 import './components/ao-server-maps.js';
 import './components/ao-server-backups.js';
@@ -383,6 +384,10 @@ class AoApp extends HTMLElement {
       this.navObserver = new ResizeObserver(edges);
       this.navObserver.observe(nav);
       requestAnimationFrame(edges);
+    } else if (route.screen === 'clusters' || route.screen === 'cluster') {
+      const page = document.createElement('ao-clusters');
+      if (route.id) page.setAttribute('cluster-id', route.id);
+      this.view.replaceChildren(page);
     } else if (route.screen === 'account') this.view.replaceChildren(document.createElement('ao-account'));
     else if (route.screen === 'host') this.view.replaceChildren(document.createElement('ao-host-settings'));
     else if (route.screen === 'jobs') {

@@ -27,6 +27,7 @@ import { createSwitchHandlers, reconcilePendingSwitches } from './maps/switch.js
 import { createRestoreHandlers, reconcilePendingRestores } from './backups/restore.js';
 import { createSettingsSnapshotHandlers } from './backups/settings-snapshots.js';
 import { createDrift } from './settings/drift.js';
+import { createClusterHandlers } from './clusters/handlers.js';
 import { readUpdateInfo } from './updater.js';
 
 // shawl waits 60 s after Ctrl-C before it kills the process. World saves get 25 s and running jobs
@@ -99,6 +100,7 @@ export async function start() {
       onSettingsWritten: settingsWritten,
     }),
     ...drift.handlers,
+    ...createClusterHandlers({ db, supervisor, drift, rcon: rconCommand, getRconPassword }),
   };
   const jobs = createJobEngine({ db, handlers });
   drift.attach(jobs);

@@ -103,7 +103,10 @@ export class AoFleetRail extends HTMLElement {
           .replace('{map}', mapName(server.map))
           .replace('{state}', stateName(server.status?.observedState)),
       );
-      link.title = server.name;
+      const clusterLabel = STRINGS.fleet.clusterLabel;
+      link.title = server.cluster_name
+        ? `${server.name}, ${clusterLabel.replace('{name}', server.cluster_name)}`
+        : server.name;
       const serverName = document.createElement('strong');
       serverName.textContent = server.name;
       serverName.title = server.name;
@@ -113,6 +116,12 @@ export class AoFleetRail extends HTMLElement {
       const text = document.createElement('span');
       text.className = 'server-text';
       text.append(serverName, meta);
+      if (server.cluster_name) {
+        const cluster = document.createElement('span');
+        cluster.className = 'rail-cluster';
+        cluster.textContent = clusterLabel.replace('{name}', server.cluster_name);
+        text.append(cluster);
+      }
       // Settings files that changed outside ARK Overseer and that nobody has looked at yet.
       if (server.settingsChanged) {
         const flag = document.createElement('span');
@@ -125,6 +134,7 @@ export class AoFleetRail extends HTMLElement {
       const status = document.createElement('span');
       status.className = `rail-status ${server.status?.observedState ?? 'unknown'}`;
       status.setAttribute('aria-hidden', 'true');
+      status.title = link.title;
       link.append(thumb, status, text);
       this.append(link);
     }
@@ -140,6 +150,12 @@ export class AoFleetRail extends HTMLElement {
     add.append(icon('add'), STRINGS.fleet.add);
     add.title = STRINGS.fleet.add;
     this.append(add);
+    const clusters = document.createElement('a');
+    clusters.className = 'button secondary rail-clusters';
+    clusters.href = '#/clusters';
+    clusters.append(icon('network'), document.createTextNode(STRINGS.fleet.clusters));
+    clusters.title = STRINGS.fleet.clusters;
+    this.append(clusters);
     const bottom = document.createElement('div');
     bottom.className = 'rail-bottom';
     const account = document.createElement('a');

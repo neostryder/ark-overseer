@@ -16,7 +16,7 @@ export function openDatabase(filePath) {
     db.exec('PRAGMA busy_timeout = 5000');
     if (filePath !== ':memory:') enableWal(db);
     db.exec('PRAGMA foreign_keys = ON');
-    migrate(db);
+    migrate(db, { dataDir: filePath === ':memory:' ? undefined : path.dirname(path.resolve(filePath)) });
   } catch (error) {
     db.close();
     throw error;

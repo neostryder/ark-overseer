@@ -64,7 +64,7 @@ export function createSupervisor({
   let closing = false;
 
   const selectServer = db.prepare(
-    'SELECT s.*, i.path AS install_path, i.state AS install_state FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+    'SELECT s.*, i.path AS install_path, i.state AS install_state, c.cluster_key, c.shared_dir FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id WHERE s.id = ?',
   );
   const selectIds = db.prepare('SELECT id FROM servers ORDER BY id');
   const writeState = db.prepare(

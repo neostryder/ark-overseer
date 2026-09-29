@@ -1,7 +1,25 @@
 import { execFile as execFileCallback, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { normalizeCimDate } from './ownership.js';
+import { buildWindowsCommandLine } from './launch.js';
 const execFile = promisify(execFileCallback);
+
+// Verbatim arguments turn off Node's quoting for the whole command line, including the program
+// name at its start, so the program name is quoted here for an install path with spaces.
+export function serverSpawnArgs({ exePath, cwd, args }) {
+  return [
+    exePath,
+    [buildWindowsCommandLine(args)],
+    {
+      cwd,
+      argv0: `"${exePath}"`,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+    },
+  ];
+}
 
 export function parseProcessJson(stdout) {
   let parsed;
@@ -78,7 +96,7 @@ export function createWindowsPlatform({ pwshPath = 'pwsh', exec = execFile } = {
     processInfo: async (pid) => (await query(`ProcessId=${Number(pid)}`))[0] ?? null,
     spawnServer: ({ exePath, cwd, args }) =>
       new Promise((resolve, reject) => {
-        const child = spawn(exePath, args, { cwd, detached: true, stdio: 'ignore', windowsHide: true });
+        const child = spawn(...serverSpawnArgs({ exePath, cwd, args }));
         child.once('error', reject);
         child.once('spawn', () => {
           child.unref();

@@ -1,4 +1,6 @@
 const patterns = [
+  [/^#\/clusters\/(\d+)$/, (m) => ({ screen: 'cluster', id: Number(m[1]) })],
+  [/^#\/clusters$/, () => ({ screen: 'clusters' })],
   [/^#\/servers\/(\d+)\/overview$/, (m) => ({ screen: 'overview', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/settings$/, (m) => ({ screen: 'settings', id: Number(m[1]) })],
   [/^#\/servers\/(\d+)\/maps$/, (m) => ({ screen: 'maps', id: Number(m[1]) })],
@@ -22,12 +24,14 @@ export function parseRoute(hash) {
 export function buildRoute(route) {
   if (typeof route === 'string') return route.startsWith('#') ? route : `#${route}`;
   if (route?.screen === 'home') return '#/';
+  if (route?.screen === 'cluster' && Number.isInteger(Number(route.id)) && Number(route.id) > 0)
+    return `#/clusters/${Number(route.id)}`;
   if (
     ['overview', 'settings', 'maps', 'backups', 'network', 'automation'].includes(route?.screen) &&
     Number.isInteger(Number(route.id)) &&
     Number(route.id) > 0
   )
     return `#/servers/${Number(route.id)}/${route.screen}`;
-  if (['jobs', 'account', 'host', 'setup'].includes(route?.screen)) return `#/${route.screen}`;
+  if (['jobs', 'account', 'host', 'setup', 'clusters'].includes(route?.screen)) return `#/${route.screen}`;
   return '#/';
 }

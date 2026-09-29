@@ -20,7 +20,16 @@ export const API_MESSAGES = {
 };
 // Jobs that change files under a server while it is down or being changed, so the dashboard's Start, Stop and
 // Restart wait for them.
-export const FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore', 'server.settings_resolve'];
+export const FILE_JOBS = [
+  'server.switch_map',
+  'server.restore',
+  'server.settings_restore',
+  'server.settings_resolve',
+  'server.cluster_apply',
+  'cluster.restart',
+  'cluster.start',
+  'cluster.stop',
+];
 const NOTE_MAX = 200;
 const ACTIVE = new Set(['running', 'starting', 'unknown']);
 
@@ -49,8 +58,10 @@ export function registerBackupRoutes({
   // server free.
   const assertFree = (server) => {
     const busy = db
-      .prepare("SELECT 1 FROM jobs WHERE state IN ('queued', 'running') AND (server_id = ? OR install_id = ?) LIMIT 1")
-      .get(server.id, server.install_id);
+      .prepare(
+        "SELECT 1 FROM jobs WHERE state IN ('queued', 'running') AND (server_id = ? OR install_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?) OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.installs') WHERE value = ?)) LIMIT 1",
+      )
+      .get(server.id, server.install_id, server.id, server.install_id);
     if (busy) throw error(409, messages.jobRunning);
   };
   const restoreQueued = (serverId) =>

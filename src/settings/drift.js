@@ -81,7 +81,7 @@ export const ACTIONS = ['adopt', 'revert', 'merge'];
 export const RESOLVE_JOB = 'server.settings_resolve';
 // Jobs that change the files under a server without going through this module. While one is queued or
 // running, the files are not compared: they are part way between two states.
-const OTHER_FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore'];
+const OTHER_FILE_JOBS = ['server.switch_map', 'server.restore', 'server.settings_restore', 'server.cluster_apply'];
 const ACTIVE = new Set(['running', 'starting', 'unknown']);
 // The states a server may be in when the put-back before a start is allowed to write its files.
 const START_STATES = new Set(['stopped', 'crashed']);

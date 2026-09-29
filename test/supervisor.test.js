@@ -167,6 +167,36 @@ test('RCON failure during stop still waits and forces the owned process', async 
   assert.equal(result.forced, true);
 });
 
+test('stopped server starts use the current cluster key and folder after join, change, and leave', async (t) => {
+  const ctx = setup(t);
+  const stamp = new Date().toISOString();
+  ctx.db
+    .prepare(
+      "INSERT INTO clusters (id, created_at, updated_at, name, cluster_key, shared_dir) VALUES (1, ?, ?, 'Worlds', '1234567890abcdef', 'C:\\Cluster One')",
+    )
+    .run(stamp, stamp);
+  ctx.db.prepare('UPDATE servers SET cluster_id = 1 WHERE id = 1').run();
+  await ctx.supervisor.start(1);
+  assert.deepEqual(ctx.spawns.at(-1).launch.args.slice(-2), [
+    '-clusterid=1234567890abcdef',
+    '-ClusterDirOverride="C:\\Cluster One"',
+  ]);
+  await ctx.supervisor.stop(1);
+  ctx.db.prepare("UPDATE clusters SET shared_dir = 'D:\\Cluster Two' WHERE id = 1").run();
+  await ctx.supervisor.start(1);
+  assert.deepEqual(ctx.spawns.at(-1).launch.args.slice(-2), [
+    '-clusterid=1234567890abcdef',
+    '-ClusterDirOverride="D:\\Cluster Two"',
+  ]);
+  await ctx.supervisor.stop(1);
+  ctx.db.prepare('UPDATE servers SET cluster_id = NULL WHERE id = 1').run();
+  await ctx.supervisor.start(1);
+  assert.equal(
+    ctx.spawns.at(-1).launch.args.some((arg) => arg.includes('clusterid') || arg.includes('ClusterDirOverride')),
+    false,
+  );
+});
+
 test('poll adopts exactly one matching process and rejects ambiguous adoption', async (t) => {
   const ctx = setup(t);
   const launch = (await import('../src/supervisor/launch.js')).buildLaunch(

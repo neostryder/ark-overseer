@@ -1,4 +1,5 @@
 import { transaction } from './transaction.js';
+import path from 'node:path';
 
 export const MIGRATIONS = [
   {
@@ -274,6 +275,51 @@ export const MIGRATIONS = [
         after_stop INTEGER NOT NULL DEFAULT 0 CHECK (after_stop IN (0, 1))
       );`,
   },
+  {
+    version: 10,
+    name: 'clusters',
+    up: `
+      ALTER TABLE clusters ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(settings_json));
+      ALTER TABLE clusters ADD COLUMN notes TEXT;
+      ALTER TABLE servers ADD COLUMN cluster_overrides_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(cluster_overrides_json));
+      ALTER TABLE jobs ADD COLUMN targets_json TEXT NOT NULL DEFAULT '{"servers":[],"installs":[]}' CHECK (json_valid(targets_json));
+
+      CREATE TABLE schedules_new (
+        id INTEGER PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        server_id INTEGER REFERENCES servers(id) ON DELETE CASCADE,
+        cluster_id INTEGER REFERENCES clusters(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('restart', 'update_check', 'auto_update', 'backup', 'cluster_restart')),
+        cron TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+        options_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(options_json)),
+        last_run_at TEXT,
+        next_run_at TEXT,
+        last_job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL,
+        CHECK ((server_id IS NOT NULL AND cluster_id IS NULL AND kind != 'cluster_restart') OR
+               (server_id IS NULL AND cluster_id IS NOT NULL AND kind = 'cluster_restart'))
+      );
+      INSERT INTO schedules_new (id, created_at, updated_at, server_id, kind, cron, enabled,
+        options_json, last_run_at, next_run_at, last_job_id)
+        SELECT id, created_at, updated_at, server_id, kind, cron, enabled,
+          options_json, last_run_at, next_run_at, last_job_id FROM schedules;
+      DROP TABLE schedules;
+      ALTER TABLE schedules_new RENAME TO schedules;
+      CREATE INDEX idx_schedules_due ON schedules(enabled, next_run_at);
+      CREATE UNIQUE INDEX idx_schedules_server_kind ON schedules(server_id, kind);
+      CREATE UNIQUE INDEX idx_schedules_cluster_kind ON schedules(cluster_id, kind);`,
+    after(db, { dataDir }) {
+      const folder = dataDir ?? path.win32.join(process.env.ProgramData || 'C:\\ProgramData', 'ARK Overseer');
+      for (const row of db
+        .prepare("SELECT id, cluster_key FROM clusters WHERE shared_dir IS NULL OR shared_dir = ''")
+        .all())
+        db.prepare('UPDATE clusters SET shared_dir = ? WHERE id = ?').run(
+          path.win32.join(folder, 'clusters', row.cluster_key),
+          row.id,
+        );
+    },
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than
@@ -288,7 +334,7 @@ function validateMigrations() {
   });
 }
 
-export function migrate(db) {
+export function migrate(db, options = {}) {
   validateMigrations();
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -315,7 +361,7 @@ export function migrate(db) {
       if (hasVersion.get(migration.version)) return;
       db.exec(migration.up);
       // For a step SQL alone cannot express, such as an index that depends on the data already there.
-      migration.after?.(db);
+      migration.after?.(db, options);
       insertVersion.run(migration.version, migration.name, new Date().toISOString());
       applied.push(migration.version);
     });

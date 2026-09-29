@@ -37,6 +37,7 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       state: row.state,
       serverId: row.server_id,
       installId: row.install_id,
+      targets: JSON.parse(row.targets_json || '{"servers":[],"installs":[]}'),
       progress: row.progress,
       message: row.message,
       params: JSON.parse(row.params_json),
@@ -98,6 +99,8 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
     for (const { job } of [...running.values(), ...stranded.values()]) {
       if (job.serverId !== null) serverIds.add(job.serverId);
       if (job.installId !== null) installIds.add(job.installId);
+      for (const id of job.targets?.servers ?? []) serverIds.add(id);
+      for (const id of job.targets?.installs ?? []) installIds.add(id);
     }
     return { serverIds: [...serverIds], installIds: [...installIds] };
   }
@@ -115,6 +118,17 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
     if (installIds.length) {
       conditions.push(`(install_id IS NULL OR install_id NOT IN (${installIds.map(() => '?').join(', ')}))`);
       values.push(...installIds);
+    }
+    if (serverIds.length || installIds.length) {
+      const overlap = [
+        ...serverIds.map(
+          (id) => `EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ${Number(id)})`,
+        ),
+        ...installIds.map(
+          (id) => `EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.installs') WHERE value = ${Number(id)})`,
+        ),
+      ];
+      conditions.push(`NOT (${overlap.join(' OR ')})`);
     }
     return db.prepare(`SELECT id FROM jobs WHERE ${conditions.join(' AND ')} ORDER BY id ASC LIMIT 1`).get(...values);
   }
@@ -248,7 +262,11 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
     scheduleTimer();
   }
 
-  function enqueue(kind, params = {}, { serverId = null, installId = null, runAfter = null } = {}) {
+  function enqueue(
+    kind,
+    params = {},
+    { serverId = null, installId = null, targets = { servers: [], installs: [] }, runAfter = null } = {},
+  ) {
     if (typeof handlers[kind] !== 'function') throw new Error(`No handler registered for job kind: ${kind}`);
     // Stored run_after values are compared as strings, which only works if every one has the exact
     // format nowIso() produces, so anything else is converted or refused here.
@@ -258,16 +276,35 @@ export function createJobEngine({ db, handlers, concurrency = 2, progressWriteMs
       runAfter = new Date(time).toISOString();
     }
     const stamp = nowIso();
-    const result = transaction(db, () =>
+    const insert = () =>
       db
         .prepare(
-          'INSERT INTO jobs (created_at, updated_at, kind, server_id, install_id, state, params_json, run_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO jobs (created_at, updated_at, kind, server_id, install_id, state, params_json, targets_json, run_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(stamp, stamp, kind, serverId, installId, 'queued', JSON.stringify(params), runAfter),
-    );
+        .run(
+          stamp,
+          stamp,
+          kind,
+          serverId,
+          installId,
+          'queued',
+          JSON.stringify(params),
+          JSON.stringify(targets),
+          runAfter,
+        );
+    const outerTransaction = db.isTransaction;
+    const result = outerTransaction ? insert() : transaction(db, insert);
     const job = get(Number(result.lastInsertRowid));
-    emit('queued', job);
-    queueMicrotask(pump);
+    if (outerTransaction) {
+      queueMicrotask(() => {
+        if (!get(job.id)) return;
+        emit('queued', job);
+        pump();
+      });
+    } else {
+      emit('queued', job);
+      queueMicrotask(pump);
+    }
     return job;
   }
 

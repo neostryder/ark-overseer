@@ -3,10 +3,12 @@ import { nextRun } from './cron.js';
 
 export const JOB_KINDS = {
   restart: 'server.restart',
+  cluster_restart: 'cluster.restart',
   backup: 'server.backup',
   auto_update: 'install.auto_update',
   update_check: 'install.check_update',
 };
+export const MESSAGES = { noTarget: 'The schedule target is gone.' };
 // A schedule that came due while ARK Overseer was not running still runs if it is less late than this.
 export const CATCH_UP_MS = 30 * 60 * 1000;
 const MAX_WAIT_MS = 60 * 1000;
@@ -54,8 +56,17 @@ export function createScheduler({
     const prev =
       row.last_job_id == null ? null : db.prepare('SELECT state FROM jobs WHERE id = ?').get(row.last_job_id);
     const busy = Boolean(prev && ['queued', 'running'].includes(prev.state));
-    const server = db.prepare('SELECT id, install_id FROM servers WHERE id = ?').get(row.server_id);
-    const reason = !server ? 'no server' : busy ? 'last job still running' : lateMs >= CATCH_UP_MS ? 'too late' : null;
+    const server = row.cluster_id
+      ? null
+      : db.prepare('SELECT id, install_id FROM servers WHERE id = ?').get(row.server_id);
+    const cluster = row.cluster_id ? db.prepare('SELECT id FROM clusters WHERE id = ?').get(row.cluster_id) : null;
+    const reason = !(cluster || server)
+      ? MESSAGES.noTarget
+      : busy
+        ? 'last job still running'
+        : lateMs >= CATCH_UP_MS
+          ? 'too late'
+          : null;
     // The schedule moves on before its job is queued. Should the process die between the two, the
     // run is lost rather than repeated, since a second restart or update is the worse mistake.
     transaction(db, () => {
@@ -68,8 +79,27 @@ export function createScheduler({
     const job = jobs.enqueue(
       JOB_KINDS[row.kind],
       // A scheduled backup is marked as one, so pruning and the backup list can tell it from a manual one.
-      { ...JSON.parse(row.options_json), ...(row.kind === 'backup' ? { reason: 'scheduled' } : {}) },
-      install ? { installId: server.install_id } : { serverId: server.id },
+      {
+        ...JSON.parse(row.options_json),
+        ...(row.kind === 'backup' ? { reason: 'scheduled' } : {}),
+        ...(row.cluster_id ? { clusterId: row.cluster_id } : {}),
+      },
+      row.cluster_id
+        ? {
+            targets: {
+              servers: db
+                .prepare('SELECT id FROM servers WHERE cluster_id = ?')
+                .all(row.cluster_id)
+                .map((member) => member.id),
+              installs: db
+                .prepare('SELECT install_id FROM servers WHERE cluster_id = ?')
+                .all(row.cluster_id)
+                .map((member) => member.install_id),
+            },
+          }
+        : install
+          ? { installId: server.install_id }
+          : { serverId: server.id },
     );
     db.prepare('UPDATE schedules SET last_job_id = ? WHERE id = ?').run(job.id, row.id);
   }

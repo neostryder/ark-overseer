@@ -23,6 +23,14 @@ import { checkSwitch, SWITCH_MESSAGES } from './maps/switch.js';
 import { registerBackupRoutes, FILE_JOBS } from './backups/api.js';
 import { createDrift, settingKeys } from './settings/drift.js';
 import { registerDriftRoutes } from './settings/api.js';
+import { registerClusterRoutes } from './clusters/api.js';
+import {
+  clusterRow,
+  memberRows,
+  activeJobFor,
+  MESSAGES as CLUSTER_MESSAGES,
+  checkSharedSettings,
+} from './clusters/core.js';
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
@@ -53,6 +61,7 @@ export const API_MESSAGES = {
   badMapArt: 'Send enabled as true or false.',
   sameMap: 'The server is already on that map.',
   jobRunning: 'Another job is queued or running for this server. Wait for it to finish, then try again.',
+  clusterChoice: 'Choose whether this setting changes for the cluster or only this server.',
 };
 const PREVIEW_MS = 10 * 60 * 1000;
 const pathKey = (value) =>
@@ -79,7 +88,7 @@ function must(value) {
 function serverRow(db, id) {
   return db
     .prepare(
-      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+      'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id WHERE s.id = ?',
     )
     .get(id);
 }
@@ -87,6 +96,7 @@ function shapeServer(row, supervisor, unseenDrift = new Set()) {
   const settings = JSON.parse(row.settings_json || '{}');
   return {
     ...row,
+    cluster_overrides_json: JSON.parse(row.cluster_overrides_json || '[]'),
     settingsChanged: unseenDrift.has(row.id),
     settings_json: { mods: settings.mods ?? [], disableBattlEye: settings.disableBattlEye ?? false },
     status: supervisor.status(row.id),
@@ -113,6 +123,7 @@ export function createApp({
   firewallRules,
   isElevated,
   pwshPath = 'pwsh',
+  clusterExec,
   rankFields,
   updateInfo = () => ({ commit: null, startedAt: null, available: false, lastUpdate: null }),
   allowedHosts = [],
@@ -164,9 +175,9 @@ export function createApp({
     Boolean(
       db
         .prepare(
-          `SELECT 1 FROM jobs WHERE kind IN (${FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND server_id = ? LIMIT 1`,
+          `SELECT 1 FROM jobs WHERE kind IN (${FILE_JOBS.map(() => '?').join(', ')}) AND state IN ('queued', 'running') AND (server_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?)) LIMIT 1`,
         )
-        .get(...FILE_JOBS, serverId),
+        .get(...FILE_JOBS, serverId, serverId),
     );
   const showArt = () => Boolean(hostRow()?.show_map_art ?? 1);
   for (const [key, route] of Object.entries(auth.routes)) {
@@ -383,7 +394,7 @@ export function createApp({
   const listServers = (unseen) =>
     db
       .prepare(
-        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at FROM servers s JOIN installs i ON i.id = s.install_id ORDER BY s.id',
+        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id ORDER BY s.id',
       )
       .all()
       .map((row) => shapeServer(row, supervisor, unseen));
@@ -391,6 +402,21 @@ export function createApp({
   router.add('GET', '/api/servers/:id', ({ params }) =>
     shapeServer(must(serverRow(db, params.id)), supervisor, unseenDrift()),
   );
+  registerClusterRoutes({
+    router,
+    db,
+    dataDir,
+    jobs,
+    supervisor,
+    protectedRoute,
+    must,
+    error,
+    serverRow,
+    runner,
+    scheduler,
+    pwshPath,
+    exec: clusterExec,
+  });
   router.add('GET', '/api/servers/:id/schedules', ({ params }) => {
     must(serverRow(db, params.id));
     return db
@@ -508,9 +534,9 @@ export function createApp({
         // No await from here to the enqueue, so two requests cannot both find the server free.
         const busy = db
           .prepare(
-            "SELECT 1 FROM jobs WHERE state IN ('queued', 'running') AND (server_id = ? OR install_id = ?) LIMIT 1",
+            "SELECT 1 FROM jobs WHERE state IN ('queued', 'running') AND (server_id = ? OR install_id = ? OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.servers') WHERE value = ?) OR EXISTS (SELECT 1 FROM json_each(jobs.targets_json, '$.installs') WHERE value = ?)) LIMIT 1",
           )
-          .get(row.id, row.install_id);
+          .get(row.id, row.install_id, row.id, row.install_id);
         if (busy) throw error(409, API_MESSAGES.jobRunning);
         // Both ids are set, so the engine also holds back any job for the install while this one runs.
         const job = jobs.enqueue(
@@ -701,17 +727,74 @@ export function createApp({
     protectedRoute(
       'server.settings',
       'server',
-      async ({ params, body }) => {
+      async ({ params, body, user }) => {
         const row = must(serverRow(db, params.id));
         // A restore swaps settings files one by one, and a save in the middle would mix with it.
         if (fileJobRunning(params.id)) throw error(409, API_MESSAGES.jobRunning);
+        const { clusterChoice, ...values } = body;
+        let queued = [];
+        let clusterChange = null;
+        let overrideChange = null;
+        if (row.cluster_id) {
+          const cluster = clusterRow(db, row.cluster_id);
+          const shared = JSON.parse(cluster.settings_json);
+          const overrides = new Set(JSON.parse(row.cluster_overrides_json));
+          const inherited = Object.keys(values).filter((key) => Object.hasOwn(shared, key) && !overrides.has(key));
+          if (inherited.length && !['keep', 'cluster'].includes(clusterChoice))
+            throw error(400, API_MESSAGES.clusterChoice);
+          if (inherited.length && clusterChoice === 'keep') {
+            for (const key of inherited) overrides.add(key);
+            overrideChange = [...overrides];
+          }
+          if (inherited.length && clusterChoice === 'cluster') {
+            const members = memberRows(db, cluster.id);
+            if (activeJobFor(db, members)) throw error(409, CLUSTER_MESSAGES.busy);
+            const changed = Object.fromEntries(inherited.map((key) => [key, values[key]]));
+            checkSharedSettings(changed);
+            clusterChange = { cluster, settings: { ...shared, ...changed }, members, keys: inherited };
+          }
+        }
         // The write and the record of it are one step, so a check of the files cannot fall between them.
         try {
-          return await settingsDrift.saveSettings(
+          const result = await settingsDrift.saveSettings(
             row,
-            () => storeFor(params.id).writeSettings(body),
-            settingKeys(body),
+            () => storeFor(params.id).writeSettings(values),
+            settingKeys(values),
           );
+          if (Object.hasOwn(values, 'MaxPlayers'))
+            db.prepare('UPDATE servers SET max_players = ?, updated_at = ? WHERE id = ?').run(
+              values.MaxPlayers ?? 70,
+              new Date(now()).toISOString(),
+              row.id,
+            );
+          if (overrideChange)
+            db.prepare('UPDATE servers SET cluster_overrides_json = ?, updated_at = ? WHERE id = ?').run(
+              JSON.stringify(overrideChange),
+              new Date(now()).toISOString(),
+              row.id,
+            );
+          if (clusterChange)
+            queued = transaction(db, () => {
+              db.prepare('UPDATE clusters SET settings_json = ?, updated_at = ? WHERE id = ?').run(
+                JSON.stringify(clusterChange.settings),
+                new Date(now()).toISOString(),
+                clusterChange.cluster.id,
+              );
+              const clusterJobs = clusterChange.members.map((member) =>
+                jobs.enqueue(
+                  'server.cluster_apply',
+                  { clusterId: clusterChange.cluster.id, keys: clusterChange.keys },
+                  { serverId: member.id, installId: member.install_id },
+                ),
+              );
+              record(user, 'cluster.settings', 'cluster', clusterChange.cluster.id, { keys: clusterChange.keys });
+              return clusterJobs;
+            });
+          return {
+            ...result,
+            jobs: queued,
+            appliesAtNextRestart: queued.length > 0 && supervisor.status(row.id)?.observedState === 'running',
+          };
         } catch (e) {
           if (e.errors) e.status = 400;
           throw e;
