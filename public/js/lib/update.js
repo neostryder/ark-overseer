@@ -1,5 +1,5 @@
-// The update link opens a program on the computer the browser runs on, so the Update button is offered
-// only when the page is open on the server's own computer.
+// The update link opens a program on the computer the browser runs on. A page opened at another address,
+// such as through Cloudflare, still offers the button, with a note about where it works.
 export function isLocalPage(hostname) {
   return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(String(hostname).toLowerCase());
 }

@@ -10,6 +10,7 @@ All notable changes to ARK Overseer are listed here.
 
 ### Fixed
 
+- [Visible] [UI] [Server] **Update works from any address.** The This computer page offers Update when ARK Overseer is opened through Cloudflare or a hostname, and it used to appear only on localhost. The update starts on the computer the browser is running on, so use it from the PC that runs ARK Overseer.
 - [Visible] [UI] **The server list button no longer shows at full width.** It appeared in every layout but only did anything in the medium one, so it looked broken.
 - [Visible] [UI] **Section tabs stay readable on a phone.** Overview, Settings and the other tabs were squeezed until their labels overlapped. They keep their size now and the row scrolls.
 

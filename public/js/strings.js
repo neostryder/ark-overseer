@@ -162,7 +162,8 @@ export const STRINGS = {
     updateStageFailed: 'Failed',
     updateTimeout:
       "ARK Overseer hasn't come back after {minutes} minutes. If you declined the Windows prompt, nothing changed. The update log is in {folder}.",
-    updateRemote: 'To update, open ARK Overseer in a browser on the computer it runs on.',
+    updateElsewhere:
+      'Update starts a program on the computer this browser runs on, so use it from a browser on the PC that runs ARK Overseer.',
     lastUpdateOk: 'The last update finished {time}.',
     lastUpdateFailed: 'The last update failed {time}: {message}',
   },

@@ -244,10 +244,9 @@ export class AoHostSettings extends HTMLElement {
         ),
       );
     if (!v.available) return [card];
-    if (!isLocalPage(location.hostname)) {
-      card.append(el('p', s.updateRemote, 'muted'));
-      return [card];
-    }
+    // The update link starts a program on the computer the browser runs on. Nothing here can tell whether
+    // that is the server's computer, so the button stays and the note says where to use it.
+    if (!isLocalPage(location.hostname)) card.append(el('p', s.updateElsewhere, 'muted'));
 
     const source = document.createElement('select');
     for (const value of updateSources(v))
