@@ -4,6 +4,8 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-29
+
 ### Added
 
 - [Visible] [UI] [Server] **Remove a server.** Remove server on a server's Overview page takes it out of ARK Overseer and deletes its settings history, schedules and snapshots. You can keep its game files and backups or delete them too. Deleting files asks a second time, and it stops if the server is running, the folder holds another install or ARK Overseer's own data, or the install lives in your Steam library.
@@ -14,6 +16,7 @@ All notable changes to ARK Overseer are listed here.
 - [Visible] [UI] [Server] **Update works from any address.** The This computer page offers Update when ARK Overseer is opened through Cloudflare or a hostname, and it used to appear only on localhost. The update starts on the computer the browser is running on, so use it from the PC that runs ARK Overseer.
 - [Visible] [UI] **The server list button no longer shows at full width.** It appeared in every layout but only did anything in the medium one, so it looked broken.
 - [Visible] [UI] **Section tabs stay readable on a phone.** Overview, Settings and the other tabs were squeezed until their labels overlapped. They keep their size now and the row scrolls.
+- [Visible] [UI] [Server] **Install and update progress keeps its last real message.** SteamCMD ends a run with an empty "0 of 0" line, and it used to replace the final download figure on the job.
 
 ## [1.0.0] - 2026-09-29
 
