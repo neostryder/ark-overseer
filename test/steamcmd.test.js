@@ -391,3 +391,21 @@ test('appUpdate gives up when the same error comes back, and does not retry othe
   assert.equal(await attempts("ERROR! Failed to install app '2430930' (Missing configuration)"), 2);
   assert.equal(await attempts("ERROR! Failed to install app '2430930' (No subscription)"), 1);
 });
+
+test('appUpdate does not report the empty "unknown, 0 / 0" line SteamCMD prints at the end of a run', async (t) => {
+  const root = temp(t);
+  fs.writeFileSync(path.join(root, 'steamcmd.exe'), '');
+  const fake = fakeRunner({
+    lines: [
+      ' Update state (0x61) downloading, progress: 50.00 (2000000000 / 4000000000)',
+      ' Update state (0x81) unknown, progress: 0.00 (0 / 0)',
+      ok,
+    ],
+  });
+  const events = [];
+  await createSteamCmd({ root, runner: fake.runner }).appUpdate({
+    installDir: 'C:\ARK Server',
+    progress: (...args) => events.push(args),
+  });
+  assert.deepEqual(events, [[0.5, 'Downloading: 2.0 of 4.0 GB']]);
+});

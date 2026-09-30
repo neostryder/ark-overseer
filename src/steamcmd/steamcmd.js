@@ -73,7 +73,8 @@ export function createSteamCmd({
         signal,
         onLine: (line) => {
           const parsed = parseSteamCmdLine(line);
-          if (parsed?.kind === 'progress')
+          // SteamCMD ends a run with an "unknown, 0 / 0" line, which would replace the last real message.
+          if (parsed?.kind === 'progress' && parsed.totalBytes > 0)
             progress?.(
               parsed.fraction,
               `${parsed.phase[0].toUpperCase()}${parsed.phase.slice(1)}: ${(parsed.doneBytes / 1e9).toFixed(1)} of ${(parsed.totalBytes / 1e9).toFixed(1)} GB`,
