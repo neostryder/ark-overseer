@@ -314,6 +314,11 @@ export class AoHostSettings extends HTMLElement {
           .replace('{commit}', view.newest.label)
           .replace('{date}', this.checkout.date ? new Date(this.checkout.date).toLocaleString() : '');
         button.disabled = false;
+      } else if (this.checkout.noAccess) {
+        // The elevated update checks the folder itself, so this page does not block the button.
+        info.className = 'muted';
+        info.textContent = this.checkout.message;
+        button.disabled = false;
       } else {
         info.className = 'error-message';
         info.textContent = s.checkoutUnknown.replace('{message}', this.checkout.message);

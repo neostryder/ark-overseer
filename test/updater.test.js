@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readUpdateInfo, readCheckout, buildUpdateRequest } from '../src/updater.js';
+import { readUpdateInfo, readCheckout, buildUpdateRequest, CHECKOUT_MESSAGES } from '../src/updater.js';
 import {
   isLocalPage,
   shortCommit,
@@ -291,4 +291,26 @@ test('readUpdateInfo returns recent progress and ignores stale or malformed prog
   assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress.stage, 'failed');
   fs.writeFileSync(progressPath, '{');
   assert.equal(readUpdateInfo({ ...d, startedAt, serviceMode: true }).progress, null);
+});
+
+test('a checkout the service account may not open is reported as no access, not as a wrong folder', () => {
+  const denied = (code) => () => {
+    throw Object.assign(new Error('denied'), { code });
+  };
+  for (const code of ['EACCES', 'EPERM']) {
+    const result = readCheckout('C:\Repositories\ark-overseer', { access: denied(code) });
+    assert.deepEqual(result, { ok: false, noAccess: true, message: CHECKOUT_MESSAGES.noAccess });
+  }
+});
+
+test('a folder that does not exist is still reported as not a checkout', () => {
+  const missing = path.join(os.tmpdir(), `ao-noaccess-${process.pid}-${Date.now()}`);
+  const result = readCheckout(missing, {
+    access: () => {
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.noAccess, undefined);
+  assert.equal(result.message, CHECKOUT_MESSAGES.notCheckout);
 });

@@ -13,6 +13,8 @@ export const CHECKOUT_MESSAGES = {
   badFolder: 'Choose a full folder path on this computer.',
   notCheckout: 'That folder is not an ARK Overseer checkout.',
   unreadable: 'That folder could not be read.',
+  noAccess:
+    "ARK Overseer's service account can't open this folder, so it can't show the last commit. You can still update from it.",
 };
 export const REQUEST_MESSAGES = {
   badSource: 'Choose where to update from.',
@@ -32,8 +34,17 @@ const isoOrNull = (value) => (typeof value === 'string' && !Number.isNaN(Date.pa
 
 // Reads a git checkout without running git: the service account does not own the repository, and git
 // refuses a repository owned by another user. It reads .git/HEAD, the ref that names, and package.json.
-export function readCheckout(folder) {
+export function readCheckout(folder, { access = fs.accessSync } = {}) {
   if (typeof folder !== 'string' || !folder) return { ok: false, message: CHECKOUT_MESSAGES.badFolder };
+  // The service runs as Network Service, which has no rights on most folders under a user's profile or
+  // repositories. That is not a wrong folder: the administrator step reads it with the rights it has.
+  try {
+    access(folder, fs.constants.R_OK);
+    access(path.join(folder, 'package.json'), fs.constants.R_OK);
+  } catch (error) {
+    if (error?.code === 'EACCES' || error?.code === 'EPERM')
+      return { ok: false, noAccess: true, message: CHECKOUT_MESSAGES.noAccess };
+  }
   const manifest = readJson(path.join(folder, 'package.json'));
   if (manifest?.name !== 'ark-overseer') return { ok: false, message: CHECKOUT_MESSAGES.notCheckout };
   const gitDir = path.join(folder, '.git');

@@ -117,43 +117,52 @@ test('package install rejects a Node hash that differs from RELEASE.json', { ski
   assert.doesNotMatch(output, /STEP: Export commit/);
 });
 
-test('package install deploys RELEASE.json commit without git and keeps the packaged modules', { skip }, (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-package-dryrun-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(root, 'runtime'));
-  fs.mkdirSync(path.join(root, 'vendor'));
-  fs.mkdirSync(path.join(root, 'node_modules'));
-  fs.linkSync(process.execPath, path.join(root, 'runtime', 'node.exe'));
-  const service = fs.readFileSync('tools/service.ps1', 'utf8');
-  const names = [...service.matchAll(/Join-Path \$AppDir 'vendor\\([^']+)'/g)].map((match) => match[1]);
-  for (const name of names) fs.linkSync(path.join('vendor', name), path.join(root, 'vendor', name));
-  const nodeSha256 = createHash('sha256')
-    .update(fs.readFileSync(path.join(root, 'runtime', 'node.exe')))
-    .digest('hex');
-  const commit = '0123456789abcdef0123456789abcdef01234567';
-  fs.writeFileSync(path.join(root, 'RELEASE.json'), JSON.stringify({ version: '1.2.3', commit, nodeSha256 }));
-  const appRoot = path.join(root, 'service-root');
-  const result = run('tools/service.ps1', [
-    'install',
-    '-DryRun',
-    '-Package',
-    '-AppDir',
-    root,
-    '-Root',
-    appRoot,
-    '-ServiceName',
-    `ReleaseTest${process.pid}`,
-  ]);
-  const output = result.stdout + result.stderr;
-  assert.equal(result.status, 0, output);
-  const steps = output.split(/\r?\n/).filter((line) => line.startsWith('STEP: '));
-  assert.ok(steps.some((line) => line.startsWith('STEP: Copy the release app')));
-  assert.ok(steps.some((line) => line.includes(`Record the package commit`) && line.includes(commit)));
-  assert.ok(
-    steps.some((line) => line.startsWith('STEP: Copy Node') && line.includes(path.join(root, 'runtime', 'node.exe'))),
-  );
-  assert.ok(!steps.some((line) => line.includes('git')));
-  assert.ok(!steps.some((line) => line.startsWith('STEP: Copy node_modules')));
-  const updater = steps.find((line) => line.startsWith('STEP: Record the update options'));
-  assert.match(updater, /"package":true/);
-});
+// The install checks the vendor zips against their published hashes, so this test needs the real files.
+// The vendor folder is not tracked, and a machine or CI run without it skips the test.
+const vendorMissing = ['shawl-v1.9.0-win64.zip', 'PowerShell-7.6.6-win-x64.zip'].some(
+  (name) => !fs.existsSync(path.join('vendor', name)),
+);
+test(
+  'package install deploys RELEASE.json commit without git and keeps the packaged modules',
+  { skip: skip || (vendorMissing && 'the vendor zips are not present') },
+  (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-package-dryrun-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(root, 'runtime'));
+    fs.mkdirSync(path.join(root, 'vendor'));
+    fs.mkdirSync(path.join(root, 'node_modules'));
+    fs.linkSync(process.execPath, path.join(root, 'runtime', 'node.exe'));
+    const service = fs.readFileSync('tools/service.ps1', 'utf8');
+    const names = [...service.matchAll(/Join-Path \$AppDir 'vendor\\([^']+)'/g)].map((match) => match[1]);
+    for (const name of names) fs.linkSync(path.join('vendor', name), path.join(root, 'vendor', name));
+    const nodeSha256 = createHash('sha256')
+      .update(fs.readFileSync(path.join(root, 'runtime', 'node.exe')))
+      .digest('hex');
+    const commit = '0123456789abcdef0123456789abcdef01234567';
+    fs.writeFileSync(path.join(root, 'RELEASE.json'), JSON.stringify({ version: '1.2.3', commit, nodeSha256 }));
+    const appRoot = path.join(root, 'service-root');
+    const result = run('tools/service.ps1', [
+      'install',
+      '-DryRun',
+      '-Package',
+      '-AppDir',
+      root,
+      '-Root',
+      appRoot,
+      '-ServiceName',
+      `ReleaseTest${process.pid}`,
+    ]);
+    const output = result.stdout + result.stderr;
+    assert.equal(result.status, 0, output);
+    const steps = output.split(/\r?\n/).filter((line) => line.startsWith('STEP: '));
+    assert.ok(steps.some((line) => line.startsWith('STEP: Copy the release app')));
+    assert.ok(steps.some((line) => line.includes(`Record the package commit`) && line.includes(commit)));
+    assert.ok(
+      steps.some((line) => line.startsWith('STEP: Copy Node') && line.includes(path.join(root, 'runtime', 'node.exe'))),
+    );
+    assert.ok(!steps.some((line) => line.includes('git')));
+    assert.ok(!steps.some((line) => line.startsWith('STEP: Copy node_modules')));
+    const updater = steps.find((line) => line.startsWith('STEP: Record the update options'));
+    assert.match(updater, /"package":true/);
+  },
+);
