@@ -438,6 +438,22 @@ export const STRINGS = {
     space: '{free} GB free. This copy needs {needed} GB.',
     submitClone: 'Clone server',
     submitMove: 'Move server',
+    remove: 'Remove server',
+    removeNeedsStop: 'Stop the server to remove it.',
+    removeTitle: 'Remove {name}?',
+    removeMessage:
+      "This deletes {name}'s settings history, schedules and snapshots from ARK Overseer. Its game files and backups stay on this computer unless you also delete the files.",
+    removeMessageSteam:
+      "This deletes {name}'s settings history, schedules and snapshots from ARK Overseer. Its files are in your Steam library, so they stay where they are.",
+    removeKeep: 'Remove, keep files',
+    removeDelete: 'Remove and delete files',
+    removeOnly: 'Remove server',
+    removeDeleteTitle: 'Delete the server files?',
+    removeDeleteMessage:
+      'This deletes {path}, including the world save, and every backup of {name}. It cannot be undone.',
+    removeDeleteNow: 'Delete files',
+    removing: 'Removing {name}.',
+    removed: 'Removed {name}.',
   },
   settings: {
     title: 'Settings',

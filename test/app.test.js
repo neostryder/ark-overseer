@@ -1405,7 +1405,7 @@ test('no other route changes the map of a server that already exists', async (t)
   const ports = { ...body, gamePort: 7781, queryPort: 27031, rconPort: 27041 };
   assert.equal((await send('PUT', `/api/servers/${server.id}/ports`, ports)).status, 200);
   assert.deepEqual({ ...db.prepare('SELECT map, settings_json FROM servers').get() }, before);
-  for (const method of ['PUT', 'PATCH', 'DELETE'])
+  for (const method of ['PUT', 'PATCH'])
     assert.equal((await send(method, `/api/servers/${server.id}`, body)).status, 404, method);
   assert.equal((await send('PUT', `/api/servers/${server.id}/map`, body)).status, 404);
   assert.deepEqual({ ...db.prepare('SELECT map, settings_json FROM servers').get() }, before);

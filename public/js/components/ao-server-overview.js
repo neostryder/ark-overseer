@@ -88,6 +88,14 @@ export class AoServerOverview extends HTMLElement {
       });
       transfers.append(button);
     }
+    const remove = document.createElement('button');
+    remove.className = 'button secondary';
+    remove.textContent = STRINGS.overview.remove;
+    const removable = ['stopped', 'crashed', 'exited'].includes(state);
+    remove.disabled = !removable;
+    if (!removable) remove.title = STRINGS.overview.removeNeedsStop;
+    remove.addEventListener('click', () => this.remove(remove));
+    transfers.append(remove);
     this.append(transfers);
     const cards = document.createElement('div');
     cards.className = 'detail-grid';
@@ -251,6 +259,12 @@ export class AoServerOverview extends HTMLElement {
       try {
         const job = (await api.get('/api/jobs')).find((item) => item.id === jobId);
         if (job && !['queued', 'running'].includes(job.state)) {
+          if (kind === 'remove' && job.state === 'succeeded') {
+            await this.closest('ao-app')?.loadServers();
+            document.querySelector('ao-toast')?.show(job.result.message);
+            window.location.hash = '#/servers';
+            return;
+          }
           if (kind === 'clone' && job.state === 'succeeded') {
             await this.closest('ao-app')?.loadServers();
             window.location.hash = `#/servers/${job.result.serverId}/overview`;
@@ -267,6 +281,42 @@ export class AoServerOverview extends HTMLElement {
       this.pollTimer = setTimeout(tick, 2000);
     };
     this.pollTimer = setTimeout(tick, 2000);
+  }
+  async remove(button) {
+    const w = STRINGS.overview,
+      s = this.server,
+      dialog = document.querySelector('ao-dialog'),
+      steam = s.install?.source === 'steam-client';
+    const choice = await dialog.choose(
+      w.removeTitle.replace('{name}', s.name),
+      (steam ? w.removeMessageSteam : w.removeMessage).replaceAll('{name}', s.name),
+      steam
+        ? [{ value: 'keep', label: w.removeOnly }]
+        : [
+            { value: 'keep', label: w.removeKeep },
+            { value: 'delete', label: w.removeDelete },
+          ],
+    );
+    if (!choice) return;
+    if (
+      choice === 'delete' &&
+      !(await dialog.ask(
+        w.removeDeleteTitle,
+        w.removeDeleteMessage.replace('{path}', s.install.path).replace('{name}', s.name),
+        w.removeDeleteNow,
+      ))
+    )
+      return;
+    button.disabled = true;
+    this.message.textContent = '';
+    try {
+      const job = await api.del(`/api/servers/${this.serverId}`, { deleteFiles: choice === 'delete' });
+      this.message.textContent = w.removing.replace('{name}', s.name);
+      this.follow(job.jobId, 'remove');
+    } catch (cause) {
+      this.message.textContent = cause.message;
+      button.disabled = false;
+    }
   }
   async action(action, button) {
     if (

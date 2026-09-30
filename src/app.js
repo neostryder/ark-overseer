@@ -514,7 +514,7 @@ export function createApp({
     if (result && pathKey(result.target) === pathKey(server.install.path)) server.lastMove = result;
     return server;
   });
-  registerFleetRoutes({ router, db, jobs, protectedRoute, must, error, serverRow });
+  registerFleetRoutes({ router, db, dataDir, jobs, supervisor, protectedRoute, must, error, serverRow });
   registerClusterRoutes({
     router,
     db,

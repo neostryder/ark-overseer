@@ -4,6 +4,15 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+### Added
+
+- [Visible] [UI] [Server] **Remove a server.** Remove server on a server's Overview page takes it out of ARK Overseer and deletes its settings history, schedules and snapshots. You can keep its game files and backups or delete them too. Deleting files asks a second time, and it stops if the server is running, the folder holds another install or ARK Overseer's own data, or the install lives in your Steam library.
+
+### Fixed
+
+- [Visible] [UI] **The server list button no longer shows at full width.** It appeared in every layout but only did anything in the medium one, so it looked broken.
+- [Visible] [UI] **Section tabs stay readable on a phone.** Overview, Settings and the other tabs were squeezed until their labels overlapped. They keep their size now and the row scrolls.
+
 ## [1.0.0] - 2026-09-29
 
 ### Added

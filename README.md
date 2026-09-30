@@ -2,7 +2,7 @@
 
 ARK Overseer is a web app for running ARK: Survival Ascended dedicated servers on a Windows PC. It installs and updates servers through SteamCMD, runs several side by side, and keeps their settings, ports, backups and schedules in one place. You open it in a browser on the same PC, or from a phone or another computer on your network.
 
-Each server has its own overview with Start, Stop and Restart, a settings page for every documented option (searchable by meaning, so "make dinos grow up faster" finds Baby Mature Speed Multiplier), and a network page that lists the ports and the Windows Firewall rules they need. You can switch a server to another map, keep named settings snapshots, take and restore backups, and clone, move or bulk-manage servers. Clusters let players carry survivors and creatures between servers. Restarts, backups and updates run on a schedule and warn players in game first.
+Each server has its own overview with Start, Stop and Restart, a settings page for every documented option (searchable by meaning, so "make dinos grow up faster" finds Baby Mature Speed Multiplier), and a network page that lists the ports and the Windows Firewall rules they need. You can switch a server to another map, keep named settings snapshots, take and restore backups, and clone, move, remove or bulk-manage servers. Clusters let players carry survivors and creatures between servers. Restarts, backups and updates run on a schedule and warn players in game first.
 
 ## Install
 

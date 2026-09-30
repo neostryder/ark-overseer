@@ -28,6 +28,16 @@ export const MESSAGES = {
   validating: 'Validating the new install.',
   settingUpSteamcmd: 'Setting up SteamCMD.',
   pathTooLong: 'This folder path is too long for some of the server files. Choose a shorter one, such as D:\\ARK.',
+  removeRunning: 'Stop the server before removing it.',
+  removeSteam:
+    'This server runs from your Steam library, so ARK Overseer cannot delete its files. Remove it without deleting files, then uninstall it in Steam.',
+  removeUnsafe: "This install folder overlaps another install or ARK Overseer's own data, so nothing was deleted.",
+  removeLink: 'The install folder is a link, so nothing was deleted.',
+  removeFailed:
+    'ARK Overseer could not delete {folder}. Another program may have a file in it open. Close that program and remove the server again.',
+  removeProgress: 'Deleting the server files.',
+  removedKept: 'The server was removed. Its files are still in {folder}.',
+  removedDeleted: 'The server and its files were deleted.',
 };
 export const folderKey = (value) =>
   path.win32

@@ -40,6 +40,14 @@ test('resize debounce stays active until 150 ms after the latest event', () => {
   assert.equal(isResizing(1280, deadline), false);
 });
 
+test('the server list toggle is hidden except in the medium layout, and the section tabs keep their width', () => {
+  const css = fs.readFileSync(new URL('../public/style.css', import.meta.url), 'utf8');
+  // .button comes later in the file, so a one-class rule would lose and the toggle would show at every width.
+  assert.match(css, /\n\.button\.rail-expand\s*\{\s*display:\s*none;/);
+  assert.doesNotMatch(css, /\n\.rail-expand\s*[,{]/);
+  assert.match(css, /\n\.section-nav a\s*\{\s*flex:\s*none;/);
+});
+
 test('CSS gates hover, pairs viewport height fallbacks, and HTML includes safe area support', () => {
   const css = fs.readFileSync(new URL('../public/style.css', import.meta.url), 'utf8');
   const stack = [];

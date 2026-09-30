@@ -149,8 +149,11 @@ a {
   background: var(--card);
   margin-top: 2px;
 }
-.rail-status,
-.rail-expand {
+.rail-status {
+  display: none;
+}
+/* Two classes, so it outranks .button, which comes later. The medium layout shows it again. */
+.button.rail-expand {
   display: none;
 }
 .server-text span {
@@ -449,6 +452,7 @@ ao-setup-wizard :focus-visible {
   mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
 }
 .section-nav a {
+  flex: none;
   padding: 12px 14px;
   text-decoration: none;
   white-space: nowrap;

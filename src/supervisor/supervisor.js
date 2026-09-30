@@ -509,6 +509,14 @@ export function createSupervisor({
         return startInternal(id, { manual: true });
       }),
     poll: (id) => enqueue(id, () => pollInternal(id)),
+    // Drops what is remembered about a server that was removed. Row ids can be reused, so a new server
+    // must not inherit the old one's crash count or pending restart.
+    forget(id) {
+      cancelRestart(id);
+      crashes.delete(id);
+      adoptionMissUntil.delete(id);
+      queues.delete(id);
+    },
     status,
     recover,
     startPolling,

@@ -88,6 +88,7 @@ const OTHER_FILE_JOBS = [
   'server.cluster_apply',
   'server.move',
   'server.clone',
+  'server.remove',
   'fleet.action',
 ];
 const ACTIVE = new Set(['running', 'starting', 'unknown']);

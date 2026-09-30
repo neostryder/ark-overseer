@@ -31,6 +31,7 @@ export const FILE_JOBS = [
   'cluster.stop',
   'server.clone',
   'server.move',
+  'server.remove',
   'fleet.action',
 ];
 const NOTE_MAX = 200;

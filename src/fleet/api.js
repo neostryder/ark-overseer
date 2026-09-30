@@ -4,11 +4,44 @@ import { transaction } from '../db/transaction.js';
 import { checkActionOptions } from '../clusters/core.js';
 import { activeFor, checkClone, checkDestination, checkFleet, checkFolder, freeSpace, MESSAGES } from './core.js';
 import { clonePasswords } from './secrets.js';
+import { checkRemovable } from './removal.js';
 
-export function registerFleetRoutes({ router, db, jobs, protectedRoute, must, error, serverRow }) {
+export function registerFleetRoutes({ router, db, dataDir, jobs, supervisor, protectedRoute, must, error, serverRow }) {
   const free = (members, target) => {
     if (activeFor(db, members, target)) throw error(409, MESSAGES.busy);
   };
+  router.add(
+    'DELETE',
+    '/api/servers/:id',
+    protectedRoute(
+      'server.remove',
+      'server',
+      async ({ params, body }) => {
+        const server = must(serverRow(db, params.id));
+        if (body.deleteFiles !== undefined && typeof body.deleteFiles !== 'boolean')
+          throw error(400, MESSAGES.badAction);
+        const deleteFiles = body.deleteFiles === true;
+        if (['running', 'starting', 'stopping', 'unknown'].includes(supervisor.status(server.id)?.observedState))
+          throw error(409, MESSAGES.removeRunning);
+        // Refused here, before a job is queued, so the reason reaches the page at once.
+        if (deleteFiles) await checkRemovable(db, server, { dataDir });
+        return transaction(db, () => {
+          free([server]);
+          const job = jobs.enqueue(
+            'server.remove',
+            { deleteFiles },
+            {
+              serverId: server.id,
+              installId: server.install_id,
+              targets: { servers: [server.id], installs: [server.install_id] },
+            },
+          );
+          return { ...job, jobId: job.id };
+        });
+      },
+      (ctx) => ({ deleteFiles: ctx.body.deleteFiles === true }),
+    ),
+  );
   router.add('GET', '/api/host/free-space', async ({ query }) => {
     const target = checkFolder(query.path);
     const server = query.serverId == null ? null : must(serverRow(db, query.serverId));

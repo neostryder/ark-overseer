@@ -29,6 +29,7 @@ import { createSettingsSnapshotHandlers } from './backups/settings-snapshots.js'
 import { createDrift } from './settings/drift.js';
 import { createClusterHandlers } from './clusters/handlers.js';
 import { createFleetHandlers } from './fleet/handlers.js';
+import { createRemovalHandlers } from './fleet/removal.js';
 import { createTransferHandlers } from './fleet/transfer.js';
 import { completeClone, reconcileInterruptedClones, reconcilePendingMoves } from './fleet/recovery.js';
 import { readUpdateInfo } from './updater.js';
@@ -107,6 +108,7 @@ export async function start() {
     ...drift.handlers,
     ...createClusterHandlers({ db, supervisor, drift, rcon: rconCommand, getRconPassword }),
     ...createFleetHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
+    ...createRemovalHandlers({ db, dataDir, supervisor, drift }),
     ...createTransferHandlers({
       db,
       dataDir,
