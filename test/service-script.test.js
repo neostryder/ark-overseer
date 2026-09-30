@@ -90,6 +90,12 @@ test('service script install dry run validates hashes and prints all planned ste
     steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)RX`) && line.includes(path.join(serviceRoot, 'app'))),
   );
   assert.ok(steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)RX`) && line.includes('runtime')));
+  // The update link runs the runtime PowerShell as an ordinary user, so that folder alone is readable by Users.
+  assert.ok(
+    steps.some(
+      (line) => line.includes('*S-1-5-32-545:(OI)(CI)RX') && line.includes(path.join(serviceRoot, 'runtime', 'pwsh')),
+    ),
+  );
   for (const folder of [path.join(serviceRoot, 'data'), path.join(serviceRoot, 'logs'), grant])
     assert.ok(
       steps.some((line) => line.includes(`*S-1-5-20:(OI)(CI)M`) && line.includes(folder)),

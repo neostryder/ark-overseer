@@ -61,6 +61,7 @@ $Hashes = @{
 $NetworkService = '*S-1-5-20'
 $System = '*S-1-5-18'
 $Administrators = '*S-1-5-32-544'
+$Users = '*S-1-5-32-545'
 $Icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $Sc = Join-Path $env:SystemRoot 'System32\sc.exe'
 $script:Failed = $false
@@ -307,6 +308,10 @@ if ($Action -eq 'install') {
     foreach ($dir in @($App, $Runtime)) {
       Invoke-Native "Let Network Service read $dir and stop inherited write access" $Icacls @($dir, '/inheritance:r', '/grant:r', "${System}:(OI)(CI)F", "${Administrators}:(OI)(CI)F", "${NetworkService}:(OI)(CI)RX")
     }
+    # The update link starts this PowerShell as the Windows account that clicked Update, before Windows asks
+    # for administrator approval. If that account cannot run it, nothing starts and no prompt appears.
+    # Users can read and run it, never change it.
+    Invoke-Native "Let the update link run $pwshDir" $Icacls @($pwshDir, '/grant:r', "${Users}:(OI)(CI)RX")
     # The database holds the password hash and the session secret, so data and logs drop the
     # read access every local user inherits from ProgramData.
     foreach ($dir in @($Data, $Logs)) {
