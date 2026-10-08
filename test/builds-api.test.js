@@ -166,6 +166,13 @@ test('POST /api/installs/:id/branch checks first, then queues the switch', async
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE kind = 'install.switch_branch'").get().n, 1);
   const audit = f.db.prepare("SELECT detail_json FROM audit_events WHERE action = 'install.switch_branch'").get();
   assert.deepEqual(JSON.parse(audit.detail_json), { branch: 'public_test_realm' });
+  // The two overrides are on the record when they were used.
+  f.db.prepare('DELETE FROM jobs').run();
+  await f.send('/api/installs/1/branch', { branch: 'public_test_realm', acknowledged: true, keepMods: true });
+  const rows = f.db
+    .prepare("SELECT detail_json FROM audit_events WHERE action = 'install.switch_branch' ORDER BY id")
+    .all();
+  assert.deepEqual(JSON.parse(rows.at(-1).detail_json), { branch: 'public_test_realm', keepMods: true });
 });
 
 test('adding a server to a cluster refuses a mix of live and test installs', async (t) => {

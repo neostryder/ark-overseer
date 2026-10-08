@@ -137,7 +137,8 @@ export function createBranchHandlers({
       }
       // Mods follow the branch: suspended on a test branch (unless kept on purpose), resumed on the way back.
       transaction(db, () => {
-        for (const server of servers) {
+        // The install's servers now, not the ones when the switch began: one added during a long download follows the branch too.
+        for (const server of db.prepare('SELECT id FROM servers WHERE install_id = ? ORDER BY id').all(install.id)) {
           const row = db.prepare('SELECT settings_json FROM servers WHERE id = ?').get(server.id);
           const next = toTest
             ? params.keepMods === true

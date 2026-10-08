@@ -125,6 +125,8 @@ export function createBuildWatch({
 
   function arm(wait) {
     if (!started) return;
+    // A second start() must not leave the first timer running beside the new one.
+    if (timer !== null) clearTimer(timer);
     timer = setTimer(async () => {
       timer = null;
       try {

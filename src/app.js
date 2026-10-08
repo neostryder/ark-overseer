@@ -552,7 +552,11 @@ export function createApp({
         }
         return jobs.enqueue('install.switch_branch', params_, { installId: Number(params.id) });
       },
-      (ctx) => ({ branch: ctx.body?.branch }),
+      (ctx) => ({
+        branch: ctx.body?.branch,
+        ...(ctx.body?.keepMods === true ? { keepMods: true } : {}),
+        ...(ctx.body?.allowCluster === true ? { allowCluster: true } : {}),
+      }),
     ),
   );
   router.add(
