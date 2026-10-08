@@ -2,6 +2,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { transaction } from '../db/transaction.js';
+import { clusterBranchProblem } from '../builds/branch.js';
 import { parseCron, describeCron } from '../scheduler/cron.js';
 import {
   activeClusterJob,
@@ -205,6 +206,9 @@ export function registerClusterRoutes({
           if (!Number.isInteger(body.serverId) || body.serverId < 1) throw error(400, MESSAGES.badMember);
           const member = must(serverRow(db, body.serverId));
           if (member.cluster_id) throw error(409, MESSAGES.memberTaken);
+          // A cluster is all live servers or all test servers.
+          const mixed = clusterBranchProblem(db, cluster.id, member.install_branch ?? 'public', member.install_id);
+          if (mixed) throw error(409, mixed);
           clusterFree(cluster.id, [member]);
           db.prepare(
             "UPDATE servers SET cluster_id = ?, cluster_overrides_json = '[]', updated_at = ? WHERE id = ?",

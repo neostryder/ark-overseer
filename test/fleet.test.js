@@ -1222,3 +1222,48 @@ test('clone stops before copying and cleans up when SteamCMD cannot be set up', 
   assert.equal(fs.existsSync(target), false);
   assert.equal(f.db.prepare("SELECT 1 FROM servers WHERE name = 'No SteamCMD'").get(), undefined);
 });
+
+test('clone onto the test branch installs that branch and suspends mods, and checkClone validates the branch', async (t) => {
+  const f = fixture(t);
+  f.db
+    .prepare(
+      "INSERT INTO steam_builds (branch, build_id, manifest_id, first_seen_at, changed_at, checked_at) VALUES ('public_test_realm', '200', 'm200', ?, ?, ?)",
+    )
+    .run(at(), at(), at());
+  const base = { name: 'Server ptr', sessionName: 'Session ptr' };
+  assert.equal(
+    checkClone({ ...base, path: 'C:/ARK/ptr', branch: 'public_test_realm' }, f.db).branch,
+    'public_test_realm',
+  );
+  assert.equal(checkClone({ ...base, path: 'C:/ARK/ptr' }, f.db).branch, undefined);
+  for (const branch of ['unlisted', 5, 'two words'])
+    assert.throws(() => checkClone({ ...base, path: 'C:/ARK/ptr', branch }, f.db), { message: MESSAGES.badBranch });
+  assert.throws(() => checkClone({ ...base, path: 'C:/ARK/ptr', keepMods: 'yes' }, f.db), { status: 400 });
+
+  const target = f.target('ptr');
+  const id = reserve(f, target);
+  f.db.prepare("UPDATE installs SET branch = 'public_test_realm' WHERE id = ?").run(id);
+  const w = transfer(f);
+  const result = await w.handlers['server.clone'](ctx(1, id, { ...base, path: target, branch: 'public_test_realm' }));
+  assert.equal(w.calls.find((item) => item[0] === 'validate')[1].branch, 'public_test_realm');
+  const clone = f.db.prepare('SELECT settings_json FROM servers WHERE id = ?').get(result.serverId);
+  assert.deepEqual(JSON.parse(clone.settings_json), { disableBattlEye: true, suspendedMods: ['123'] });
+  // The source keeps its own mods.
+  assert.deepEqual(
+    JSON.parse(f.db.prepare('SELECT settings_json FROM servers WHERE id = 1').get().settings_json).mods,
+    ['123'],
+  );
+});
+
+test('clone onto the test branch keeps the mods when asked to', async (t) => {
+  const f = fixture(t);
+  const target = f.target('ptr-mods');
+  const id = reserve(f, target);
+  f.db.prepare("UPDATE installs SET branch = 'public_test_realm' WHERE id = ?").run(id);
+  const w = transfer(f);
+  const result = await w.handlers['server.clone'](
+    ctx(1, id, { name: 'Server ptr', sessionName: 'Session ptr', path: target, keepMods: true }),
+  );
+  const clone = f.db.prepare('SELECT settings_json FROM servers WHERE id = ?').get(result.serverId);
+  assert.deepEqual(JSON.parse(clone.settings_json), { mods: ['123'], disableBattlEye: true });
+});

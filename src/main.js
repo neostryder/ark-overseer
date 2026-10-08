@@ -7,6 +7,8 @@ import { createProcessRunner } from './steamcmd/runner.js';
 import { createWindowsPlatform } from './supervisor/platform.js';
 import { createSteamCmd } from './steamcmd/steamcmd.js';
 import { createInstallHandlers } from './steamcmd/handlers.js';
+import { createBranchHandlers } from './builds/branch.js';
+import { createBuildWatch } from './builds/watch.js';
 import { createScheduleHandlers } from './scheduler/handlers.js';
 import { createScheduler } from './scheduler/scheduler.js';
 import { createJobEngine } from './jobs/engine.js';
@@ -86,6 +88,7 @@ export async function start() {
   const catalog = createCatalog({ dataDir, log: console.error });
   const handlers = {
     ...createInstallHandlers({ db, steamcmd }),
+    ...createBranchHandlers({ db, dataDir, steamcmd, rcon: rconCommand, getRconPassword }),
     ...createScheduleHandlers({ db, dataDir, steamcmd, supervisor, rcon: rconCommand, getRconPassword }),
     ...createSwitchHandlers({ db, dataDir, supervisor, rcon: rconCommand, getRconPassword, catalog }),
     ...createRestoreHandlers({
@@ -138,6 +141,19 @@ export async function start() {
     .map((name) => name.trim())
     .filter(Boolean);
   const startedAt = new Date().toISOString();
+  const buildWatch = createBuildWatch({
+    db,
+    steamcmd,
+    log: console.error,
+    isBusy: () =>
+      Boolean(
+        db
+          .prepare(
+            "SELECT 1 FROM jobs WHERE state = 'running' AND (kind LIKE 'install.%' OR kind LIKE 'steamcmd.%' OR kind = 'server.clone') LIMIT 1",
+          )
+          .get(),
+      ),
+  });
   const serviceMode = process.env.OVERSEER_SERVICE === '1';
   const logsDir = path.resolve(process.env.OVERSEER_LOGS || path.join(dataDir, '..', 'logs'));
   const app = createApp({
@@ -156,6 +172,7 @@ export async function start() {
     rcon: rconCommand,
     getRconPassword,
     steamcmd,
+    buildWatch,
     runner,
     platform,
     listListeners,
@@ -252,12 +269,15 @@ export async function start() {
   const stopCatalogRefresh = scheduleCatalogRefresh(catalog);
   // Every server's settings files are compared with ARK Overseer's last write now and then every ten minutes.
   const stopDriftWatch = drift.start();
+  // Steam is asked about new builds every fifteen minutes, live and test branches alike.
+  buildWatch.start();
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
     closing = true;
     stopCatalogRefresh();
     stopDriftWatch();
+    buildWatch.stop();
     await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),

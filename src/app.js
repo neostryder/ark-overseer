@@ -25,6 +25,8 @@ import { registerBackupRoutes, FILE_JOBS } from './backups/api.js';
 import { createDrift, settingKeys } from './settings/drift.js';
 import { registerDriftRoutes } from './settings/api.js';
 import { registerClusterRoutes } from './clusters/api.js';
+import { checkSwitch as checkBranchSwitch } from './builds/branch.js';
+import { listInstallBuilds } from './builds/history.js';
 import { registerFleetRoutes } from './fleet/api.js';
 import { clonePasswords } from './fleet/secrets.js';
 import {
@@ -41,6 +43,7 @@ export const API_MESSAGES = {
     "A Windows service can't ask for administrator approval. Download the script and run it as an administrator.",
   previewExpired: 'That preview has expired. Run it again.',
   notFound: 'Not found.',
+  noBuildWatch: 'The Steam build check is not running.',
   badJson: 'The request body must be JSON.',
   tooLarge: 'The request is too large.',
   steamLibraryPath: 'That folder is inside a Steam library. Pick a folder outside Steam, so SteamCMD can manage it.',
@@ -130,6 +133,8 @@ export function createApp({
   jobs,
   supervisor,
   steamcmd,
+  // The Steam build watcher. Tests that do not exercise it leave it out.
+  buildWatch = null,
   runner,
   platform,
   listListeners,
@@ -490,6 +495,60 @@ export function createApp({
         return jobs.enqueue(`install.${verb}`, {}, { installId: params.id });
       }),
     );
+  // Which builds Steam offers on each branch, and how one install moves between branches.
+  router.add('GET', '/api/builds', () => ({
+    branches: buildWatch ? buildWatch.list() : [],
+    webhook: buildWatch ? buildWatch.webhook() : { configured: false },
+  }));
+  router.add(
+    'POST',
+    '/api/builds/check',
+    protectedRoute('builds.check', 'steamcmd', async () => {
+      if (!buildWatch) throw error(503, API_MESSAGES.noBuildWatch);
+      return { ...(await buildWatch.check()), branches: buildWatch.list() };
+    }),
+  );
+  router.add(
+    'PUT',
+    '/api/builds/webhook',
+    protectedRoute(
+      'builds.webhook',
+      'settings',
+      ({ body }) => {
+        if (!buildWatch) throw error(503, API_MESSAGES.noBuildWatch);
+        buildWatch.setWebhook(body?.url);
+        return buildWatch.webhook();
+      },
+      () => ({}),
+    ),
+  );
+  router.add('GET', '/api/installs/:id/builds', ({ params }) => {
+    must(db.prepare('SELECT id FROM installs WHERE id = ?').get(params.id));
+    return listInstallBuilds(db, Number(params.id));
+  });
+  router.add(
+    'POST',
+    '/api/installs/:id/branch',
+    protectedRoute(
+      'install.switch_branch',
+      'install',
+      ({ params, body }) => {
+        const params_ = {
+          branch: body?.branch,
+          acknowledged: body?.acknowledged === true,
+          keepMods: body?.keepMods === true,
+          allowCluster: body?.allowCluster === true,
+        };
+        try {
+          checkBranchSwitch(db, Number(params.id), params_);
+        } catch (cause) {
+          throw error(cause.status ?? 400, cause.message);
+        }
+        return jobs.enqueue('install.switch_branch', params_, { installId: Number(params.id) });
+      },
+      (ctx) => ({ branch: ctx.body?.branch }),
+    ),
+  );
   router.add(
     'POST',
     '/api/steamcmd/setup',

@@ -98,6 +98,21 @@ export function createSteamCmd({
   function readManifest(installDir) {
     return readAppManifest(installDir);
   }
+  // Every branch the app has on Steam, from one app_info_print: the build id, when Steam last changed the
+  // branch, and the manifest of the game depot, which names the exact files that build holds.
+  async function branchInfo({ signal } = {}) {
+    if (!exists(exePath)) throw new Error('SteamCMD is not installed');
+    let output = '';
+    await runner(exePath, ['+login', 'anonymous', '+app_info_update', '1', '+app_info_print', APP_ID, '+quit'], {
+      cwd: root,
+      signal,
+      onLine: (line) => {
+        output += `${line}
+`;
+      },
+    });
+    return parseBranchInfo(findAppInfo(output, APP_ID), APP_ID);
+  }
   return {
     exePath,
     isInstalled: () => exists(exePath),
@@ -134,20 +149,41 @@ export function createSteamCmd({
     },
     appUpdate,
     readManifest,
+    branchInfo,
     async latestBuildId({ branch = 'public', signal } = {}) {
-      if (!exists(exePath)) throw new Error('SteamCMD is not installed');
-      let output = '';
-      await runner(exePath, ['+login', 'anonymous', '+app_info_update', '1', '+app_info_print', '2430930', '+quit'], {
-        cwd: root,
-        signal,
-        onLine: (line) => {
-          output += `${line}\n`;
-        },
-      });
-      const info = findAppInfo(output, APP_ID);
-      const id = info?.[APP_ID]?.depots?.branches?.[branch]?.buildid;
+      const branches = await branchInfo({ signal });
+      const id = branches[branch]?.buildId;
       if (!id) throw new Error(`Could not find build id for branch ${branch}`);
       return String(id);
     },
   };
+}
+
+// The branches of one app's info block, as { name: { buildId, timeUpdated, manifestId } }. timeUpdated is an
+// ISO time or null. manifestId is the manifest of the app's largest depot for that branch, which is the game
+// itself, or null when the branch lists none.
+export function parseBranchInfo(info, appId = APP_ID) {
+  const app = info?.[appId];
+  const result = {};
+  for (const [name, branch] of Object.entries(app?.depots?.branches ?? {})) {
+    if (!branch?.buildid) continue;
+    const seconds = Number(branch.timeupdated);
+    let manifestId = null;
+    let largest = -1;
+    for (const depot of Object.values(app.depots)) {
+      const manifest = depot?.manifests?.[name];
+      if (!manifest?.gid) continue;
+      const size = Number(manifest.size) || 0;
+      if (size > largest) {
+        largest = size;
+        manifestId = String(manifest.gid);
+      }
+    }
+    result[name] = {
+      buildId: String(branch.buildid),
+      timeUpdated: Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null,
+      manifestId,
+    };
+  }
+  return result;
 }

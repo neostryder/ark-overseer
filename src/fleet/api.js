@@ -77,7 +77,8 @@ export function registerFleetRoutes({ router, db, dataDir, jobs, supervisor, pro
               .prepare(
                 "INSERT INTO installs (created_at, updated_at, host_id, path, branch, state, source) VALUES (?, ?, ?, ?, ?, 'missing', 'steamcmd')",
               )
-              .run(at, at, source.host_id, input.path, source.install_branch ?? 'public').lastInsertRowid,
+              .run(at, at, source.host_id, input.path, input.branch ?? source.install_branch ?? 'public')
+              .lastInsertRowid,
           );
           try {
             const { adminPassword, joinPassword, ...publicInput } = input;
@@ -95,7 +96,12 @@ export function registerFleetRoutes({ router, db, dataDir, jobs, supervisor, pro
           }
         });
       },
-      (ctx) => ({ path: ctx.body.path, copyWorld: ctx.body.copyWorld === true, name: ctx.body.name }),
+      (ctx) => ({
+        path: ctx.body.path,
+        copyWorld: ctx.body.copyWorld === true,
+        name: ctx.body.name,
+        branch: ctx.body.branch,
+      }),
     ),
   );
   router.add(

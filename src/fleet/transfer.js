@@ -11,6 +11,7 @@ import { checkClone, checkCopyPathLength, checkDestination, freeSpace, gigabytes
 import { checkActionOptions } from '../clusters/core.js';
 import { transaction } from '../db/transaction.js';
 import { clonePasswords } from './secrets.js';
+import { isTestBranch, resumeMods, suspendMods } from '../builds/history.js';
 import { cleanClone, recordClonePath } from './recovery.js';
 
 const stamp = () => new Date().toISOString();
@@ -268,7 +269,12 @@ export function createTransferHandlers({
                 ports.queryPort,
                 ports.rconPort,
                 source.max_players,
-                source.settings_json,
+                // A test branch starts with the mods suspended, and a clone back onto the live game gets them back.
+                isTestBranch(target.branch)
+                  ? input.keepMods
+                    ? source.settings_json
+                    : suspendMods(source.settings_json)
+                  : resumeMods(source.settings_json),
               ).lastInsertRowid,
           );
           db.prepare('UPDATE pending_clones SET server_id = ? WHERE job_id = ?').run(inserted, job.id);

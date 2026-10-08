@@ -381,6 +381,39 @@ export const MIGRATIONS = [
         )
       );`,
   },
+  {
+    version: 14,
+    name: 'steam_builds',
+    // What Steam currently offers on each branch (steam_builds), what each install actually received and when
+    // (install_builds, kept so an exact older build can be fetched again), and small host-wide settings such as
+    // the build alert webhook.
+    up: `
+      CREATE TABLE steam_builds (
+        branch TEXT PRIMARY KEY CHECK (length(branch) BETWEEN 1 AND 64),
+        build_id TEXT NOT NULL,
+        manifest_id TEXT,
+        time_updated TEXT,
+        previous_build_id TEXT,
+        first_seen_at TEXT NOT NULL,
+        changed_at TEXT NOT NULL,
+        checked_at TEXT NOT NULL
+      );
+      CREATE TABLE install_builds (
+        id INTEGER PRIMARY KEY,
+        install_id INTEGER NOT NULL REFERENCES installs(id) ON DELETE CASCADE,
+        branch TEXT NOT NULL,
+        build_id TEXT,
+        manifest_id TEXT,
+        reason TEXT NOT NULL CHECK (reason IN ('install', 'update', 'validate', 'branch_switch')),
+        recorded_at TEXT NOT NULL
+      );
+      CREATE INDEX install_builds_install ON install_builds (install_id, id);
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

@@ -30,6 +30,7 @@ export const FILE_JOBS = [
   'cluster.start',
   'cluster.stop',
   'server.clone',
+  'install.switch_branch',
   'server.move',
   'server.remove',
   'fleet.action',

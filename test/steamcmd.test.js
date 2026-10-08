@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createSteamCmd, extractZip } from '../src/steamcmd/steamcmd.js';
+import { createSteamCmd, extractZip, parseBranchInfo } from '../src/steamcmd/steamcmd.js';
 import { createProcessRunner } from '../src/steamcmd/runner.js';
 
 function temp(t) {
@@ -408,4 +408,36 @@ test('appUpdate does not report the empty "unknown, 0 / 0" line SteamCMD prints 
     progress: (...args) => events.push(args),
   });
   assert.deepEqual(events, [[0.5, 'Downloading: 2.0 of 4.0 GB']]);
+});
+
+const APP_INFO_2026_10_07 = fs.readFileSync(
+  new URL('./fixtures/steamcmd-app-info-2430930-2026-10-07.txt', import.meta.url),
+  'utf8',
+);
+
+test('branchInfo reads every branch with its build, change time and game-depot manifest', async (t) => {
+  const root = temp(t);
+  fs.writeFileSync(path.join(root, 'steamcmd.exe'), '');
+  const fake = fakeRunner({ lines: APP_INFO_2026_10_07.split('\n') });
+  const branches = await createSteamCmd({ root, runner: fake.runner }).branchInfo();
+  assert.deepEqual(Object.keys(branches).sort(), ['public', 'public_test_realm']);
+  assert.equal(branches.public.buildId, '25763660');
+  assert.equal(branches.public_test_realm.buildId, '25789335');
+  assert.equal(branches.public_test_realm.timeUpdated, '2026-10-07T22:41:46.000Z');
+  // The game depot is the large one. The small helper depots carry a manifest for "public" only.
+  assert.match(branches.public.manifestId, /^\d+$/);
+  assert.notEqual(branches.public.manifestId, branches.public_test_realm.manifestId);
+});
+
+test('parseBranchInfo skips a branch with no build id and tolerates missing data', () => {
+  assert.deepEqual(parseBranchInfo(null), {});
+  const info = {
+    2430930: {
+      depots: {
+        branches: { public: { buildid: '7' }, empty: {} },
+        2430931: { manifests: { public: { gid: '11', size: '5' } } },
+      },
+    },
+  };
+  assert.deepEqual(parseBranchInfo(info), { public: { buildId: '7', timeUpdated: null, manifestId: '11' } });
 });

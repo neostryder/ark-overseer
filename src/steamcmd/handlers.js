@@ -1,10 +1,13 @@
 import { nowIso } from '../db/index.js';
 import fs from 'node:fs';
 import { MESSAGES } from '../import/phase0.js';
+import { recordInstallBuild } from '../builds/history.js';
 
 // Installs, updates or validates an install with SteamCMD. The install job handlers and the scheduled
 // automatic update both call this, so an update behaves the same whichever one starts it.
-export async function runInstall({ db, steamcmd }, ctx, mode) {
+// `reason` is what the build record says caused this run, and defaults to the mode. A branch switch passes
+// 'branch_switch'. `validate` forces a full file check, which a branch switch asks for.
+export async function runInstall({ db, steamcmd }, ctx, mode, { reason = mode, validate = false } = {}) {
   // A manifest that cannot be read counts as not installed. An exception here would leave the
   // install stuck in its in-progress state.
   const manifestOf = (dir) => {
@@ -41,12 +44,13 @@ export async function runInstall({ db, steamcmd }, ctx, mode) {
     const result = await steamcmd.appUpdate({
       installDir: row.path,
       branch: row.branch,
-      validate: mode === 'validate' || (mode === 'install' && requireFiles(row.path)),
+      validate: validate || mode === 'validate' || (mode === 'install' && requireFiles(row.path)),
       signal: ctx.signal,
       progress: ctx.progress,
     });
     const buildId = manifestOf(row.path)?.buildId ?? null;
     setInstalled.run('installed', buildId, nowIso(), id);
+    recordInstallBuild(db, id, { branch: row.branch, buildId, reason });
     return { buildId, output: result.output };
   } catch (error) {
     // A failed or cancelled update normally leaves the old build intact, and the manifest says so.

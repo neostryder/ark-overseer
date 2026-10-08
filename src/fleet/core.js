@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { SESSION_NAME_MAX_LENGTH } from '../settings/fields.js';
 import { checkActionOptions } from '../clusters/core.js';
+import { BRANCH_NAME } from '../builds/history.js';
 
 // Sizes are decimal gigabytes, the same unit as the free-space line on the Overview page.
 export const gigabytes = (bytes) => (Number(bytes) / 1e9).toFixed(1);
@@ -12,6 +13,7 @@ export const MESSAGES = {
   folderUsed: 'That folder is already an install.',
   folderNotEmpty: 'Choose an empty folder.',
   noSpace: 'This copy needs {required} GB free on that drive, and it has {free} GB.',
+  badBranch: 'Choose a Steam branch that Steam lists.',
   badName: 'Give the server a name of up to 64 characters.',
   badSession: 'Give the session a name of up to 60 characters without a question mark or quote.',
   nameTaken: 'A server with this name already exists.',
@@ -71,6 +73,17 @@ export function checkClone(body, db) {
     throw Object.assign(new Error(MESSAGES.nameTaken), { status: 409 });
   if (body.copyWorld !== undefined && typeof body.copyWorld !== 'boolean')
     throw Object.assign(new Error(MESSAGES.badAction), { status: 400 });
+  if (body.keepMods !== undefined && typeof body.keepMods !== 'boolean')
+    throw Object.assign(new Error(MESSAGES.badAction), { status: 400 });
+  // A branch other than the live game must be one Steam has been seen to list.
+  if (body.branch !== undefined) {
+    if (
+      typeof body.branch !== 'string' ||
+      !BRANCH_NAME.test(body.branch) ||
+      (body.branch !== 'public' && !db.prepare('SELECT 1 FROM steam_builds WHERE branch = ?').get(body.branch))
+    )
+      throw Object.assign(new Error(MESSAGES.badBranch), { status: 400 });
+  }
   if (body.adminPassword !== undefined && typeof body.adminPassword !== 'string')
     throw Object.assign(new Error(MESSAGES.badAction), { status: 400 });
   if (body.joinPassword !== undefined && typeof body.joinPassword !== 'string')
@@ -80,6 +93,8 @@ export function checkClone(body, db) {
     sessionName,
     copyWorld: body.copyWorld === true,
     path: checkFolder(body.path),
+    ...(body.branch === undefined ? {} : { branch: body.branch }),
+    ...(body.keepMods === true ? { keepMods: true } : {}),
     ...(body.adminPassword === undefined ? {} : { adminPassword: body.adminPassword }),
     ...(body.joinPassword === undefined ? {} : { joinPassword: body.joinPassword }),
   };
