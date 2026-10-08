@@ -4,6 +4,8 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-07
+
 ### Added
 
 - [Visible] [UI] [Server] [Settings] **New server builds show up in ARK Overseer.** Every 15 minutes it asks Steam whether the live game or the Public Test Realm has a new dedicated-server build. A banner at the top of every page shows any build from the last 14 days until you dismiss it, and Check Steam now on the This computer page checks right away. Add a Discord webhook under Build alerts on that page to get a silent message for each new build.
