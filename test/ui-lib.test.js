@@ -11,6 +11,8 @@ import { SETTINGS_FIELDS } from '../src/settings/fields.js';
 import { parseRoute, buildRoute } from '../public/js/lib/route.js';
 import {
   groupFields,
+  groupSections,
+  JUMP_LIST_MIN,
   filterFields,
   searchFields,
   rankedFields,
@@ -70,6 +72,29 @@ test('settings group in catalog order and filter all searchable text case-insens
   assert.ok(filterFields([labeled], labeled.label.toUpperCase()).length);
   const described = SETTINGS_FIELDS.find((field) => field.description);
   assert.ok(filterFields([described], described.description.slice(0, 12).toUpperCase()).length);
+});
+
+test('settings sit in 13 tabs, each setting under a named section, with every section kept together', () => {
+  const grouped = groupFields(SETTINGS_FIELDS);
+  assert.equal(Object.keys(grouped).length, 13);
+  for (const field of SETTINGS_FIELDS) assert.ok(field.section, `${field.key} has no section`);
+  for (const [tab, fields] of Object.entries(grouped)) {
+    const sections = groupSections(fields);
+    // A section is one unbroken run in the catalog, so the page never shows the same heading twice.
+    assert.equal(new Set(sections.map((section) => section.name)).size, sections.length, tab);
+    assert.deepEqual(
+      sections.flatMap((section) => section.fields),
+      fields,
+    );
+  }
+  const sections = groupSections(grouped['Cryopods & transfers']);
+  assert.deepEqual(
+    sections.map((section) => section.name),
+    ['Cryopods', 'Cryo hospital', 'Downloads and uploads', 'Tribute limits and expiry'],
+  );
+  assert.ok(sections.length >= JUMP_LIST_MIN);
+  assert.ok(searchFields(SETTINGS_FIELDS, 'imprinting').some((field) => field.key === 'BabyImprintAmountMultiplier'));
+  assert.ok(searchFields(SETTINGS_FIELDS, 'turrets and generators').some((field) => field.key === 'LimitTurretsNum'));
 });
 
 test('null means documented default, pending null is represented, blocked values are omitted', () => {

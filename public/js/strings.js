@@ -554,6 +554,7 @@ export const STRINGS = {
     show: 'Show',
     hide: 'Hide',
     categories: 'Category',
+    jumpTo: 'Jump to a section',
     fixFirst: 'Fix the settings marked in red, then review again.',
     running: 'The server is running. These changes apply at the next restart.',
     restartNow: 'Restart now',

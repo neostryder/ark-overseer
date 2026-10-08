@@ -553,6 +553,22 @@ ao-setup-wizard :focus-visible {
   border-color: var(--card-border);
   background: var(--card);
 }
+.settings-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.settings-section h2 {
+  margin: 12px 0 0;
+  font-size: 1.05rem;
+  color: var(--gold-bright);
+  scroll-margin-top: 12px;
+}
+.section-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .field-list {
   display: grid;
   gap: 12px;

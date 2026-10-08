@@ -305,8 +305,8 @@ export class AoClusters extends HTMLElement {
       const found = search.value
         ? searchFields(pool, search.value)
         : [
-            ...pool.filter((field) => field.category === 'Transfers'),
-            ...pool.filter((field) => field.category !== 'Transfers'),
+            ...pool.filter((field) => field.category === 'Cryopods & transfers'),
+            ...pool.filter((field) => field.category !== 'Cryopods & transfers'),
           ];
       for (const field of found) picker.append(new Option(`${field.label} (${field.category})`, field.key));
     };

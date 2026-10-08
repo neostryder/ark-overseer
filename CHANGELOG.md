@@ -11,6 +11,7 @@ All notable changes to ARK Overseer are listed here.
 - [Visible] [UI] [Server] **Add a test copy of a server.** Add a test copy on a server's Overview page copies it into its own empty folder on the Public Test Realm, and the original server and its saves stay as they are. The form also lets you pick the copy's Steam branch and keep its mods on.
 - [Visible] [Mods] [Server] [UI] **Test branches put mods on hold and keep clusters apart.** A server on a test branch has its mods put on hold, and the list comes back when the install returns to the live game. Tick Keep my mods on to leave them on. A server in a cluster moves to a test branch only when you tick the override, since one cluster cannot hold both live and test servers. Servers on a test branch carry a Test branch badge in the server list and on their Overview page.
 - [Visible] [UI] [Data] **Each install lists the builds it received.** The Steam branch and builds card shows every build an install got, with how and when, and hovering a build shows its Steam depot manifest id. The id is kept so an exact build can be fetched again later, though ARK Overseer cannot fetch an older build yet.
+- [Visible] [UI] [Settings] **The Settings page has 13 tabs instead of 23.** Inside each tab, settings sit under section headings that all start open, and tabs with three or more sections get a row of jump buttons at the top. Search results name the tab and section each setting belongs to.
 
 ## [1.1.0] - 2026-09-29
 

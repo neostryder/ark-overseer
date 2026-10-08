@@ -7,6 +7,18 @@ export function groupFields(fields) {
   }
   return Object.fromEntries(groups);
 }
+// The sections inside one tab, in catalog order, each with its own fields.
+export function groupSections(fields) {
+  const sections = new Map();
+  for (const field of fields) {
+    const name = field.section || '';
+    if (!sections.has(name)) sections.set(name, []);
+    sections.get(name).push(field);
+  }
+  return [...sections].map(([name, members]) => ({ name, fields: members }));
+}
+// A tab with this many sections or more gets a jump list at its top.
+export const JUMP_LIST_MIN = 3;
 export function filterFields(fields, query) {
   const q = String(query || '')
     .trim()
@@ -30,7 +42,7 @@ export function searchFields(fields, query) {
     .filter(Boolean);
   if (!terms.length) return [];
   return fields.filter((field) => {
-    const haystack = [field.key, field.label, field.description, field.category]
+    const haystack = [field.key, field.label, field.description, field.category, field.section]
       .map((text) => String(text || '').toLocaleLowerCase())
       .join(' ');
     return terms.every((term) => haystack.includes(term));

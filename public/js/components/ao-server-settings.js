@@ -5,6 +5,8 @@ import { clusterEditChoice, clusterFieldState } from '../lib/clusters.js';
 import { createSettingInput, readSettingInput } from '../lib/settings-controls.js';
 import {
   groupFields,
+  groupSections,
+  JUMP_LIST_MIN,
   searchFields,
   rankedFields,
   pendingChanges,
@@ -175,7 +177,7 @@ export class AoServerSettings extends HTMLElement {
       this.panel.replaceChildren(...fields.map((field) => this.fieldNode(field, withCategory)));
     if (!query) {
       this.status.textContent = '';
-      show(this.groups[this.active] || [], false);
+      this.panel.replaceChildren(...this.sectionNodes(this.groups[this.active] || []));
       return;
     }
     const exact = searchFields(this.fields, query);
@@ -210,6 +212,39 @@ export class AoServerSettings extends HTMLElement {
       }
     }, 350);
   }
+  // One tab: a heading per section with its settings under it, every section open, and a jump list when
+  // the tab has enough sections for scrolling to be slow.
+  sectionNodes(fields) {
+    const sections = groupSections(fields);
+    const nodes = [];
+    if (sections.length >= JUMP_LIST_MIN) {
+      const jump = document.createElement('nav');
+      jump.className = 'section-jump';
+      jump.setAttribute('aria-label', STRINGS.settings.jumpTo);
+      for (const [index, section] of sections.entries()) {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'button quiet';
+        link.textContent = section.name;
+        link.addEventListener('click', () => {
+          const heading = this.panel.querySelector(`[data-section="${index}"]`);
+          if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        jump.append(link);
+      }
+      nodes.push(jump);
+    }
+    for (const [index, section] of sections.entries()) {
+      const group = document.createElement('section');
+      group.className = 'settings-section';
+      const heading = document.createElement('h2');
+      heading.textContent = section.name;
+      heading.dataset.section = String(index);
+      group.append(heading, ...section.fields.map((field) => this.fieldNode(field, false)));
+      nodes.push(group);
+    }
+    return nodes;
+  }
   disconnectedCallback() {
     clearTimeout(this.searchTimer);
   }
@@ -220,7 +255,7 @@ export class AoServerSettings extends HTMLElement {
     if (withCategory) {
       const where = document.createElement('p');
       where.className = 'setting-category muted';
-      where.textContent = field.category;
+      where.textContent = field.section ? `${field.category} / ${field.section}` : field.category;
       row.append(where);
     }
     const label = document.createElement('label');

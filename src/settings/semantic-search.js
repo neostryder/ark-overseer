@@ -50,7 +50,9 @@ function getExtractor() {
 }
 
 export function fieldCorpusText(field) {
-  return [field.label, field.key, field.category, field.description, field.help].filter(Boolean).join(' . ');
+  return [field.label, field.key, field.category, field.section, field.description, field.help]
+    .filter(Boolean)
+    .join(' . ');
 }
 
 function dotProduct(a, b) {
