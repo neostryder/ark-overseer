@@ -114,12 +114,18 @@ function shapeServer(row, supervisor, unseenDrift = new Set()) {
     ...row,
     cluster_overrides_json: JSON.parse(row.cluster_overrides_json || '[]'),
     settingsChanged: unseenDrift.has(row.id),
-    settings_json: { mods: settings.mods ?? [], disableBattlEye: settings.disableBattlEye ?? false },
+    settings_json: {
+      mods: settings.mods ?? [],
+      disableBattlEye: settings.disableBattlEye ?? false,
+      // The mods held back while the server is on a test branch, so the page can say they will return.
+      ...(settings.suspendedMods?.length ? { suspendedMods: settings.suspendedMods } : {}),
+    },
     status: supervisor.status(row.id),
     install: {
       path: row.install_path,
       state: row.install_state,
       source: row.install_source,
+      branch: row.install_branch ?? 'public',
       build_id: row.install_build_id,
       latest_build_id: row.latest_build_id,
       update_checked_at: row.update_checked_at,
@@ -557,7 +563,7 @@ export function createApp({
   const listServers = (unseen) =>
     db
       .prepare(
-        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id ORDER BY s.id',
+        'SELECT s.*, i.path AS install_path, i.state AS install_state, i.source AS install_source, i.branch AS install_branch, i.build_id AS install_build_id, i.latest_build_id, i.update_checked_at, c.name AS cluster_name FROM servers s JOIN installs i ON i.id = s.install_id LEFT JOIN clusters c ON c.id = s.cluster_id ORDER BY s.id',
       )
       .all()
       .map((row) => shapeServer(row, supervisor, unseen));

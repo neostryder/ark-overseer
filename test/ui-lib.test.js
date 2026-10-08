@@ -223,3 +223,35 @@ test('the server rail picks the map picture, and the generic one when there is n
   markArtFailed('/api/servers/3/maps/Winter_WP/art');
   assert.equal(railPictureUrl({ id: 3, map: 'Winter_WP' }, maps), GENERIC_MAP_ART);
 });
+
+test('branch helpers name branches and pick the builds worth a banner', async () => {
+  const { branchName, isTestBranch, newBuilds, bannerText, switchWarning } = await import('../public/js/lib/builds.js');
+  assert.equal(branchName('public'), 'Live game');
+  assert.equal(branchName('public_test_realm'), 'Public Test Realm (PTR)');
+  assert.equal(branchName('beta'), 'beta');
+  assert.equal(isTestBranch('public'), false);
+  assert.equal(isTestBranch('public_test_realm'), true);
+  const now = Date.parse('2026-10-08T00:00:00.000Z');
+  const rows = [
+    { branch: 'public', build_id: '100', changed_at: '2026-10-07T01:00:00.000Z' },
+    { branch: 'public_test_realm', build_id: '200', changed_at: '2026-10-07T22:00:00.000Z' },
+    { branch: 'old', build_id: '9', changed_at: '2026-01-01T00:00:00.000Z' },
+    { branch: 'broken', build_id: '8', changed_at: null },
+  ];
+  assert.deepEqual(
+    newBuilds(rows, {}, now).map((row) => row.branch),
+    ['public', 'public_test_realm'],
+  );
+  assert.deepEqual(
+    newBuilds(rows, { public: '100' }, now).map((row) => row.branch),
+    ['public_test_realm'],
+  );
+  // A newer build on a dismissed branch is shown again.
+  assert.equal(newBuilds(rows, { public: '99' }, now).length, 2);
+  assert.deepEqual(bannerText([rows[1]], relativeTime, now), [
+    'New server build 200 on Public Test Realm (PTR), 2 hours ago.',
+  ]);
+  assert.equal(switchWarning('public', 'public_test_realm'), STRINGS.builds.warnToTest);
+  assert.equal(switchWarning('public_test_realm', 'public'), STRINGS.builds.warnToLive);
+  assert.equal(switchWarning('public_test_realm', 'beta'), STRINGS.builds.warnBetween);
+});

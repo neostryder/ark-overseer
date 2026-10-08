@@ -31,6 +31,10 @@ netsh advfirewall firewall add rule name="ARK Overseer" dir=in action=allow prot
 
 Sign in with the same password. Passkeys work on the PC itself, and on other devices only over HTTPS.
 
+## Test branches
+
+ARK Overseer can run servers on a Steam test branch such as the Public Test Realm, which gets new server builds before the live game. The Steam branch and builds card on a server's Overview page moves an install to a test branch and back, and Add a test copy puts a copy of a server in its own folder on the test branch while the original stays on the live game. A switch needs the install's servers stopped, and ARK Overseer backs up the settings and every map's saves before it downloads anything. On a test branch the server's mods go on hold and a clustered server stays put unless you tick the box to override either one. Worlds saved by a test build may not load on the live game, so the way back is restoring the backup taken before the switch from the Backups page.
+
 ## Behind Cloudflare Access
 
 If you publish ARK Overseer on a domain protected by Cloudflare Access, enter your Access team domain, the application's AUD tag and the public address on the This computer page. A request that carries a valid Access token then signs in without the password prompt. Every token is checked again on every request, and the site and address checks still apply. The first password is still set on the PC itself.

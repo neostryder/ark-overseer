@@ -1235,6 +1235,12 @@ code {
   padding-left: 18px;
   overflow-wrap: anywhere;
 }
+.server-text .badge.ptr-badge,
+.badge.ptr-badge {
+  align-self: flex-start;
+  border-color: var(--teal);
+  color: var(--teal);
+}
 .server-text .badge.drift-badge {
   align-self: flex-start;
   border-color: var(--gold);

@@ -4,6 +4,14 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+### Added
+
+- [Visible] [UI] [Server] [Settings] **New server builds show up in ARK Overseer.** Every 15 minutes it asks Steam whether the live game or the Public Test Realm has a new dedicated-server build. A banner at the top of every page shows any build from the last 14 days until you dismiss it, and Check Steam now on the This computer page checks right away. Add a Discord webhook under Build alerts on that page to get a silent message for each new build.
+- [Visible] [UI] [Server] [Data] **Move an install to a Steam test branch and back.** The Steam branch and builds card on a server's Overview page switches an install between the live game and a test branch such as the Public Test Realm. Every server on the install has to be stopped first, and a move to a test branch asks you to tick a confirmation. ARK Overseer then backs up the settings and every map's saves under the label "Before an update or branch switch", which is never pruned automatically, and downloads the new build with a full file check. If the download fails, the install stays on its old branch. Worlds saved by a test build may not load on the live game, so the way back is restoring that backup from the Backups page. Installs made through the Steam client change branch in Steam instead.
+- [Visible] [UI] [Server] **Add a test copy of a server.** Add a test copy on a server's Overview page copies it into its own empty folder on the Public Test Realm, and the original server and its saves stay as they are. The form also lets you pick the copy's Steam branch and keep its mods on.
+- [Visible] [Mods] [Server] [UI] **Test branches put mods on hold and keep clusters apart.** A server on a test branch has its mods put on hold, and the list comes back when the install returns to the live game. Tick Keep my mods on to leave them on. A server in a cluster moves to a test branch only when you tick the override, since one cluster cannot hold both live and test servers. Servers on a test branch carry a Test branch badge in the server list and on their Overview page.
+- [Visible] [UI] [Data] **Each install lists the builds it received.** The Steam branch and builds card shows every build an install got, with how and when, and hovering a build shows its Steam depot manifest id. The id is kept so an exact build can be fetched again later, though ARK Overseer cannot fetch an older build yet.
+
 ## [1.1.0] - 2026-09-29
 
 ### Added

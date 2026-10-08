@@ -125,6 +125,14 @@ export class AoFleetRail extends HTMLElement {
         cluster.textContent = clusterLabel.replace('{name}', server.cluster_name);
         text.append(cluster);
       }
+      // A server on a Steam test branch is marked, since it cannot join live servers.
+      if (server.install_branch && server.install_branch !== 'public') {
+        const test = document.createElement('span');
+        test.className = 'badge ptr-badge';
+        test.textContent = STRINGS.builds.ptrBadge;
+        test.title = STRINGS.builds.ptrBadgeHelp;
+        text.append(test);
+      }
       // Settings files that changed outside ARK Overseer and that nobody has looked at yet.
       if (server.settingsChanged) {
         const flag = document.createElement('span');

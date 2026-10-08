@@ -3,6 +3,7 @@ import { STRINGS } from '../strings.js';
 import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
+import { branchName } from '../lib/builds.js';
 import {
   isLocalPage,
   shortCommit,
@@ -74,6 +75,7 @@ export class AoHostSettings extends HTMLElement {
       this.replaceChildren(
         el('h1', STRINGS.host.title),
         ...this.updateCards(),
+        this.buildAlertsCard(),
         this.mapArtCard(),
         el('p', error.message, 'error-message'),
         retry,
@@ -179,6 +181,7 @@ export class AoHostSettings extends HTMLElement {
       el('h1', s.title),
       ...this.updateCards(),
       card,
+      this.buildAlertsCard(),
       this.mapArtCard(),
       document.createElement('ao-access-settings'),
       this.statusBlock,
@@ -211,6 +214,96 @@ export class AoHostSettings extends HTMLElement {
       }
     });
     card.append(el('h2', s.mapArtTitle), row, el('p', s.mapArtHelp, 'muted'), message);
+    return card;
+  }
+  // New server builds on Steam, live and test branches, and where to be told about them.
+  buildAlertsCard() {
+    const b = STRINGS.builds;
+    const card = el('section', undefined, 'card host-card');
+    const status = el('p', '', 'muted');
+    const seen = el('ul');
+    const message = el('p', '', 'error-message');
+    message.setAttribute('aria-live', 'polite');
+    const url = document.createElement('input');
+    url.type = 'password';
+    url.autocomplete = 'off';
+    url.placeholder = 'https://discord.com/api/webhooks/...';
+    const hook = field(b.webhook, url);
+    const save = el('button', b.saveWebhook, 'button secondary');
+    const clear = el('button', b.clearWebhook, 'button quiet');
+    const check = el('button', b.checkNow, 'button secondary');
+    clear.hidden = true;
+    let configured = false;
+    const show = (data) => {
+      configured = data.webhook.configured;
+      status.textContent = configured ? b.webhookSet : b.webhookNone;
+      clear.hidden = !configured;
+      seen.replaceChildren(
+        ...(data.branches.length
+          ? data.branches.map((row) =>
+              el(
+                'li',
+                b.lastSeen
+                  .replace('{branch}', branchName(row.branch))
+                  .replace('{build}', row.build_id)
+                  .replace('{when}', relativeTime(row.changed_at)),
+              ),
+            )
+          : [el('li', b.nothingSeen)]),
+      );
+    };
+    const reload = async () => show(await api.get('/api/builds'));
+    reload().catch((error) => {
+      message.textContent = error.message;
+    });
+    const run = (button, work, done) => async () => {
+      message.textContent = '';
+      button.disabled = true;
+      try {
+        await work();
+        if (done) document.querySelector('ao-toast')?.show(done);
+      } catch (error) {
+        message.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    };
+    save.addEventListener(
+      'click',
+      run(
+        save,
+        async () => {
+          await api.put('/api/builds/webhook', { url: url.value.trim() });
+          url.value = '';
+          await reload();
+        },
+        b.webhookSaved,
+      ),
+    );
+    clear.addEventListener(
+      'click',
+      run(
+        clear,
+        async () => {
+          await api.put('/api/builds/webhook', { url: '' });
+          await reload();
+        },
+        b.webhookCleared,
+      ),
+    );
+    check.addEventListener(
+      'click',
+      run(check, async () => {
+        message.textContent = b.checking;
+        const result = await api.post('/api/builds/check', {});
+        message.textContent = result.checked ? '' : result.reason;
+        show({ branches: result.branches, webhook: { configured } });
+        if (result.checked) document.querySelector('ao-toast')?.show(b.checked);
+      }),
+    );
+    const row = el('div', undefined, 'button-row');
+    row.append(save, clear, check);
+    card.append(el('h2', b.alertsTitle), el('p', b.alertsHelp, 'muted'), seen, status, hook.wrap, row, message);
     return card;
   }
   updateCards() {
