@@ -4,6 +4,10 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+### Changed
+
+- [Visible] [Server] **The Edge update channel now refreshes only when someone starts the Edge workflow by hand from the GitHub Actions page.** Pushes to the main branch on GitHub no longer rebuild it, so the Edge build can be older than the latest commit. You can still pick Edge on the This computer page next to Stable and Beta, and the Update button installs whichever Edge build is currently published. Stable and Beta still come from version tags.
+
 ## [1.2.0] - 2026-10-07
 
 ### Added
