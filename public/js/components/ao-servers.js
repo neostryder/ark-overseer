@@ -4,6 +4,7 @@ import { mapName } from '../lib/wizard.js';
 import { stateName } from '../lib/format.js';
 import { parseCountdown } from '../lib/cron-picker.js';
 import { GENERIC_MAP_ART, markArtFailed, railPictureUrl } from '../lib/map-art.js';
+import { fleetSummary, ringFill, stateTone } from '../lib/fleet-summary.js';
 
 const s = STRINGS.servers;
 const el = (tag, text, className) => {
@@ -46,6 +47,7 @@ export class AoServers extends HTMLElement {
       this.append(el('p', s.empty, 'muted'));
       return;
     }
+    this.append(this.hero());
     const all = el('label', undefined, 'fleet-select-all');
     const selectAll = document.createElement('input');
     selectAll.type = 'checkbox';
@@ -59,7 +61,7 @@ export class AoServers extends HTMLElement {
     this.append(all);
     const list = el('div', undefined, 'servers-list');
     for (const server of this.servers) {
-      const row = el('div', undefined, 'card servers-row');
+      const row = el('div', undefined, `card servers-row tone-${stateTone(server)}`);
       const choice = document.createElement('input');
       choice.type = 'checkbox';
       choice.checked = this.selected.has(server.id);
@@ -142,6 +144,55 @@ export class AoServers extends HTMLElement {
     form.append(this.jobStatus, this.cancel);
     this.append(form);
     if (this.jobId) this.follow(this.jobId);
+  }
+  // The fleet at a glance: a hex ring that fills with the share of servers running, and a count for each other state.
+  hero() {
+    const summary = fleetSummary(this.servers);
+    const hero = el('section', undefined, 'card fleet-hero');
+    const ringTemplate = s.heroRing;
+    const countTemplate = s.heroCount;
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    ring.setAttribute('viewBox', '0 0 100 100');
+    ring.setAttribute('class', 'hero-ring');
+    ring.setAttribute('role', 'img');
+    ring.setAttribute(
+      'aria-label',
+      ringTemplate.replace('{running}', summary.running).replace('{total}', summary.total),
+    );
+    const hex = 'M50 6 88.1 28v44L50 94 11.9 72V28Z';
+    for (const [cls, extra] of [
+      ['ring-track', {}],
+      ['ring-fill', { pathLength: '100', 'stroke-dasharray': `${ringFill(summary)} 100` }],
+    ]) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', hex);
+      path.setAttribute('class', cls);
+      for (const [key, value] of Object.entries(extra)) path.setAttribute(key, value);
+      ring.append(path);
+    }
+    const art = document.createElement('img');
+    art.className = 'hero-art';
+    art.src = '/icons/icon-192.png';
+    art.alt = '';
+    const mark = el('div', undefined, 'hero-mark');
+    mark.append(ring, art);
+    const headline = el('div', undefined, 'hero-headline');
+    headline.append(
+      el('strong', countTemplate.replace('{running}', summary.running).replace('{total}', summary.total)),
+      el('span', s.heroLabel, 'muted'),
+    );
+    const parts = el('dl', undefined, 'hero-stats');
+    for (const [key, label] of [
+      ['busy', s.heroBusy],
+      ['bad', s.heroBad],
+      ['idle', s.heroIdle],
+    ]) {
+      const part = el('div', undefined, `hero-stat tone-${key}`);
+      part.append(el('dt', label), el('dd', String(summary[key])));
+      parts.append(part);
+    }
+    hero.append(mark, headline, parts);
+    return hero;
   }
   follow(id) {
     clearTimeout(this.jobTimer);

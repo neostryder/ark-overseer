@@ -17,6 +17,7 @@
   --gold-bright: #f0c96b;
   --teal: #3fb8a8;
   --go: #4fbf7a;
+  --warn: #e0a43c;
   --danger: #d9564a;
   --danger-text: #f08c82;
   --on-accent: #1b180f;
@@ -38,7 +39,7 @@
   --teal-wash: rgba(63, 184, 168, 0.08);
   --gold-wash: rgba(212, 175, 90, 0.09);
   --gold-wash-strong: rgba(212, 175, 90, 0.12);
-  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Consolas', monospace;
   font-family: var(--font-body);
@@ -61,6 +62,7 @@
   --gold-bright: #6d4f0f;
   --teal: #0f7a6c;
   --go: #1f7a43;
+  --warn: #946000;
   --danger: #b3392e;
   --danger-text: #a32d22;
   --on-accent: #fffaf0;
@@ -262,6 +264,9 @@ a {
 .button.menu-button {
   display: none;
 }
+ao-tab-bar {
+  display: none;
+}
 .view {
   max-width: 1440px;
   margin: auto;
@@ -295,7 +300,7 @@ a {
   gap: 8px;
   min-height: 44px;
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: 999px;
   border: 1px solid var(--card-border);
   font-weight: 600;
   text-decoration: none;
@@ -1614,6 +1619,47 @@ code {
   .app-frame {
     display: block;
   }
+  .main-area {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  ao-tab-bar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 6px max(6px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px, env(safe-area-inset-left));
+    background: var(--rail-bg);
+    border-top: 1px solid var(--card-border);
+    backdrop-filter: blur(10px);
+  }
+  ao-tab-bar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 4px 2px;
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-decoration: none;
+    text-align: center;
+  }
+  ao-tab-bar a[aria-current='page'] {
+    color: var(--gold-bright);
+    font-weight: 600;
+    background: var(--gold-wash);
+  }
+  /* A raised keyboard needs the room, and the bar would ride above it. */
+  body:has(input:focus, textarea:focus, select:focus) ao-tab-bar {
+    display: none;
+  }
+  .pending-bar {
+    bottom: calc(6px + 64px + env(safe-area-inset-bottom));
+  }
   .fleet-rail {
     position: fixed;
     inset: 0 auto 0 0;
@@ -1651,7 +1697,7 @@ code {
   }
   .pending-bar {
     flex-wrap: wrap;
-    bottom: 6px;
+    bottom: calc(6px + 64px + env(safe-area-inset-bottom));
     padding: 9px;
   }
   .pending-bar .button {
@@ -1912,6 +1958,86 @@ code {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  border-left: 6px solid var(--tone);
+  background: color-mix(in srgb, var(--tone) 8%, var(--card));
+}
+.tone-running {
+  --tone: var(--go);
+}
+.tone-busy {
+  --tone: var(--warn);
+}
+.tone-bad {
+  --tone: var(--danger);
+}
+.tone-idle {
+  --tone: var(--muted);
+}
+.fleet-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 18px;
+}
+.hero-mark {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  grid-row: span 2;
+}
+.hero-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.ring-track,
+.ring-fill {
+  fill: none;
+  stroke-width: 7;
+  stroke-linejoin: round;
+}
+.ring-track {
+  stroke: var(--line-soft);
+}
+.ring-fill {
+  stroke: var(--gold);
+  stroke-linecap: round;
+}
+.hero-art {
+  position: absolute;
+  inset: 19px;
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+}
+.hero-headline {
+  display: grid;
+  gap: 2px;
+}
+.hero-headline strong {
+  font: 700 clamp(1.7rem, 6cqi, 2.4rem) / 1 var(--font-display);
+  color: var(--gold-bright);
+}
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+}
+.hero-stat {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.hero-stat dt {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.hero-stat dd {
+  margin: 0;
+  font: 700 1.3rem / 1.1 var(--font-display);
+  color: var(--tone);
 }
 .servers-row img {
   width: 110px;
@@ -1920,8 +2046,13 @@ code {
   object-fit: cover;
   border-radius: 6px;
 }
+.servers-screen h1,
+.servers-screen .error-message:empty {
+  margin: 0;
+}
 .servers-info {
   display: grid;
+  align-content: center;
   gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1948,6 +2079,7 @@ code {
 .folder-picker-list .button {
   min-height: 44px;
   text-align: left;
+  border-radius: 10px;
 }
 .fleet-action-form select,
 .fleet-action-form input,

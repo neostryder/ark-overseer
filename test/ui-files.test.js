@@ -97,7 +97,7 @@ test('HTML loads only local files and the permitted Google Fonts stylesheet', ()
       );
     assert.ok(
       urls.includes(
-        'https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
+        'https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
       ),
     );
   }

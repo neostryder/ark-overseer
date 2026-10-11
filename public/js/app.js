@@ -7,6 +7,7 @@ import { layoutMode, resizeDeadline, isResizing, railClass, shouldCloseSwipe } f
 import './components/ao-dialog.js';
 import './components/ao-toast.js';
 import './components/ao-fleet-rail.js';
+import './components/ao-tab-bar.js';
 import './components/ao-build-banner.js';
 import './components/ao-server-overview.js';
 import './components/ao-clusters.js';
@@ -122,7 +123,7 @@ class AoApp extends HTMLElement {
     main.append(top, document.createElement('ao-build-banner'), this.view, jobs);
     const dialog = document.createElement('ao-dialog');
     const toast = document.createElement('ao-toast');
-    this.append(rail, scrim, main, dialog, toast);
+    this.append(rail, scrim, main, document.createElement('ao-tab-bar'), dialog, toast);
     this.main = main;
     this.menuButton = menu;
     rail.addEventListener('rail-toggle', (event) => this.toggleRail(event.detail.opener));
