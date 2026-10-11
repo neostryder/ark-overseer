@@ -1,6 +1,9 @@
 import { api } from './api.js';
 import { STRINGS } from './strings.js';
 import { passkeysSupported, signInWithPasskey } from './webauthn.js';
+import { watchSystemTheme } from './lib/theme.js';
+
+watchSystemTheme();
 
 const form = document.querySelector('#auth-form');
 const title = document.querySelector('#auth-title');

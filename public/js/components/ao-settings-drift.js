@@ -28,8 +28,8 @@ function el(tag, text, className = '') {
 }
 const toast = (text) => document.querySelector('ao-toast')?.show(text);
 
-// The banner on the Settings page for settings that changed outside ARK Overseer, the review of them, and the option
-// that puts ARK Overseer's values back after a shutdown. The page keeps one of these and moves it between draws.
+// The banner on the Settings page for settings that changed outside Overseer, the review of them, and the option
+// that puts Overseer's values back after a shutdown. The page keeps one of these and moves it between draws.
 export class AoSettingsDrift extends HTMLElement {
   connectedCallback() {
     this.serverId = this.getAttribute('server-id');

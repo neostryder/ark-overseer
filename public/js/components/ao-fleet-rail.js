@@ -4,6 +4,9 @@ import { stateName } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
 import { mapName } from '../lib/wizard.js';
 import { GENERIC_MAP_ART, markArtFailed, railPictureUrl } from '../lib/map-art.js';
+import { themeMode, nextMode, setThemeMode, watchSystemTheme } from '../lib/theme.js';
+
+watchSystemTheme();
 
 export class AoFleetRail extends HTMLElement {
   connectedCallback() {
@@ -64,9 +67,12 @@ export class AoFleetRail extends HTMLElement {
     const brand = document.createElement('a');
     brand.className = 'brand';
     brand.href = '#/';
-    const mark = document.createElement('span');
+    const mark = document.createElement('img');
     mark.className = 'brand-mark';
-    mark.textContent = 'A';
+    mark.src = '/favicon.svg';
+    mark.alt = '';
+    mark.width = 38;
+    mark.height = 38;
     const name = document.createElement('span');
     name.textContent = STRINGS.app.name;
     brand.append(mark, name);
@@ -133,7 +139,7 @@ export class AoFleetRail extends HTMLElement {
         test.title = STRINGS.builds.ptrBadgeHelp;
         text.append(test);
       }
-      // Settings files that changed outside ARK Overseer and that nobody has looked at yet.
+      // Settings files that changed outside Overseer and that nobody has looked at yet.
       if (server.settingsChanged) {
         const flag = document.createElement('span');
         flag.className = 'badge drift-badge';
@@ -191,7 +197,22 @@ export class AoFleetRail extends HTMLElement {
         window.location.assign('/login.html');
       }
     });
-    bottom.append(host, account, signOut);
+    const mode = themeMode();
+    const themeTemplate = STRINGS.app.theme;
+    const themeLabel = themeTemplate.replace('{mode}', STRINGS.app.themeModes[mode]);
+    const themeButton = document.createElement('button');
+    themeButton.className = 'button quiet';
+    themeButton.type = 'button';
+    themeButton.setAttribute('aria-label', themeLabel);
+    themeButton.title = `${themeLabel}. ${STRINGS.app.themeHelp}`;
+    themeButton.append(icon(`theme-${mode}`), themeLabel);
+    themeButton.addEventListener('click', () => {
+      setThemeMode(nextMode(themeMode()));
+      this.render();
+      this.querySelector('.rail-bottom .theme-toggle')?.focus();
+    });
+    themeButton.classList.add('theme-toggle');
+    bottom.append(host, account, themeButton, signOut);
     this.append(bottom);
     this.scrollTop = scroll;
     if (focused) [...this.querySelectorAll('a[href]')].find((link) => link.getAttribute('href') === focused)?.focus();

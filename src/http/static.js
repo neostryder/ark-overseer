@@ -10,6 +10,7 @@ const TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
 };

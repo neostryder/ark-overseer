@@ -1086,7 +1086,13 @@ export function createApp({
   );
   // Scripts, styles and icons hold nothing private, and the sign-in page needs them before anyone is
   // signed in. Only the app page itself and the API wait for a session.
-  const publicFiles = new Set(['/login.html', '/style.css', '/favicon.svg']);
+  const publicFiles = new Set([
+    '/login.html',
+    '/style.css',
+    '/favicon.svg',
+    '/manifest.webmanifest',
+    '/apple-touch-icon.png',
+  ]);
   const isPublic = (pathname) =>
     publicFiles.has(pathname) || pathname.startsWith('/icons/') || pathname.startsWith('/js/');
   const sendJson = (res, status, value) => {

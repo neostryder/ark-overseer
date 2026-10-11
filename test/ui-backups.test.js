@@ -30,7 +30,7 @@ import { PLAYER_MESSAGES } from '../src/scheduler/handlers.js';
 // A time on a given local day, so the grouping does not depend on the time zone the tests run in.
 const local = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min).toISOString();
 
-test('only the backups ARK Overseer takes before it replaces files are safety backups, and only two kinds can be deleted', () => {
+test('only the backups Overseer takes before it replaces files are safety backups, and only two kinds can be deleted', () => {
   assert.deepEqual(
     ['manual', 'scheduled', 'pre_update', 'pre_restore', 'pre_import', 'pre_rollback', 'pre_switch'].map(isSafety),
     [false, false, false, true, false, false, true],

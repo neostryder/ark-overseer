@@ -9,7 +9,7 @@ const WORLD_SCOPES = new Set(['everything', 'world', 'players']);
 
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
 
-// A backup ARK Overseer took itself, before it replaced files, is marked as a safety backup.
+// A backup Overseer took itself, before it replaced files, is marked as a safety backup.
 export const isSafety = (reason) => SAFETY.has(reason);
 // The same two kinds the server lets be deleted.
 export const canDelete = (reason) => DELETABLE.has(reason);

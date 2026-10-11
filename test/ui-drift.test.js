@@ -67,8 +67,8 @@ test('differences are grouped by file, then section, keeping the order they came
 });
 
 test('the banner counts the settings and says when they were found, and when the server last shut down', () => {
-  assert.equal(bannerText(1), '1 setting changed outside ARK Overseer.');
-  assert.equal(bannerText(4), '4 settings changed outside ARK Overseer.');
+  assert.equal(bannerText(1), '1 setting changed outside Overseer.');
+  assert.equal(bannerText(4), '4 settings changed outside Overseer.');
   const iso = '2026-09-28T10:30:00.000Z';
   const time = new Date(iso).toLocaleString();
   assert.equal(foundText(iso, false), `Found ${time}.`);
@@ -88,12 +88,12 @@ test('a difference shows both values, "Not set" for a missing one, and a passwor
   const added = describeDifference(diff('a.ini', 's', 'k', 'added', null, '5'));
   assert.deepEqual(
     [added.kind, added.baseline, added.current, added.baselineMissing],
-    ['Added outside ARK Overseer', 'Not set', '5', true],
+    ['Added outside Overseer', 'Not set', '5', true],
   );
   const removed = describeDifference(diff('a.ini', 's', 'k', 'removed', '1', null));
   assert.deepEqual(
     [removed.kind, removed.current, removed.currentMissing],
-    ['Removed outside ARK Overseer', 'Not set', true],
+    ['Removed outside Overseer', 'Not set', true],
   );
   const secret = describeDifference(diff('a.ini', 's', 'ServerPassword', 'changed', null, null, true));
   assert.deepEqual(secret, {

@@ -3,9 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0d0a" />
-    <title>Sign in - ARK Overseer</title>
+    <meta name="theme-color" content="#0a0f0a" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="application-name" content="Overseer" />
+    <meta name="apple-mobile-web-app-title" content="Overseer" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Sign in - Overseer</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script src="/js/theme-init.js"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
@@ -15,7 +24,9 @@
   </head>
   <body class="login-page">
     <main class="login-wrap">
-      <a class="brand" href="/" aria-label="ARK Overseer"><span class="brand-mark">A</span><span>ARK Overseer</span></a>
+      <a class="brand" href="/" aria-label="Overseer"
+        ><img class="brand-mark" src="/favicon.svg" alt="" width="38" height="38" /><span>Overseer</span></a
+      >
       <section class="card auth-card" id="auth-card">
         <h1 id="auth-title">Loading</h1>
         <p class="muted" id="auth-help"></p>

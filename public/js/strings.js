@@ -5,7 +5,7 @@ export const STRINGS = {
     use: 'Use this folder',
   },
   app: {
-    name: 'ARK Overseer',
+    name: 'Overseer',
     loading: 'Loading',
     retry: 'Retry',
     emptyServers: 'No servers yet',
@@ -20,21 +20,24 @@ export const STRINGS = {
     menuButton: 'Menu',
     expandRail: 'Expand server list',
     collapseRail: 'Collapse server list',
+    theme: 'Theme: {mode}',
+    themeHelp: 'Change the theme. System follows this device.',
+    themeModes: { system: 'System', light: 'Light', dark: 'Dark' },
   },
   login: {
     loading: 'Loading sign in',
     setupTitle: 'Set a password',
-    setupHelp: 'This password protects ARK Overseer. Use at least 10 characters.',
+    setupHelp: 'This password protects Overseer. Use at least 10 characters.',
     password: 'Password',
     confirm: 'Confirm password',
     save: 'Save password',
-    signInTitle: 'Sign in to ARK Overseer',
+    signInTitle: 'Sign in to Overseer',
     remember: 'Remember this device',
     signIn: 'Sign in',
     passkey: 'Sign in with a passkey',
     mismatch: 'The passwords do not match.',
     short: 'Use at least 10 characters.',
-    remote: 'Setup must happen on the computer that runs ARK Overseer.',
+    remote: 'Setup must happen on the computer that runs Overseer.',
   },
   fleet: {
     servers: 'Servers',
@@ -45,7 +48,7 @@ export const STRINGS = {
     host: 'This computer',
     signOut: 'Sign out',
     settingsChanged: 'Settings changed',
-    settingsChangedHelp: 'The settings files changed outside ARK Overseer.',
+    settingsChangedHelp: 'The settings files changed outside Overseer.',
     serverLabel: '{name}, {map}, {state}',
   },
   servers: {
@@ -83,14 +86,14 @@ export const STRINGS = {
     switchButton: 'Switch branch',
     needsStop: 'Stop every server on this install to switch its branch.',
     warnToTest:
-      "A test build can save worlds that the live game cannot load. ARK Overseer backs up the settings and every map's saves before it changes any files.",
+      "A test build can save worlds that the live game cannot load. Overseer backs up the settings and every map's saves before it changes any files.",
     warnToLive:
       "This puts the live build back, after a backup of the settings and every map's saves. If a world saved by the test build will not load, restore the backup from before the switch.",
-    warnBetween: "ARK Overseer backs up the settings and every map's saves first.",
+    warnBetween: "Overseer backs up the settings and every map's saves first.",
     ack: 'Accept that these saves may not load on the live game again, and that the backup is the way back.',
     keepMods: 'Keep my mods on. They may not load on a test build.',
     allowCluster: 'Switch this server even though it is in a cluster. Live and test servers cannot share a cluster.',
-    switching: 'Switching branch. ARK Overseer backs up first, then downloads the new build and checks every file.',
+    switching: 'Switching branch. Overseer backs up first, then downloads the new build and checks every file.',
     ptrCopy: 'Add a test copy',
     ptrCopyHelp:
       'Makes a copy of this server in its own empty folder on the Public Test Realm. This server and its saves stay as they are.',
@@ -116,7 +119,7 @@ export const STRINGS = {
     dismiss: 'Dismiss',
     alertsTitle: 'Build alerts',
     alertsHelp:
-      'Every 15 minutes, ARK Overseer asks Steam whether the live game or a test branch has a new server build. Add a Discord webhook to get a silent message for each one.',
+      'Every 15 minutes, Overseer asks Steam whether the live game or a test branch has a new server build. Add a Discord webhook to get a silent message for each one.',
     webhook: 'Discord webhook URL',
     webhookSet: 'A webhook is saved. Paste a new URL to replace it.',
     webhookNone: 'No webhook saved. New builds show only as a banner here.',
@@ -134,7 +137,7 @@ export const STRINGS = {
     title: 'This computer',
     gaming: 'Gaming mode',
     intro:
-      "While you play a game on this PC, ARK Overseer lowers its servers' priority and keeps them off the cores set aside for the game. They go back to normal about 30 seconds after the game closes.",
+      "While you play a game on this PC, Overseer lowers its servers' priority and keeps them off the cores set aside for the game. They go back to normal about 30 seconds after the game closes.",
     enabled: 'On',
     priority: 'Server priority while a game runs',
     below: 'Below normal',
@@ -190,7 +193,7 @@ export const STRINGS = {
     updateFromGithub: 'Update from GitHub',
     updateFromCheckout: 'Update from this checkout',
     githubHelp:
-      'ARK Overseer downloads the chosen release itself, then Windows asks for administrator approval and the service restarts.',
+      'Overseer downloads the chosen release itself, then Windows asks for administrator approval and the service restarts.',
     checkoutHelp:
       'This deploys the last commit in that folder. Windows asks for administrator approval, the service restarts, and this page reloads once it is back.',
     noReleases: 'No releases were found for this channel.',
@@ -205,9 +208,9 @@ export const STRINGS = {
     updateVerifyMessage: 'Checking the download',
     updateUnpackMessage: 'Unpacking the new version',
     updateInstallMessage: 'Copying the new version',
-    updateRestartMessage: 'Restarting ARK Overseer',
+    updateRestartMessage: 'Restarting Overseer',
     updateCompleteMessage: 'Update complete',
-    updateRestartWaiting: 'Waiting for ARK Overseer to restart',
+    updateRestartWaiting: 'Waiting for Overseer to restart',
     updateNoStart:
       'The update did not start. Windows may still be waiting for your approval, or you may have declined it.',
     updateSucceeded: 'Updated to version {version}, commit {commit}.',
@@ -224,19 +227,19 @@ export const STRINGS = {
     updateStageDone: 'Complete',
     updateStageFailed: 'Failed',
     updateTimeout:
-      "ARK Overseer hasn't come back after {minutes} minutes. If you declined the Windows prompt, nothing changed. The update log is in {folder}.",
+      "Overseer hasn't come back after {minutes} minutes. If you declined the Windows prompt, nothing changed. The update log is in {folder}.",
     updateElsewhere:
-      'Update starts a program on the computer this browser runs on, so use it from a browser on the PC that runs ARK Overseer.',
+      'Update starts a program on the computer this browser runs on, so use it from a browser on the PC that runs Overseer.',
     lastUpdateOk: 'The last update finished {time}.',
     lastUpdateFailed: 'The last update failed {time}: {message}',
   },
   access: {
     title: 'Cloudflare Access',
-    help: 'A valid Cloudflare Access sign in lets you open ARK Overseer without another password.',
+    help: 'A valid Cloudflare Access sign in lets you open Overseer without another password.',
     teamDomain: 'Access team domain',
     aud: 'Application AUD tag',
     publicHost: 'Public address',
-    publicHostHelp: 'The address people type when they reach ARK Overseer through Cloudflare, such as ark.example.com.',
+    publicHostHelp: 'The address people type when they reach Overseer through Cloudflare, such as ark.example.com.',
     save: 'Save',
     saved: 'Cloudflare Access settings saved.',
   },
@@ -262,7 +265,7 @@ export const STRINGS = {
     switchTitle: 'Switch to {map}?',
     switchNow: 'Switch map',
     confirmRunning:
-      'Players are warned in game, the world is saved and backed up, and the server restarts on {map}. If it fails to start, ARK Overseer switches it back to {current} on its own.',
+      'Players are warned in game, the world is saved and backed up, and the server restarts on {map}. If it fails to start, Overseer switches it back to {current} on its own.',
     confirmStopped: 'The world is backed up and the map is set to {map}. The server stays stopped.',
     noSaveNote:
       '{map} has no save yet, so it starts as a new world. The {current} save stays on disk for when you switch back.',
@@ -272,7 +275,7 @@ export const STRINGS = {
     switchQueued: 'The map change is waiting to start.',
     switchFailed: 'The map change failed.',
     switchCancelled: 'The map change was cancelled.',
-    switchInterrupted: 'ARK Overseer stopped during the map change. Check the map on this page.',
+    switchInterrupted: 'Overseer stopped during the map change. Check the map on this page.',
   },
   backups: {
     title: 'Backups',
@@ -288,7 +291,7 @@ export const STRINGS = {
     filesOne: '1 file',
     files: '{count} files',
     safety: 'Safety backup',
-    safetyHelp: 'ARK Overseer took this backup before it replaced files or changed the map.',
+    safetyHelp: 'Overseer took this backup before it replaced files or changed the map.',
     restore: 'Restore',
     restoreLabel: 'Restore the backup from {time}',
     deleteBackup: 'Delete',
@@ -362,7 +365,7 @@ export const STRINGS = {
     jobFailed: 'The job failed.',
     jobCancelled: 'The job was cancelled.',
     jobInterrupted:
-      'ARK Overseer stopped during the job. Files a restore was part way through replacing are put back when it starts again.',
+      'Overseer stopped during the job. Files a restore was part way through replacing are put back when it starts again.',
     snapshots: 'Settings snapshots',
     snapshotsHelp:
       'A snapshot is a named copy of the settings files. Saving one never touches the server, and restoring one does not stop it. A running server uses the restored settings after its next restart.',
@@ -417,7 +420,7 @@ export const STRINGS = {
     notes: 'Notes',
     folder: 'Shared folder',
     folderHelp:
-      'Leave blank for a folder under ARK Overseer data. Custom folders must be on a local drive and writable by Network Service.',
+      'Leave blank for a folder under Overseer data. Custom folders must be on a local drive and writable by Network Service.',
     id: 'Cluster ID',
     copy: 'Copy',
     copyFolder: 'Copy folder',
@@ -506,9 +509,9 @@ export const STRINGS = {
     removeNeedsStop: 'Stop the server to remove it.',
     removeTitle: 'Remove {name}?',
     removeMessage:
-      "This deletes {name}'s settings history, schedules and snapshots from ARK Overseer. Its game files and backups stay on this computer unless you also delete the files.",
+      "This deletes {name}'s settings history, schedules and snapshots from Overseer. Its game files and backups stay on this computer unless you also delete the files.",
     removeMessageSteam:
-      "This deletes {name}'s settings history, schedules and snapshots from ARK Overseer. Its files are in your Steam library, so they stay where they are.",
+      "This deletes {name}'s settings history, schedules and snapshots from Overseer. Its files are in your Steam library, so they stay where they are.",
     removeKeep: 'Remove, keep files',
     removeDelete: 'Remove and delete files',
     removeOnly: 'Remove server',
@@ -571,52 +574,50 @@ export const STRINGS = {
   },
   drift: {
     failed: 'Could not check whether the settings files changed.',
-    bannerOne: '1 setting changed outside ARK Overseer.',
-    bannerMany: '{count} settings changed outside ARK Overseer.',
+    bannerOne: '1 setting changed outside Overseer.',
+    bannerMany: '{count} settings changed outside Overseer.',
     found: 'Found {time}.',
     foundAfterStop: 'Found {time}, when the server last shut down.',
     review: 'Review',
     reviewHide: 'Hide the review',
     panelIntro:
-      'The left column is what ARK Overseer last saved. The right column is what the files hold now. Choose one for each setting, or use one of the two buttons that settle all of them.',
-    baselineValue: "ARK Overseer's value",
+      'The left column is what Overseer last saved. The right column is what the files hold now. Choose one for each setting, or use one of the two buttons that settle all of them.',
+    baselineValue: "Overseer's value",
     currentValue: 'Current value',
     valueNone: 'Not set',
     secretChanged: 'The value changed. It is not shown because it is a password.',
     kinds: {
       changed: 'Changed',
-      added: 'Added outside ARK Overseer',
-      removed: 'Removed outside ARK Overseer',
-      file_added: 'This file is new. ARK Overseer did not write it.',
-      file_removed: 'This file is gone. ARK Overseer had saved it.',
-      file_changed: 'This file differs from the one ARK Overseer saved.',
+      added: 'Added outside Overseer',
+      removed: 'Removed outside Overseer',
+      file_added: 'This file is new. Overseer did not write it.',
+      file_removed: 'This file is gone. Overseer had saved it.',
+      file_changed: 'This file differs from the one Overseer saved.',
     },
     noSection: '(before any section)',
-    useBaseline: "Use ARK Overseer's value",
+    useBaseline: "Use Overseer's value",
     useCurrent: 'Keep the current value',
     choiceLabel: '{key}: choose which value to use',
     keepCurrent: 'Keep the current values',
-    putBack: "Put ARK Overseer's values back",
+    putBack: "Put Overseer's values back",
     applyChoices: 'Apply my choices',
     choicesLeft: '{count} still need a choice.',
     choicesLeftOne: '1 still needs a choice.',
     choicesDone: 'Every setting has a choice.',
-    keepCurrentHelp:
-      'No file changes. ARK Overseer takes the current values as the ones it compares against from now on.',
-    putBackHelp: 'Every setting listed goes back to the value ARK Overseer saved.',
+    keepCurrentHelp: 'No file changes. Overseer takes the current values as the ones it compares against from now on.',
+    putBackHelp: 'Every setting listed goes back to the value Overseer saved.',
     safetyNote: 'A safety backup of the settings files is taken first, so this can be undone.',
     runningNote:
       'The server is running. It keeps its current settings until it restarts, and ASA may write its own values back when it shuts down, so putting values back is safest while the server is stopped.',
-    putBackTitle: "Put ARK Overseer's values back?",
-    putBackConfirm:
-      'Every setting listed here goes back to the value ARK Overseer saved. A safety backup is taken first.',
+    putBackTitle: "Put Overseer's values back?",
+    putBackConfirm: 'Every setting listed here goes back to the value Overseer saved. A safety backup is taken first.',
     putBackNow: 'Put values back',
     applyTitle: 'Apply your choices?',
     applyConfirm:
-      "The settings you chose ARK Overseer's value for go back to it, and the rest stay as they are. A safety backup is taken first.",
+      "The settings you chose Overseer's value for go back to it, and the rest stay as they are. A safety backup is taken first.",
     applyNow: 'Apply choices',
     keepTitle: 'Keep the current values?',
-    keepConfirm: 'The files are not changed. ARK Overseer will treat the current values as its own.',
+    keepConfirm: 'The files are not changed. Overseer will treat the current values as its own.',
     keepNow: 'Keep values',
     unsavedBlock: 'Save or discard your changes on this page before you review these.',
     busy: 'Another job is running for this server. The buttons that start a job are off until it finishes.',
@@ -627,10 +628,10 @@ export const STRINGS = {
     jobFailed: 'The job failed.',
     jobCancelled: 'The job was cancelled.',
     jobInterrupted:
-      'ARK Overseer stopped during the job. Files it was part way through replacing are put back when it starts again.',
-    keepAfterStop: "Put ARK Overseer's settings back when the server changes them on shutdown",
+      'Overseer stopped during the job. Files it was part way through replacing are put back when it starts again.',
+    keepAfterStop: "Put Overseer's settings back when the server changes them on shutdown",
     keepAfterStopHelp:
-      'ASA can write its own values into the settings files as it shuts down. With this on, the settings ARK Overseer has a control for go back to what it saved, and the next start waits for that. Other changes stay listed here. Off by default.',
+      'ASA can write its own values into the settings files as it shuts down. With this on, the settings Overseer has a control for go back to what it saved, and the next start waits for that. Other changes stay listed here. Off by default.',
     keepSaved: 'Saved.',
   },
   network: {
@@ -651,12 +652,12 @@ export const STRINGS = {
     localIgnored:
       "Group policy on this computer turns off local firewall rules, so rules added here won't take effect. Ask whoever manages that policy to open the game and query ports.",
     unchecked:
-      "ARK Overseer couldn't read this computer's firewall rules, so the list below may include rules you already have.",
+      "Overseer couldn't read this computer's firewall rules, so the list below may include rules you already have.",
     confirmApply: 'Windows will ask for administrator approval, then add the rules shown above.',
     applied: 'The firewall rules were added.',
     notApplied: 'The firewall rules were not added.',
     serviceInstruction:
-      "ARK Overseer runs as a Windows service here, and a service can't ask for administrator approval. Download the script, then right-click it and choose Run as administrator.",
+      "Overseer runs as a Windows service here, and a service can't ask for administrator approval. Download the script, then right-click it and choose Run as administrator.",
     download: 'Download script',
     copy: 'Copy',
     copied: 'Copied.',
@@ -665,7 +666,7 @@ export const STRINGS = {
   automation: {
     title: 'Automation',
     intro:
-      "Restarts, backups and updates run on this computer's clock while ARK Overseer is running, even with this page closed. You can watch each run under Jobs.",
+      "Restarts, backups and updates run on this computer's clock while Overseer is running, even with this page closed. You can watch each run under Jobs.",
     kinds: {
       restart: {
         title: 'Scheduled restart',
@@ -673,7 +674,7 @@ export const STRINGS = {
       },
       backup: {
         title: 'Scheduled backup',
-        help: "Copies the world save and the server settings into ARK Overseer's backup folder. If the server is running, it saves the world first.",
+        help: "Copies the world save and the server settings into Overseer's backup folder. If the server is running, it saves the world first.",
       },
       update_check: {
         title: 'Update check',
@@ -710,7 +711,7 @@ export const STRINGS = {
     badCountdown: 'List up to five minute marks, largest first, none over 60.',
     steam: 'Steam updates this install, so there is nothing to schedule here.',
     backupsHelp:
-      'Once scheduled and manual backups go past the number to keep, ARK Overseer deletes the oldest. It never deletes a backup taken before an update, a restore or a map change.',
+      'Once scheduled and manual backups go past the number to keep, Overseer deletes the oldest. It never deletes a backup taken before an update, a restore or a map change.',
     backupsLink: 'The backup list, and restoring from it, is on the',
     backupsLinkText: 'Backups page',
     reasons: {
@@ -763,7 +764,7 @@ export const STRINGS = {
     confirmRemove: 'Remove this passkey?',
     passkey: 'Passkey',
     signOut: 'Sign out',
-    accessSignedOut: 'Signed out of ARK Overseer. Cloudflare Access stays signed in until its session ends.',
+    accessSignedOut: 'Signed out of Overseer. Cloudflare Access stays signed in until its session ends.',
     changed: 'Password changed.',
   },
   wizard: {
@@ -792,7 +793,7 @@ export const STRINGS = {
     computer: 'Computer',
     cpu: 'CPU cores',
     memory: 'Memory',
-    free: 'Free space for ARK Overseer data',
+    free: 'Free space for Overseer data',
     steam: 'SteamCMD set up',
     elevated: 'Running as administrator',
     yes: 'Yes',
@@ -800,9 +801,9 @@ export const STRINGS = {
     none: 'None',
     lowSpace: 'Less than 30 GB is free. A server install and its saves need about that much.',
     notElevated:
-      'ARK Overseer is not running as administrator, so Windows asks for approval once when the firewall rules are added.',
-    steamInstalled: 'SteamCMD is set up, so ARK Overseer can download and update the server files.',
-    steamNeeded: 'ARK Overseer uses SteamCMD to download the server files. It takes about a minute to set up.',
+      'Overseer is not running as administrator, so Windows asks for approval once when the firewall rules are added.',
+    steamInstalled: 'SteamCMD is set up, so Overseer can download and update the server files.',
+    steamNeeded: 'Overseer uses SteamCMD to download the server files. It takes about a minute to set up.',
     steamSetup: 'Set up SteamCMD',
     steamFirst: 'Set up SteamCMD before going on.',
     waiting: 'waiting',
@@ -836,14 +837,14 @@ export const STRINGS = {
     rconPort: 'RCON port',
     peerPort: 'Peer port',
     peerUnknown: 'set a game port first',
-    portCheck: 'When the server is created, ARK Overseer checks these against other servers and running programs.',
+    portCheck: 'When the server is created, Overseer checks these against other servers and running programs.',
     firewallLater: 'The firewall rules are added afterwards, from the server network page.',
     adminPassword: 'Admin password',
     joinPassword: 'Join password',
     show: 'Show',
     hide: 'Hide',
     newPassword: 'New password',
-    adminNote: 'ARK Overseer controls the server over RCON with this password. It is also the in-game admin password.',
+    adminNote: 'Overseer controls the server over RCON with this password. It is also the in-game admin password.',
     joinNote: 'Leave it blank and anyone can join.',
     noJoinPassword: 'None, anyone can join',
     create: 'Create server',
@@ -879,7 +880,7 @@ export const STRINGS = {
     importNow: 'Import',
     confirmImportTitle: 'Import this server?',
     confirmImport:
-      'ARK Overseer copies its settings and save files into a snapshot first. Nothing in the dashboard folder or the server files changes.',
+      'Overseer copies its settings and save files into a snapshot first. Nothing in the dashboard folder or the server files changes.',
     previewExpired: 'That preview expired. Look for servers again.',
     confirmLeave: 'Leave setup? What was entered here is lost.',
     errors: {
