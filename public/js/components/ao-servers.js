@@ -153,6 +153,10 @@ export class AoServers extends HTMLElement {
     const action = shortcutAction(location.hash);
     if (!action) return;
     window.history.replaceState(null, '', '#/servers');
+    await this.runQuickAction(action);
+  }
+  // Restart all and Back up now, from a shortcut link or from the buttons in the hero card.
+  async runQuickAction(action) {
     if (!this.servers?.length) return;
     const dialog = document.querySelector('ao-dialog');
     try {
@@ -232,7 +236,17 @@ export class AoServers extends HTMLElement {
       part.append(el('dt', label), el('dd', String(summary[key])));
       parts.append(part);
     }
-    hero.append(mark, headline, parts);
+    const quick = el('div', undefined, 'hero-actions');
+    for (const [action, label] of [
+      ['restart-all', s.restartAllTitle],
+      ['backup-all', s.backupAllTitle],
+    ]) {
+      const button = el('button', label, 'button');
+      button.type = 'button';
+      button.addEventListener('click', () => this.runQuickAction(action));
+      quick.append(button);
+    }
+    hero.append(mark, headline, parts, quick);
     return hero;
   }
   follow(id) {
