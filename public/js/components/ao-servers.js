@@ -5,6 +5,7 @@ import { stateName } from '../lib/format.js';
 import { parseCountdown } from '../lib/cron-picker.js';
 import { GENERIC_MAP_ART, markArtFailed, railPictureUrl } from '../lib/map-art.js';
 import { fleetSummary, ringFill, stateTone } from '../lib/fleet-summary.js';
+import { SHORTCUT_COUNTDOWN, listMarks, runningServers, shortcutAction } from '../lib/shortcuts.js';
 
 const s = STRINGS.servers;
 const el = (tag, text, className) => {
@@ -26,6 +27,7 @@ export class AoServers extends HTMLElement {
     try {
       [this.servers, this.maps] = await Promise.all([api.get('/api/servers'), api.get('/api/maps').catch(() => null)]);
       this.render();
+      await this.runShortcut();
     } catch (cause) {
       this.replaceChildren(el('p', cause.message, 'error-message'));
     }
@@ -144,6 +146,45 @@ export class AoServers extends HTMLElement {
     form.append(this.jobStatus, this.cancel);
     this.append(form);
     if (this.jobId) this.follow(this.jobId);
+  }
+  // A home-screen shortcut opens this page with an action in the link. The link is cleared first, so reloading the
+  // page never asks again, and nothing runs until the confirmation is accepted.
+  async runShortcut() {
+    const action = shortcutAction(location.hash);
+    if (!action) return;
+    window.history.replaceState(null, '', '#/servers');
+    if (!this.servers?.length) return;
+    const dialog = document.querySelector('ao-dialog');
+    try {
+      if (action === 'restart-all') {
+        const targets = runningServers(this.servers);
+        if (!targets.length) {
+          this.message.textContent = s.noneRunning;
+          return;
+        }
+        const confirmTemplate = s.restartAllConfirm;
+        const text = confirmTemplate
+          .replace('{count}', targets.length)
+          .replace('{marks}', listMarks(SHORTCUT_COUNTDOWN));
+        if (!(await dialog.ask(s.restartAllTitle, text))) return;
+        const job = await api.post('/api/fleet/actions', {
+          action: 'restart',
+          serverIds: targets.map((server) => server.id),
+          options: { countdownMinutes: SHORTCUT_COUNTDOWN },
+        });
+        document.querySelector('ao-toast')?.show(s.restartAllStarted);
+        this.follow(job.jobId);
+      } else {
+        const confirmTemplate = s.backupAllConfirm;
+        const text = confirmTemplate.replace('{count}', this.servers.length);
+        if (!(await dialog.ask(s.backupAllTitle, text))) return;
+        for (const server of this.servers) await api.post(`/api/servers/${server.id}/backups`, {});
+        const startedTemplate = s.backupAllStarted;
+        document.querySelector('ao-toast')?.show(startedTemplate.replace('{count}', this.servers.length));
+      }
+    } catch (cause) {
+      this.message.textContent = cause.message;
+    }
   }
   // The fleet at a glance: a hex ring that fills with the share of servers running, and a count for each other state.
   hero() {

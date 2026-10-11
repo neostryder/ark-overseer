@@ -1,5 +1,5 @@
 const patterns = [
-  [/^#\/servers$/, () => ({ screen: 'servers' })],
+  [/^#\/servers(?:\?.*)?$/, () => ({ screen: 'servers' })],
   [/^#\/clusters\/(\d+)$/, (m) => ({ screen: 'cluster', id: Number(m[1]) })],
   [/^#\/clusters$/, () => ({ screen: 'clusters' })],
   [/^#\/servers\/(\d+)\/overview$/, (m) => ({ screen: 'overview', id: Number(m[1]) })],

@@ -41,6 +41,30 @@
           "type": "image/png"
         }
       ]
+    },
+    {
+      "name": "Restart all",
+      "short_name": "Restart all",
+      "url": "/#/servers?action=restart-all",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Back up now",
+      "short_name": "Back up now",
+      "url": "/#/servers?action=backup-all",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

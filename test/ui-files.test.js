@@ -92,7 +92,10 @@ test('HTML loads only local files and the permitted Google Fonts stylesheet', ()
     const urls = [...source.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1]);
     for (const url of urls)
       assert.ok(
-        url.startsWith('/') || url.startsWith('#') || url.startsWith('https://fonts.googleapis.com/'),
+        url.startsWith('/') ||
+          url.startsWith('#') ||
+          url.startsWith('data:image/png;base64,') ||
+          url.startsWith('https://fonts.googleapis.com/'),
         `${name} references ${url}`,
       );
     assert.ok(
@@ -101,4 +104,29 @@ test('HTML loads only local files and the permitted Google Fonts stylesheet', ()
       ),
     );
   }
+});
+
+test('both pages carry the touch icon inline, so a home-screen save needs no second request', () => {
+  for (const name of ['index.html', 'login.html']) {
+    const source = fs.readFileSync(path.join(publicDir, name), 'utf8');
+    const match = source.match(
+      /<link\s+rel="apple-touch-icon"\s+sizes="180x180"\s+href="data:image\/png;base64,([^"]+)"/,
+    );
+    assert.ok(match, `${name} has no inline apple-touch-icon`);
+    const png = Buffer.from(match[1], 'base64');
+    assert.deepEqual([...png.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+    assert.equal(png.readUInt32BE(16), 180);
+    assert.equal(png.readUInt32BE(20), 180);
+    assert.match(source, /<link\s+rel="manifest"\s+href="\/manifest\.webmanifest"\s+crossorigin="use-credentials"/);
+  }
+});
+
+test('the manifest names Overseer and offers the three shortcuts', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(publicDir, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(manifest.name, 'Overseer');
+  assert.deepEqual(
+    manifest.shortcuts.map((item) => item.url),
+    ['/#/servers', '/#/servers?action=restart-all', '/#/servers?action=backup-all'],
+  );
+  for (const icon of manifest.icons) assert.ok(fs.existsSync(path.join(publicDir, icon.src)), icon.src);
 });
