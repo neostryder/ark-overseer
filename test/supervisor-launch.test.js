@@ -43,6 +43,13 @@ test('launch arguments preserve order and include optional mods and BattlEye fla
   ]);
 });
 
+test('launch accepts a -dev suffix on a mod id and rejects other suffixes', () => {
+  const withMods = (mods) => buildLaunch({ ...server, settings_json: JSON.stringify({ mods }) }, install);
+  assert.ok(withMods(['123-dev', 456]).args.includes('-mods=123-dev,456'));
+  for (const bad of ['123-DEV', '123-dev2', '-dev', 'abc-dev', '123 -dev', '123-dev-dev', '123-'])
+    assert.throws(() => withMods([bad]), TypeError, bad);
+});
+
 test('launch arguments never contain passwords in settings', () => {
   assert.equal(
     buildLaunch(

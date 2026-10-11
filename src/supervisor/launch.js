@@ -2,6 +2,9 @@ import path from 'node:path';
 
 export const MESSAGES = { badCluster: 'Cluster launch settings are invalid.' };
 
+// A CurseForge mod id, optionally followed by -dev, which loads that mod's unpublished test build.
+export const MOD_ID = /^\d+(-dev)?$/;
+
 // Node joins verbatim Windows arguments with spaces. Quote ordinary arguments using Windows
 // backslash rules, but preserve the quotes after ClusterDirOverride= for Unreal's parser.
 export function buildWindowsCommandLine(args) {
@@ -34,8 +37,8 @@ export function buildLaunch(server, install) {
   const settings =
     typeof server.settings_json === 'string' ? JSON.parse(server.settings_json) : (server.settings_json ?? {});
   const mods = settings.mods ?? [];
-  if (!Array.isArray(mods) || mods.some((id) => !/^\d+$/.test(String(id))))
-    throw new TypeError('Mod ids must contain digits only');
+  if (!Array.isArray(mods) || mods.some((id) => !MOD_ID.test(String(id))))
+    throw new TypeError('Mod ids must be digits, optionally followed by -dev');
   const paths = serverPaths(install.path);
   const args = [`${server.map}?listen?SessionName=${server.session_name}`, `-port=${server.game_port}`];
   if (server.query_port !== null && server.query_port !== undefined) args.push(`-QueryPort=${server.query_port}`);

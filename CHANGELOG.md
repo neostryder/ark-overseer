@@ -4,6 +4,10 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+### Added
+
+- [Visible] [Mods] [Server] **A mod id in a server's mod list can end in -dev to load the mod's unpublished test build.** ARK Overseer passes the id to the server as written, for example `-mods=1234567-dev,891011`. Wildcard's unpublished-build testing uses that suffix to make a dedicated server load the mod author's test build instead of the published one, and everyone who joins needs access to that build in their My Mods list. A -dev mod's maps don't appear on the Maps page, since map discovery reads published mod folders only.
+
 ### Changed
 
 - [Visible] [Server] **The Edge update channel now refreshes only when someone starts the Edge workflow by hand from the GitHub Actions page.** Pushes to the main branch on GitHub no longer rebuild it, so the Edge build can be older than the latest commit. You can still pick Edge on the This computer page next to Stable and Beta, and the Update button installs whichever Edge build is currently published. Stable and Beta still come from version tags.
