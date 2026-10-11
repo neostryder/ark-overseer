@@ -86,24 +86,27 @@ test('every STRINGS property referenced by browser JavaScript exists', () => {
   }
 });
 
-test('HTML loads only local files and the permitted Google Fonts stylesheet', () => {
+test('HTML loads only local files, with no outside font or script request', () => {
   for (const name of ['index.html', 'login.html']) {
     const source = fs.readFileSync(path.join(publicDir, name), 'utf8');
     const urls = [...source.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1]);
     for (const url of urls)
       assert.ok(
-        url.startsWith('/') ||
-          url.startsWith('#') ||
-          url.startsWith('data:image/png;base64,') ||
-          url.startsWith('https://fonts.googleapis.com/'),
+        url.startsWith('/') || url.startsWith('#') || url.startsWith('data:image/png;base64,'),
         `${name} references ${url}`,
       );
-    assert.ok(
-      urls.includes(
-        'https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
-      ),
-    );
   }
+});
+
+test('every font the stylesheet names is a real WOFF2 file served from /fonts', () => {
+  const css = fs.readFileSync(path.join(publicDir, 'style.css'), 'utf8');
+  const files = [...css.matchAll(/url\('(\/fonts\/[^']+)'\)/g)].map((match) => match[1]);
+  assert.equal(files.length, 5);
+  for (const file of files) {
+    const bytes = fs.readFileSync(path.join(publicDir, file));
+    assert.equal(bytes.subarray(0, 4).toString('latin1'), 'wOF2', file);
+  }
+  assert.ok(!/fonts\.(googleapis|gstatic)\.com/.test(css));
 });
 
 test('both pages carry the touch icon inline, so a home-screen save needs no second request', () => {

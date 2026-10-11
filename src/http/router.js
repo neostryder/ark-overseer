@@ -8,7 +8,7 @@ export const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
   'Content-Security-Policy':
-    "default-src 'self'; img-src 'self' data: https://*.steamstatic.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self' data: https://*.steamstatic.com; style-src 'self'; font-src 'self'; frame-ancestors 'none'",
 };
 function send(res, status, value) {
   if (res.writableEnded) return;

@@ -1094,7 +1094,10 @@ export function createApp({
     '/apple-touch-icon.png',
   ]);
   const isPublic = (pathname) =>
-    publicFiles.has(pathname) || pathname.startsWith('/icons/') || pathname.startsWith('/js/');
+    publicFiles.has(pathname) ||
+    pathname.startsWith('/icons/') ||
+    pathname.startsWith('/fonts/') ||
+    pathname.startsWith('/js/');
   const sendJson = (res, status, value) => {
     if (res.headersSent) return res.end();
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
