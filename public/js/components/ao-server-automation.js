@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { jobState } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
 import { cronToPicker, pickerToCron, parseCountdown } from '../lib/cron-picker.js';
@@ -39,7 +40,7 @@ export class AoServerAutomation extends HTMLElement {
     await this.load();
   }
   async load() {
-    this.replaceChildren(el('p', STRINGS.app.loading));
+    this.replaceChildren(skeleton(STRINGS.app.loading));
     try {
       [this.server, this.schedules] = await Promise.all([
         api.get(`/api/servers/${this.id}`),

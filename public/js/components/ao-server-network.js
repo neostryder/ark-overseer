@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { icon } from '../lib/icon.js';
 export class AoServerNetwork extends HTMLElement {
   async connectedCallback() {
@@ -8,7 +9,7 @@ export class AoServerNetwork extends HTMLElement {
   }
   async load() {
     this.replaceChildren();
-    this.textContent = STRINGS.app.loading;
+    this.replaceChildren(skeleton(STRINGS.app.loading));
     try {
       [this.server, this.firewall] = await Promise.all([
         api.get(`/api/servers/${this.id}`),

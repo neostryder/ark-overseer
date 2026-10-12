@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { icon } from '../lib/icon.js';
 import { stateTone } from '../lib/fleet-summary.js';
 import { MOD_ID, addMod, moveMod, removeMod } from '../lib/mod-list.js';
@@ -18,7 +19,7 @@ export class AoServerMods extends HTMLElement {
   async connectedCallback() {
     this.serverId = this.getAttribute('server-id');
     this.className = 'card mod-list';
-    this.replaceChildren(el('p', STRINGS.mods.loading));
+    this.replaceChildren(skeleton(STRINGS.mods.loading));
     try {
       this.load(await api.get(`/api/servers/${this.serverId}`));
     } catch (error) {

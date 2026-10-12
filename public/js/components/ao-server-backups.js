@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { byteSize } from '../lib/format.js';
 import { icon } from '../lib/icon.js';
 import { mapName } from '../lib/wizard.js';
@@ -49,7 +50,7 @@ export class AoServerBackups extends HTMLElement {
   async load() {
     clearTimeout(this.pollTimer);
     this.pollTimer = null;
-    this.replaceChildren(el('p', STRINGS.backups.loading));
+    this.replaceChildren(skeleton(STRINGS.backups.loading));
     try {
       [this.server, this.schedules, this.backups, this.snapshots] = await Promise.all([
         api.get(`/api/servers/${this.serverId}`),

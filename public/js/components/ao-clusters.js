@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { mapName } from '../lib/wizard.js';
 import { stateName } from '../lib/format.js';
 import { GENERIC_MAP_ART, markArtFailed, railPictureUrl } from '../lib/map-art.js';
@@ -34,7 +35,7 @@ export class AoClusters extends HTMLElement {
     clearTimeout(this.jobTimer);
   }
   async load() {
-    this.replaceChildren(el('p', STRINGS.app.loading));
+    this.replaceChildren(skeleton(STRINGS.app.loading));
     try {
       if (this.clusterId) {
         [this.cluster, this.servers, this.fields, this.maps, this.schedules] = await Promise.all([

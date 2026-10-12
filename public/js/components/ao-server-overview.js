@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { icon } from '../lib/icon.js';
 import { stateName, relativeTime } from '../lib/format.js';
 import { mapName } from '../lib/wizard.js';
@@ -12,7 +13,7 @@ export class AoServerOverview extends HTMLElement {
   }
   async load() {
     this.replaceChildren();
-    this.textContent = STRINGS.overview.loading;
+    this.replaceChildren(skeleton(STRINGS.overview.loading));
     try {
       this.server = await api.get(`/api/servers/${this.serverId}`);
       // The branch list only adds choices, so a failed read leaves the page working without them.

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import './ao-settings-drift.js';
 import { clusterEditChoice, clusterFieldState } from '../lib/clusters.js';
 import { createSettingInput, readSettingInput } from '../lib/settings-controls.js';
@@ -30,7 +31,7 @@ export class AoServerSettings extends HTMLElement {
   }
   async load() {
     this.replaceChildren();
-    this.textContent = STRINGS.app.loading;
+    this.replaceChildren(skeleton(STRINGS.app.loading));
     try {
       [this.fields, this.loaded, this.server] = await Promise.all([
         api.get('/api/settings/fields'),

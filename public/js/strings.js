@@ -7,6 +7,9 @@ export const STRINGS = {
   app: {
     name: 'Overseer',
     loading: 'Loading',
+    pullRefresh: 'Pull to refresh',
+    pullRelease: 'Release to refresh',
+    refreshing: 'Refreshing',
     retry: 'Retry',
     emptyServers: 'No servers yet',
     emptyHelp: 'Create a server to get started.',

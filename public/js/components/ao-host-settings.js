@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import './ao-access-settings.js';
 import { parseGameNames, validGameNames } from '../lib/gaming.js';
 import { relativeTime } from '../lib/format.js';
@@ -59,7 +60,7 @@ export class AoHostSettings extends HTMLElement {
     this.updatePoller?.stop();
   }
   async load() {
-    this.replaceChildren(el('p', STRINGS.app.loading));
+    this.replaceChildren(skeleton(STRINGS.app.loading));
     // A failed read leaves the picture setting on, which is what a new install has. These two are read
     // apart from gaming mode, so the update and picture cards still show when gaming mode can't load.
     this.showArt = (await api.get('/api/maps').catch(() => null))?.showArt ?? true;

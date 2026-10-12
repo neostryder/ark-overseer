@@ -2,6 +2,8 @@ import { api } from './api.js';
 import { STRINGS } from './strings.js';
 import { parseRoute } from './lib/route.js';
 import { icon } from './lib/icon.js';
+import { skeleton } from './lib/skeleton.js';
+import { watchPull } from './lib/pull-refresh.js';
 import { setCatalogMaps } from './lib/wizard.js';
 import { layoutMode, resizeDeadline, isResizing, railClass, shouldCloseSwipe } from './lib/layout.js';
 // How often the server list is fetched when the change feed is down, and how long a quiet feed is trusted.
@@ -69,6 +71,20 @@ class AoApp extends HTMLElement {
     this.loadServers();
     this.loadCatalog();
     this.watchServers();
+    this.pullIndicator = this.buildPullIndicator();
+    this.append(this.pullIndicator);
+    this.stopPull = watchPull({
+      indicator: this.pullIndicator,
+      canStart: (event) =>
+        !this.isRailOpen() &&
+        !this.unsaved() &&
+        !document.querySelector('dialog[open]') &&
+        !event.target.closest('input, textarea, select, ao-jobs-panel'),
+      onRefresh: async () => {
+        await Promise.all([this.loadServers(), new Promise((resolve) => setTimeout(resolve, 600))]);
+        this.route();
+      },
+    });
     // The server sends a note whenever something changes, so this timer only covers a feed that is down or stalled.
     this.serverTimer = setInterval(() => {
       if (document.hidden) return;
@@ -78,6 +94,28 @@ class AoApp extends HTMLElement {
       if (!document.hidden) this.loadServers();
     };
     document.addEventListener('visibilitychange', this.onVisible);
+  }
+  buildPullIndicator() {
+    const box = document.createElement('div');
+    box.className = 'pull-indicator';
+    box.dataset.phase = 'idle';
+    box.setAttribute('role', 'status');
+    const ring = document.createElement('span');
+    ring.className = 'pull-ring';
+    ring.setAttribute('aria-hidden', 'true');
+    const labels = {
+      pulling: STRINGS.app.pullRefresh,
+      ready: STRINGS.app.pullRelease,
+      refreshing: STRINGS.app.refreshing,
+    };
+    box.append(ring);
+    for (const [phase, text] of Object.entries(labels)) {
+      const label = document.createElement('span');
+      label.className = `pull-text pull-${phase}`;
+      label.textContent = text;
+      box.append(label);
+    }
+    return box;
   }
   watchServers() {
     if (typeof EventSource === 'undefined') return;
@@ -103,6 +141,7 @@ class AoApp extends HTMLElement {
     this.closeDrawer(false);
     clearInterval(this.serverTimer);
     document.removeEventListener('visibilitychange', this.onVisible);
+    this.stopPull?.();
     this.feed?.close();
   }
   renderFrame() {
@@ -338,7 +377,7 @@ class AoApp extends HTMLElement {
     }
     if (route.screen === 'home') {
       if (!this.servers) {
-        this.view.textContent = STRINGS.app.loading;
+        this.view.replaceChildren(skeleton(STRINGS.app.loading));
         return;
       }
       if (!this.servers.length) {

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
+import { skeleton } from '../lib/skeleton.js';
 import { relativeTime, byteSize } from '../lib/format.js';
 import { MAPS, setCatalogMaps } from '../lib/wizard.js';
 import { mapPicture } from '../lib/map-art.js';
@@ -30,7 +31,7 @@ export class AoServerMaps extends HTMLElement {
   async load() {
     clearTimeout(this.pollTimer);
     this.pollTimer = null;
-    this.replaceChildren(el('p', STRINGS.maps.loading));
+    this.replaceChildren(skeleton(STRINGS.maps.loading));
     try {
       this.data = await api.get(`/api/servers/${this.serverId}/maps`);
       // The maps page has the catalog to hand, so the names elsewhere follow it too.
