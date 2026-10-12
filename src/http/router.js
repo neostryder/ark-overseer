@@ -1,8 +1,7 @@
 import { URL } from 'node:url';
 import { redact } from '../util/redact.js';
 
-// Only the app's own files run. Outside sources are Google Fonts (its stylesheet and the font files it
-// points to) and Steam's image servers, for map pictures.
+// Only the app's own files run. The one outside source is Steam's image servers, for map pictures.
 export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',

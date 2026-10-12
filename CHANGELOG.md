@@ -11,6 +11,7 @@ All notable changes to ARK Overseer are listed here.
 
 ### Changed
 
+- [Visible] [UI] [Server] **Server status changes show up within a fraction of a second.** Open pages used to ask ARK Overseer for the server list every 5 seconds. ARK Overseer now sends a short notice over a live connection whenever a server starts, stops, or crashes, a job starts or finishes, or anyone saves a change, and each open page fetches the list at that moment. Changes made from another phone or computer appear just as fast, and an idle page makes far fewer requests. If the connection drops, the page checks every 5 seconds until it comes back, and it also refreshes when you return to its tab. The Jobs panel already used a live connection and works as before. Scripts can listen on `GET /api/servers/events`, behind the usual sign-in.
 - [Visible] [Server] **The Edge update channel now refreshes only when someone starts the Edge workflow by hand from the GitHub Actions page.** Pushes to the main branch on GitHub no longer rebuild it, so the Edge build can be older than the latest commit. You can still pick Edge on the This computer page next to Stable and Beta, and the Update button installs whichever Edge build is currently published. Stable and Beta still come from version tags.
 
 ## [1.2.0] - 2026-10-07

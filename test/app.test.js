@@ -1567,3 +1567,17 @@ test('saving Access settings without a public address leaves the saved one alone
   await put({ teamDomain: '', aud: '', publicHost: '' });
   assert.equal(db.prepare("SELECT public_host FROM hosts WHERE name = 'local'").get().public_host, null);
 });
+
+test('the server list feed announces itself on connect and again after a successful change', async (t) => {
+  const { url, cookie, root } = await fixtureWith(t);
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const stream = await fetch(`${url}/api/servers/events`, { headers: { Cookie: cookie }, signal: controller.signal });
+  assert.equal(stream.status, 200);
+  assert.match(stream.headers.get('content-type'), /text\/event-stream/);
+  const reader = stream.body.getReader();
+  const decoder = new TextDecoder();
+  assert.match(decoder.decode((await reader.read()).value), /event: changed/);
+  await addServer(url, cookie, path.join(root, 'ASA'), 'Feed test', 7777);
+  assert.match(decoder.decode((await reader.read()).value), /event: changed/);
+});

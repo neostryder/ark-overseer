@@ -9,6 +9,7 @@ import { transaction } from './db/transaction.js';
 import { nowIso } from './db/index.js';
 import { allocatePorts, assignPorts, findConflicts } from './network/ports.js';
 import { streamJobEvents } from './jobs/sse.js';
+import { createChangeFeed } from './http/feed.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
@@ -175,6 +176,12 @@ export function createApp({
     previews = new Map();
   const settingsDrift = drift ?? createDrift({ db, dataDir, supervisor, rcon, getRconPassword, now, log });
   if (!drift) settingsDrift.attach(jobs);
+  // Open browsers learn from this feed that the server list changed, so they do not have to poll for it.
+  const serverFeed = createChangeFeed();
+  supervisor.subscribe?.(() => serverFeed.notify());
+  jobs.subscribe((event) => {
+    if (event.type !== 'progress') serverFeed.notify();
+  });
   const unseenDrift = () =>
     new Set(
       db
@@ -573,6 +580,7 @@ export function createApp({
       .all()
       .map((row) => shapeServer(row, supervisor, unseen));
   router.add('GET', '/api/servers', () => listServers(unseenDrift()));
+  router.add('GET', '/api/servers/events', ({ req, res }) => serverFeed.stream(req, res));
   router.add('GET', '/api/servers/:id', ({ params }) => {
     const server = shapeServer(must(serverRow(db, params.id)), supervisor, unseenDrift());
     const move = db
@@ -1186,6 +1194,10 @@ export function createApp({
         return;
       }
     }
+    if (unsafe && pathname.startsWith('/api/'))
+      res.once('finish', () => {
+        if (res.statusCode < 400) serverFeed.notify();
+      });
     if (await router.handle(req, res, user)) return;
     if ((isPublic(pathname) || (user && !pathname.startsWith('/api/'))) && (await serveStatic(publicDir, req, res)))
       return;

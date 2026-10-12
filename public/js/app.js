@@ -4,6 +4,9 @@ import { parseRoute } from './lib/route.js';
 import { icon } from './lib/icon.js';
 import { setCatalogMaps } from './lib/wizard.js';
 import { layoutMode, resizeDeadline, isResizing, railClass, shouldCloseSwipe } from './lib/layout.js';
+// How often the server list is fetched when the change feed is down, and how long a quiet feed is trusted.
+const POLL_MS = 5000;
+const FEED_SAFETY_MS = 60000;
 import './components/ao-dialog.js';
 import './components/ao-toast.js';
 import './components/ao-fleet-rail.js';
@@ -65,9 +68,27 @@ class AoApp extends HTMLElement {
     this.route();
     this.loadServers();
     this.loadCatalog();
+    this.watchServers();
+    // The server sends a note whenever something changes, so this timer only covers a feed that is down or stalled.
     this.serverTimer = setInterval(() => {
+      if (document.hidden) return;
+      if (!this.feedOpen || Date.now() - (this.serversLoadedAt ?? 0) > FEED_SAFETY_MS) this.loadServers();
+    }, POLL_MS);
+    this.onVisible = () => {
       if (!document.hidden) this.loadServers();
-    }, 5000);
+    };
+    document.addEventListener('visibilitychange', this.onVisible);
+  }
+  watchServers() {
+    if (typeof EventSource === 'undefined') return;
+    this.feed = new EventSource('/api/servers/events', { withCredentials: true });
+    this.feed.addEventListener('open', () => {
+      this.feedOpen = true;
+    });
+    this.feed.addEventListener('error', () => {
+      this.feedOpen = false;
+    });
+    this.feed.addEventListener('changed', () => this.loadServers());
   }
   disconnectedCallback() {
     window.removeEventListener('hashchange', this.onRoute);
@@ -81,6 +102,8 @@ class AoApp extends HTMLElement {
     this.navObserver?.disconnect();
     this.closeDrawer(false);
     clearInterval(this.serverTimer);
+    document.removeEventListener('visibilitychange', this.onVisible);
+    this.feed?.close();
   }
   renderFrame() {
     this.replaceChildren();
@@ -290,6 +313,7 @@ class AoApp extends HTMLElement {
   // The one poll of the server list; the fleet rail draws from the event it sends.
   async loadServers() {
     let error = '';
+    this.serversLoadedAt = Date.now();
     try {
       this.servers = await api.get('/api/servers');
       if (parseRoute(location.hash).screen === 'home') this.route();

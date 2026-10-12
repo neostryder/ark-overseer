@@ -133,3 +133,11 @@ test('the manifest names Overseer and offers the three shortcuts', () => {
   );
   for (const icon of manifest.icons) assert.ok(fs.existsSync(path.join(publicDir, icon.src)), icon.src);
 });
+
+test('the app listens to the server change feed and keeps a slow fallback for when it is down', () => {
+  const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  assert.match(app, /new EventSource\('\/api\/servers\/events'/);
+  assert.match(app, /addEventListener\('changed'/);
+  assert.match(app, /FEED_SAFETY_MS/);
+  assert.match(app, /this\.feed\?\.close\(\)/);
+});
