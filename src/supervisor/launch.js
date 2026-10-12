@@ -1,9 +1,30 @@
 import path from 'node:path';
 
-export const MESSAGES = { badCluster: 'Cluster launch settings are invalid.' };
+export const MESSAGES = {
+  badCluster: 'Cluster launch settings are invalid.',
+  modsNotList: 'The mod list must be a list of mod ids.',
+  badModId: 'Mod ids must be digits, optionally followed by -dev.',
+  dupMod: 'Each mod can be listed once.',
+  tooManyMods: 'A server can load at most 100 mods.',
+};
 
 // A CurseForge mod id, optionally followed by -dev, which loads that mod's unpublished test build.
 export const MOD_ID = /^\d+(-dev)?$/;
+
+export const MAX_MODS = 100;
+
+// A mod list from a request, as ids in load order. Each id is a string that passes the launch check, and no mod is
+// listed twice, since 123 and 123-dev are the same mod and the server would not load both.
+export function checkModList(value) {
+  if (!Array.isArray(value)) throw new TypeError(MESSAGES.modsNotList);
+  if (value.length > MAX_MODS) throw new TypeError(MESSAGES.tooManyMods);
+  const ids = value.map((id) => (typeof id === 'number' && Number.isSafeInteger(id) ? String(id) : id));
+  if (ids.some((id) => typeof id !== 'string' || !MOD_ID.test(id.trim()))) throw new TypeError(MESSAGES.badModId);
+  const clean = ids.map((id) => id.trim());
+  const bases = clean.map((id) => id.replace(/-dev$/, '').replace(/^0+(?=\d)/, ''));
+  if (new Set(bases).size !== bases.length) throw new TypeError(MESSAGES.dupMod);
+  return clean;
+}
 
 // Node joins verbatim Windows arguments with spaces. Quote ordinary arguments using Windows
 // backslash rules, but preserve the quotes after ClusterDirOverride= for Unreal's parser.

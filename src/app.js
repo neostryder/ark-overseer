@@ -6,13 +6,14 @@ import { createRouter, SECURITY_HEADERS } from './http/router.js';
 import { serveStatic } from './http/static.js';
 import { createAuth, AUTH_MESSAGES, originAllowed, hostAllowed } from './auth/auth.js';
 import { transaction } from './db/transaction.js';
+import { nowIso } from './db/index.js';
 import { allocatePorts, assignPorts, findConflicts } from './network/ports.js';
 import { streamJobEvents } from './jobs/sse.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
 import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
-import { serverPaths } from './supervisor/launch.js';
+import { serverPaths, checkModList } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
 import { parseCron, describeCron } from './scheduler/cron.js';
 import { createCatalog } from './maps/catalog.js';
@@ -870,6 +871,36 @@ export function createApp({
         return shapeServer(serverRow(db, params.id), supervisor);
       },
       (ctx) => ({ ports: ctx.body }),
+    ),
+  );
+  // The launch mod list, in load order. It is only read when the server starts, so a running server keeps the list
+  // it started with until its next restart.
+  router.add(
+    'PUT',
+    '/api/servers/:id/mods',
+    protectedRoute(
+      'server.mods.updated',
+      'server',
+      ({ params, body }) => {
+        const row = must(serverRow(db, params.id));
+        let mods;
+        try {
+          mods = checkModList(body?.mods);
+        } catch (e) {
+          throw error(400, e.message);
+        }
+        // A map switch puts the mod list back if it fails, and would undo an edit made while it runs.
+        if (fileJobRunning(row.id) || db.prepare('SELECT 1 FROM pending_switches WHERE server_id = ?').get(row.id))
+          throw error(409, API_MESSAGES.jobRunning);
+        const { mods: previous, ...rest } = JSON.parse(row.settings_json || '{}');
+        db.prepare('UPDATE servers SET settings_json = ?, updated_at = ? WHERE id = ?').run(
+          JSON.stringify(mods.length ? { ...rest, mods } : rest),
+          nowIso(),
+          row.id,
+        );
+        return shapeServer(serverRow(db, row.id), supervisor);
+      },
+      (ctx) => ({ mods: Array.isArray(ctx.body?.mods) ? ctx.body.mods : null }),
     ),
   );
   router.add('GET', '/api/ports/suggest', async () =>

@@ -2166,3 +2166,55 @@ code {
     transition-duration: 0.01ms !important;
   }
 }
+
+.mod-list {
+  display: grid;
+  gap: 12px;
+}
+.mod-list h2,
+.mod-list p {
+  margin: 0;
+}
+.mod-rows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mod-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+}
+.mod-id {
+  font-family: var(--font-mono);
+}
+.mod-buttons {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.mod-buttons .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+.mod-up .icon {
+  transform: rotate(-90deg);
+}
+.mod-down .icon {
+  transform: rotate(90deg);
+}
+.mod-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.mod-add .field-label {
+  flex: 1 1 14rem;
+}

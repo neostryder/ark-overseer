@@ -7,6 +7,7 @@ All notable changes to ARK Overseer are listed here.
 ### Added
 
 - [Visible] [Mods] [Server] **A mod id in a server's mod list can end in -dev to load the mod's unpublished test build.** ARK Overseer passes the id to the server as written, for example `-mods=1234567-dev,891011`. Wildcard's unpublished-build testing uses that suffix to make a dedicated server load the mod author's test build instead of the published one, and everyone who joins needs access to that build in their My Mods list. A -dev mod's maps don't appear on the Maps page, since map discovery reads published mod folders only.
+- [Visible] [Mods] [Server] **Edit a server's mod list on its Maps page.** The Mods card lists the server's mod ids in load order, which is the order they go into the -mods launch flag. You can add an id, remove one, move one up or down, and save. An id ending in -dev loads that mod's unpublished test build. A mod can appear only once, so a published id and its -dev build can't both be on the list. Saving while the server runs works, and the new list loads at the next start. You can't save while a map switch, backup, or restore is running on that server. Every save is recorded in the audit log. The Active Mods field on the Settings page is now read-only and points to the Maps page. Scripts can make the same change with `PUT /api/servers/:id/mods` and a `mods` array, behind the usual sign-in.
 
 ### Changed
 

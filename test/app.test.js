@@ -1452,6 +1452,46 @@ test('the dashboard Start, Stop and Restart are refused while a map switch is qu
   assert.equal((await act('stop', first.server.id)).status, 200);
 });
 
+test('a server mod list is edited in load order, accepts -dev ids, and refuses bad lists', async (t) => {
+  const { url, cookie, db, root } = await fixtureWith(t);
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);
+  db.prepare("UPDATE jobs SET state = 'succeeded'").run();
+  db.prepare('UPDATE servers SET settings_json = ? WHERE id = ?').run(
+    JSON.stringify({ disableBattlEye: true }),
+    server.id,
+  );
+  const put = (mods, id = server.id) =>
+    fetch(`${url}/api/servers/${id}/mods`, { ...json({ mods }, cookie), method: 'PUT' });
+  const stored = () =>
+    JSON.parse(db.prepare('SELECT settings_json FROM servers WHERE id = ?').get(server.id).settings_json);
+  const saved = await put(['1740719-dev', 929578]);
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await saved.json()).settings_json.mods, ['1740719-dev', '929578']);
+  assert.deepEqual(stored(), { disableBattlEye: true, mods: ['1740719-dev', '929578'] });
+  const before = stored();
+  for (const bad of [
+    ['abc'],
+    ['1', '1-dev'],
+    ['5-DEV'],
+    'nope',
+    null,
+    Array.from({ length: 101 }, (_, i) => String(i + 1)),
+  ])
+    assert.equal((await put(bad)).status, 400, JSON.stringify(bad)?.slice(0, 30));
+  assert.equal((await put(['1'], 999)).status, 404);
+  assert.deepEqual(stored(), before);
+  db.prepare(
+    "INSERT INTO jobs (kind, state, server_id, install_id, created_at, updated_at) SELECT 'server.switch_map', 'running', id, install_id, '2026-10-12T00:00:00Z', '2026-10-12T00:00:00Z' FROM servers WHERE id = ?",
+  ).run(server.id);
+  const held = await put(['2']);
+  assert.equal(held.status, 409);
+  assert.equal((await held.json()).error, API_MESSAGES.jobRunning);
+  db.prepare("UPDATE jobs SET state = 'failed' WHERE kind = 'server.switch_map'").run();
+  assert.equal((await put([])).status, 200);
+  assert.deepEqual(stored(), { disableBattlEye: true });
+  assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events WHERE action = 'server.mods.updated'").get().n, 2);
+});
+
 test('two map switch requests sent together queue one job and refuse the other', async (t) => {
   const { url, cookie, db, root } = await fixtureWith(t);
   const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Main', 7777);

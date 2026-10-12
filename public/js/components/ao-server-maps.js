@@ -143,6 +143,9 @@ export class AoServerMaps extends HTMLElement {
     }
     other.append(grid);
     this.append(other);
+    const mods = document.createElement('ao-server-mods');
+    mods.setAttribute('server-id', this.serverId);
+    this.append(mods);
     this.showNotice(this.notice);
     this.setBusy(Boolean(this.busy), this.busyText);
   }

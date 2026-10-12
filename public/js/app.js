@@ -14,6 +14,7 @@ import './components/ao-clusters.js';
 import './components/ao-servers.js';
 import './components/ao-server-settings.js';
 import './components/ao-server-maps.js';
+import './components/ao-server-mods.js';
 import './components/ao-server-backups.js';
 import './components/ao-server-network.js';
 import './components/ao-server-automation.js';
