@@ -3,6 +3,7 @@ import { STRINGS } from './strings.js';
 import { parseRoute } from './lib/route.js';
 import { icon } from './lib/icon.js';
 import { skeleton } from './lib/skeleton.js';
+import { createTabStatus } from './lib/tab-status.js';
 import { watchPull } from './lib/pull-refresh.js';
 import { setCatalogMaps } from './lib/wizard.js';
 import { layoutMode, resizeDeadline, isResizing, railClass, shouldCloseSwipe } from './lib/layout.js';
@@ -70,6 +71,13 @@ class AoApp extends HTMLElement {
     this.route();
     this.loadServers();
     this.loadCatalog();
+    this.updateTabStatus = createTabStatus({
+      baseName: STRINGS.app.name,
+      fetchSvg: async (href) => (await fetch(href, { credentials: 'same-origin' })).text(),
+    });
+    this.addEventListener('servers-loaded', (event) => {
+      if (!event.detail.error) this.updateTabStatus(event.detail.servers);
+    });
     this.watchServers();
     this.pullIndicator = this.buildPullIndicator();
     this.append(this.pullIndicator);
