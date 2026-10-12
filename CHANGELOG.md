@@ -4,6 +4,8 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-12
+
 ### Added
 
 - [Visible] [UI] [Settings] **A start, stop, or restart can buzz or chime when it works or fails.** The Feedback on this device card on the Account page has a switch for a short vibration, on by default, and another for a soft tone, off by default. Turning either one on plays it once as a check. The choices are saved in that browser only, and a browser that can't vibrate, such as Safari on an iPhone, skips the vibration.
