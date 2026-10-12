@@ -64,7 +64,7 @@ test('router hides a server error and logs its redacted stack', async (t) => {
   const response = await fetch(`${url}/api/fail`);
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), {
-    error: 'Something went wrong in ARK Overseer. The details are in its log.',
+    error: 'Something went wrong in Overseer. The details are in its log.',
   });
   assert.match(lines[0], /ServerAdminPassword=\*\*\*\*\*\*\*\*/);
   assert.doesNotMatch(lines[0], /secret/);

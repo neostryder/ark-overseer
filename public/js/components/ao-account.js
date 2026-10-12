@@ -2,10 +2,20 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { icon } from '../lib/icon.js';
 import { passkeysSupported, registerPasskey } from '../webauthn.js';
+import {
+  pushSupported,
+  needsHomeScreen,
+  pushState,
+  enablePush,
+  changeEvents,
+  disablePush,
+  sendTestPush,
+} from '../lib/push.js';
 export class AoAccount extends HTMLElement {
   async connectedCallback() {
     this.render();
     await this.loadPasskeys();
+    await this.loadAlerts();
   }
   render() {
     this.replaceChildren();
@@ -78,6 +88,9 @@ export class AoAccount extends HTMLElement {
       keys.append(add);
     }
     this.append(keys);
+    this.alerts = document.createElement('section');
+    this.alerts.className = 'card form-stack';
+    this.append(this.alerts);
     const out = document.createElement('button');
     out.className = 'button quiet';
     out.append(icon('sign-out'), STRINGS.account.signOut);
@@ -90,6 +103,97 @@ export class AoAccount extends HTMLElement {
       }
     });
     this.append(out);
+  }
+  // The alerts card shows what this device has now and lets it change.
+  async loadAlerts() {
+    const text = STRINGS.account.alerts;
+    this.alerts.replaceChildren();
+    const title = document.createElement('h2');
+    title.textContent = text.title;
+    const help = document.createElement('p');
+    help.textContent = text.help;
+    this.alerts.append(title, help);
+    const note = (message) => {
+      const line = document.createElement('p');
+      line.textContent = message;
+      line.setAttribute('aria-live', 'polite');
+      this.alerts.append(line);
+      return line;
+    };
+    if (needsHomeScreen({ userAgent: navigator.userAgent, standalone: Boolean(navigator.standalone) })) {
+      note(text.homeScreen);
+      return;
+    }
+    if (!pushSupported()) {
+      note(text.unsupported);
+      return;
+    }
+    let state;
+    try {
+      state = await pushState();
+    } catch (error) {
+      note(error.message);
+      return;
+    }
+    const boxes = {};
+    for (const kind of ['crash', 'build']) {
+      const row = document.createElement('label');
+      row.className = 'check-row';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = state ? state.events.includes(kind) : true;
+      boxes[kind] = box;
+      row.append(box, text[kind]);
+      this.alerts.append(row);
+    }
+    const chosen = () => Object.keys(boxes).filter((kind) => boxes[kind].checked);
+    const status = note(state ? text.on : text.off);
+    const fail = (error) => {
+      status.textContent = error.message === 'denied' ? text.denied : error.message;
+    };
+    if (state) {
+      for (const box of Object.values(boxes)) {
+        box.addEventListener('change', async () => {
+          try {
+            await changeEvents(chosen());
+          } catch (error) {
+            fail(error);
+          }
+        });
+      }
+    }
+    const actions = document.createElement('div');
+    actions.className = 'button-row';
+    const toggle = document.createElement('button');
+    toggle.className = state ? 'button secondary' : 'button primary';
+    toggle.textContent = state ? text.turnOff : text.turnOn;
+    toggle.addEventListener('click', async () => {
+      toggle.disabled = true;
+      try {
+        if (state) await disablePush();
+        else await enablePush(chosen());
+        await this.loadAlerts();
+      } catch (error) {
+        toggle.disabled = false;
+        fail(error);
+      }
+    });
+    actions.append(toggle);
+    if (state) {
+      const test = document.createElement('button');
+      test.className = 'button quiet';
+      test.textContent = text.sendTest;
+      test.addEventListener('click', async () => {
+        try {
+          const result = await sendTestPush();
+          status.textContent = result.delivered ? text.testSent : text.testFailed;
+        } catch (error) {
+          fail(error);
+        }
+      });
+      actions.append(test);
+    }
+    this.alerts.append(actions);
   }
   async loadPasskeys() {
     try {

@@ -11,16 +11,16 @@ export const UPDATE_TAG = /^v\d+\.\d+\.\d+(-beta\.\d+)?$/;
 export const UPDATE_COMMIT = /^[0-9a-f]{40}$/;
 export const CHECKOUT_MESSAGES = {
   badFolder: 'Choose a full folder path on this computer.',
-  notCheckout: 'That folder is not an ARK Overseer checkout.',
+  notCheckout: 'That folder is not an Overseer checkout.',
   unreadable: 'That folder could not be read.',
   noAccess:
-    "ARK Overseer's service account can't open this folder, so it can't show the last commit. You can still update from it.",
+    "Overseer's service account can't open this folder, so it can't show the last commit. You can still update from it.",
 };
 export const REQUEST_MESSAGES = {
   badSource: 'Choose where to update from.',
   badCheckout: 'Choose a full folder path on this computer.',
   badChannel: 'Choose Stable, Beta or Edge.',
-  badRef: 'That release is not one ARK Overseer can install.',
+  badRef: 'That release is not one Overseer can install.',
 };
 
 const readJson = (file) => {

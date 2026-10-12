@@ -541,7 +541,7 @@ test('a start that fails puts the earlier files back, starts the server and fail
 
 test('a server that never becomes ready is rolled back to the safety backup', async (t) => {
   const { w, row, v2 } = await withBackup(t);
-  w.plan.ready.push(new Error('The world was still loading after 20 minutes, so ARK Overseer stopped waiting.'));
+  w.plan.ready.push(new Error('The world was still loading after 20 minutes, so Overseer stopped waiting.'));
   await assert.rejects(
     w.restore({ backupId: row.id, scope: 'world' }),
     /The restored files did not start the server: The world was still loading after 20 minutes/,

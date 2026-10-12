@@ -3,17 +3,17 @@ import os from 'node:os';
 import { transaction } from '../db/transaction.js';
 
 export const AUTH_MESSAGES = {
-  wrong: "That isn't the ARK Overseer password. Try again, or reset it on the computer that runs ARK Overseer.",
+  wrong: "That isn't the Overseer password. Try again, or reset it on the computer that runs Overseer.",
   ratelimit: 'Five wrong passwords in a row. Wait five minutes before the next try.',
   short: 'Use at least 10 characters.',
-  remote: 'Set the first password on the computer that runs ARK Overseer.',
+  remote: 'Set the first password on the computer that runs Overseer.',
   signedOut: 'Signed out. Sign in again to continue.',
-  accessSignedOut: 'Signed out of ARK Overseer. Cloudflare Access stays signed in until its session ends.',
-  crossSite: 'This request came from another site, so it was blocked. Reload ARK Overseer and try again.',
+  accessSignedOut: 'Signed out of Overseer. Cloudflare Access stays signed in until its session ends.',
+  crossSite: 'This request came from another site, so it was blocked. Reload Overseer and try again.',
   passkeyFailed: "The passkey didn't verify. Try again, or sign in with the password.",
   alreadySetUp: 'A password is already set. Sign in with it.',
   wrongCurrent: "That isn't the current password.",
-  unknownHost: "ARK Overseer doesn't answer on this address. Open it by this computer's name or IP address.",
+  unknownHost: "Overseer doesn't answer on this address. Open it by this computer's name or IP address.",
   accessKeyUnavailable: 'Cloudflare Access keys could not be reached. Check the team domain and try again.',
 };
 const DAY = 86400000;
@@ -356,7 +356,7 @@ export function createAuth({
       const options =
         mode === 'register'
           ? await lib.generateRegistrationOptions({
-              rpName: 'ARK Overseer',
+              rpName: 'Overseer',
               rpID,
               userName: 'admin',
               userID: Buffer.from(row.webauthn_id || 'admin'),

@@ -15,7 +15,7 @@ export const RESTORE_MESSAGES = {
   noWorldFiles: 'This backup holds no world files, so there is no world to restore.',
   noSettingsFiles: 'This backup holds no settings files, so there are no settings to restore.',
   noFiles: 'This backup holds no world or settings files, so there is nothing to restore.',
-  badMap: "This backup's map name is not one ARK Overseer can restore.",
+  badMap: "This backup's map name is not one Overseer can restore.",
   noPlayers: 'Choose at least one player or tribe to restore.',
   badPlayers: 'Send the players and tribes as lists of ids.',
   unknownPlayers: 'These are not in the backup: {ids}.',
@@ -23,10 +23,10 @@ export const RESTORE_MESSAGES = {
   safetyFailed: 'The safety backup failed, so nothing was restored.',
   filesFailed: 'The files could not be replaced, so nothing was changed.',
   filesNotPutBack:
-    'The files could not be replaced, and they could not be put back either. ARK Overseer will try again the next time it starts.',
+    'The files could not be replaced, and they could not be put back either. Overseer will try again the next time it starts.',
   restartFailed: 'It could not be started again either. Start it from the Overview page.',
-  alreadyRunning: 'The server was already running when ARK Overseer went to start it.',
-  notRunning: 'The server was not running after ARK Overseer started it.',
+  alreadyRunning: 'The server was already running when Overseer went to start it.',
+  notRunning: 'The server was not running after Overseer started it.',
   rolledBack:
     'The restored files did not start the server: {reason} The server is back as it was before the restore. The backup from {time} was not changed.',
   rolledBackNoReason:
@@ -34,15 +34,14 @@ export const RESTORE_MESSAGES = {
   rollbackFailed:
     'The restored files did not start the server, and it did not start after they were put back. Check the server log. The backup from {time} was not changed.',
   rollbackFilesFailed:
-    'The restored files did not start the server, and the earlier files could not be put back. ARK Overseer will try again the next time it starts. Check the server log. The backup from {time} was not changed.',
+    'The restored files did not start the server, and the earlier files could not be put back. Overseer will try again the next time it starts. Check the server log. The backup from {time} was not changed.',
   earlierLeftFiles:
-    "An earlier restore on this server left files it couldn't put back, and ARK Overseer couldn't sort them out: {reason} Nothing was changed. Check the world and settings folders, then restart ARK Overseer to try again.",
-  unknownStage:
-    "An unfinished restore stopped at a point this version doesn't know, so ARK Overseer left its files alone.",
+    "An earlier restore on this server left files it couldn't put back, and Overseer couldn't sort them out: {reason} Nothing was changed. Check the world and settings folders, then restart Overseer to try again.",
+  unknownStage: "An unfinished restore stopped at a point this version doesn't know, so Overseer left its files alone.",
   noStartAfterRollback:
     'The server stays stopped, because these files already failed to start it once. Start it from the Overview page.',
   nothingToSave: 'There was nothing to make a safety backup of.',
-  leftovers: 'Some leftover folders could not be removed. ARK Overseer removes them the next time it starts.',
+  leftovers: 'Some leftover folders could not be removed. Overseer removes them the next time it starts.',
   differentMap:
     'This backup is of {map}, and the server still launches {current}. The restored world is used the next time the server runs {map}.',
   cancelled: 'The job was cancelled.',

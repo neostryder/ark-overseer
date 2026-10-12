@@ -1218,7 +1218,7 @@ test('a start does not wait longer than the limit for the put-back: it goes ahea
   assert.ok(Date.now() - started < 2000);
   assert.equal(
     d.logs.filter((line) =>
-      /^Server 1 started on the values ASA wrote at shutdown, because putting ARK Overseer.s settings back was still running after 0 seconds/.test(
+      /^Server 1 started on the values ASA wrote at shutdown, because putting Overseer.s settings back was still running after 0 seconds/.test(
         line,
       ),
     ).length,

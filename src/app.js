@@ -10,6 +10,7 @@ import { nowIso } from './db/index.js';
 import { allocatePorts, assignPorts, findConflicts } from './network/ports.js';
 import { streamJobEvents } from './jobs/sse.js';
 import { createChangeFeed } from './http/feed.js';
+import { createPush, EVENTS as PUSH_EVENTS, PUSH_API_MESSAGES } from './push/push.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
@@ -50,7 +51,7 @@ export const API_MESSAGES = {
   tooLarge: 'The request is too large.',
   steamLibraryPath: 'That folder is inside a Steam library. Pick a folder outside Steam, so SteamCMD can manage it.',
   relativePath: 'Use a full folder path, such as D:\\ARK\\Server.',
-  serverError: 'Something went wrong in ARK Overseer. The details are in its log.',
+  serverError: 'Something went wrong in Overseer. The details are in its log.',
   installExists: 'That folder is already an install.',
   portsInUse: 'Some of those ports are already in use.',
   badMap: 'Use a map name made of letters, numbers and underscores.',
@@ -64,7 +65,7 @@ export const API_MESSAGES = {
   steamSchedule: 'This install is kept up to date by Steam.',
   badGaming:
     'Gaming mode needs a priority of Below normal or Lowest, fewer cores set aside than this PC has, and program names that end in .exe.',
-  gamingUnavailable: 'Gaming mode did not start with ARK Overseer, so its settings cannot be read or saved.',
+  gamingUnavailable: 'Gaming mode did not start with Overseer, so its settings cannot be read or saved.',
   installHasServer: 'This install already runs {name}. Each server needs its own install.',
   badMapArt: 'Send enabled as true or false.',
   badAccessSettings: 'Enter both a plain team hostname and a 64 character AUD, or leave both empty.',
@@ -143,6 +144,8 @@ export function createApp({
   steamcmd,
   // The Steam build watcher. Tests that do not exercise it leave it out.
   buildWatch = null,
+  // Sends web push alerts. The real app shares one with the build watcher.
+  push = createPush({ db }),
   runner,
   platform,
   listListeners,
@@ -178,7 +181,12 @@ export function createApp({
   if (!drift) settingsDrift.attach(jobs);
   // Open browsers learn from this feed that the server list changed, so they do not have to poll for it.
   const serverFeed = createChangeFeed();
-  supervisor.subscribe?.(() => serverFeed.notify());
+  supervisor.subscribe?.((event) => {
+    serverFeed.notify();
+    if (event.to !== 'crashed') return;
+    const row = db.prepare('SELECT id, name FROM servers WHERE id = ?').get(event.serverId);
+    if (row) void push.notifyCrash(row, event.reason);
+  });
   jobs.subscribe((event) => {
     if (event.type !== 'progress') serverFeed.notify();
   });
@@ -536,6 +544,46 @@ export function createApp({
       () => ({}),
     ),
   );
+  // Web push alerts. The browser reads the public key, subscribes, and sends the subscription here; a device is
+  // known only by its subscription address, which also serves as its secret.
+  const badPush = (cause) => error(400, cause.message);
+  router.add('GET', '/api/push', () => ({ publicKey: push.publicKey(), events: PUSH_EVENTS }));
+  router.add('POST', '/api/push/state', ({ body }) => {
+    const found = push.state(body?.endpoint);
+    if (!found) throw error(404, PUSH_API_MESSAGES.notSubscribed);
+    return found;
+  });
+  router.add(
+    'PUT',
+    '/api/push/subscription',
+    protectedRoute(
+      'push.subscribed',
+      'push',
+      ({ req, body }) => {
+        try {
+          return push.subscribe(body?.subscription, body?.events, req.headers.origin);
+        } catch (cause) {
+          throw badPush(cause);
+        }
+      },
+      (ctx, result) => ({ events: result.events }),
+    ),
+  );
+  router.add(
+    'DELETE',
+    '/api/push/subscription',
+    protectedRoute('push.unsubscribed', 'push', ({ body }) => {
+      if (!push.unsubscribe(body?.endpoint)) throw error(404, PUSH_API_MESSAGES.notSubscribed);
+      return {};
+    }),
+  );
+  router.add('POST', '/api/push/test', async ({ body }) => {
+    try {
+      return await push.test(body?.endpoint);
+    } catch (cause) {
+      throw error(404, cause.message);
+    }
+  });
   router.add('GET', '/api/installs/:id/builds', ({ params }) => {
     must(db.prepare('SELECT id FROM installs WHERE id = ?').get(params.id));
     return listInstallBuilds(db, Number(params.id));

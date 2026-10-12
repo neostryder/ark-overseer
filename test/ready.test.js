@@ -90,12 +90,12 @@ test('the wait ends with the timeout message once the time is up, without sleepi
   const { now, sleep, state } = clock();
   await assert.rejects(
     waitForReady({ logPath, since: SINCE, timeoutMs: 120_000, pollMs: 50_000, isAlive: () => true, sleep, now }),
-    { message: 'The world was still loading after 2 minutes, so ARK Overseer stopped waiting.' },
+    { message: 'The world was still loading after 2 minutes, so Overseer stopped waiting.' },
   );
   assert.deepEqual(state.polls, [50_000, 50_000, 20_000]);
   const long = clock();
   await assert.rejects(waitForReady({ logPath, since: SINCE, isAlive: () => true, sleep: long.sleep, now: long.now }), {
-    message: 'The world was still loading after 20 minutes, so ARK Overseer stopped waiting.',
+    message: 'The world was still loading after 20 minutes, so Overseer stopped waiting.',
   });
   assert.equal(
     long.state.polls.reduce((a, b) => a + b, 0),

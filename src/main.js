@@ -9,6 +9,7 @@ import { createSteamCmd } from './steamcmd/steamcmd.js';
 import { createInstallHandlers } from './steamcmd/handlers.js';
 import { createBranchHandlers } from './builds/branch.js';
 import { createBuildWatch } from './builds/watch.js';
+import { createPush } from './push/push.js';
 import { createScheduleHandlers } from './scheduler/handlers.js';
 import { createScheduler } from './scheduler/scheduler.js';
 import { createJobEngine } from './jobs/engine.js';
@@ -141,10 +142,12 @@ export async function start() {
     .map((name) => name.trim())
     .filter(Boolean);
   const startedAt = new Date().toISOString();
+  const push = createPush({ db, log: console.error });
   const buildWatch = createBuildWatch({
     db,
     steamcmd,
     log: console.error,
+    onChanges: (changes) => void push.notifyBuilds(changes),
     isBusy: () =>
       Boolean(
         db
@@ -173,6 +176,7 @@ export async function start() {
     getRconPassword,
     steamcmd,
     buildWatch,
+    push,
     runner,
     platform,
     listListeners,

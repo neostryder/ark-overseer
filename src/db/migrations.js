@@ -414,6 +414,19 @@ export const MIGRATIONS = [
         updated_at TEXT NOT NULL
       );`,
   },
+  {
+    version: 15,
+    name: 'push_subscriptions',
+    up: `
+      CREATE TABLE push_subscriptions (
+        id INTEGER PRIMARY KEY,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        events_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

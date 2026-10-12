@@ -561,7 +561,7 @@ test('a rollback that cannot be saved fails the job, keeps the pending row, and 
   failMapUpdates(w, 'TheIsland_WP');
   await assert.rejects(run(w, { mapId: 'ModMap_WP', addMod: true }), {
     message:
-      'The server did not start on A mod map, and its map could not be set back to The Island. ARK Overseer will try again the next time it starts.',
+      'The server did not start on A mod map, and its map could not be set back to The Island. Overseer will try again the next time it starts.',
   });
   // The map is still the new one, and the old server is not started on it a second time.
   assert.equal(w.server().map, 'ModMap_WP');
@@ -682,7 +682,7 @@ test('a start that leaves the old process running, or leaves nothing running, is
   nothing.plan.startLeavesStopped = true;
   await assert.rejects(
     run(nothing),
-    /did not start on Ragnarok: The server was not running after ARK Overseer started it\./,
+    /did not start on Ragnarok: The server was not running after Overseer started it\./,
   );
   assert.equal(nothing.events.filter((event) => event[0] === 'ready').length, 1);
 });

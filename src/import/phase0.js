@@ -20,7 +20,7 @@ export const MESSAGES = {
   alreadyImported: 'This server has already been imported.',
   installHasServer: 'This install already runs {name}. Each server needs its own install.',
   steamClient:
-    'This server runs from a Steam library, so Steam keeps it up to date. ARK Overseer will not update or validate it.',
+    'This server runs from a Steam library, so Steam keeps it up to date. Overseer will not update or validate it.',
   noAdminPassword: 'No admin password is set, so saving before a shutdown and in-game warnings will not work.',
   noWorld: 'No saved world was found for this map. The server will start a new world.',
   noServerPassword: 'No join password is set, so anyone can join.',

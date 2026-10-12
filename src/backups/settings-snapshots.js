@@ -18,9 +18,9 @@ export const SNAPSHOT_MESSAGES = {
   safetyFailed: 'The safety backup failed, so the settings were not changed.',
   filesFailed: 'The settings files could not be replaced, so nothing was changed.',
   outsideFolder:
-    "This snapshot is saved outside ARK Overseer's snapshot folder, so its files won't be deleted. It stays in the list.",
+    "This snapshot is saved outside Overseer's snapshot folder, so its files won't be deleted. It stays in the list.",
   filesNotPutBack:
-    'The settings files could not be replaced, and they could not be put back either. ARK Overseer will try again the next time it starts.',
+    'The settings files could not be replaced, and they could not be put back either. Overseer will try again the next time it starts.',
   nothingToSave: 'There was nothing to make a safety backup of.',
   cancelled: 'The job was cancelled.',
   steps: {

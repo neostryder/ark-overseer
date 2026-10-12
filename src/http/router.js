@@ -94,7 +94,7 @@ export function createRouter({ log = console.error } = {}) {
           /* logging cannot prevent the response */
         }
         if (!res.headersSent)
-          send(res, 500, { error: 'Something went wrong in ARK Overseer. The details are in its log.' });
+          send(res, 500, { error: 'Something went wrong in Overseer. The details are in its log.' });
       }
     }
     return true;

@@ -134,7 +134,7 @@ test('the checkout reader reports a missing folder and a folder that is not a ch
   fs.writeFileSync(path.join(other, '.git', 'HEAD'), `${COMMIT}\n`);
   const result = readCheckout(other);
   assert.equal(result.ok, false);
-  assert.match(result.message, /ARK Overseer checkout/);
+  assert.match(result.message, /Overseer checkout/);
   // A checkout whose ref cannot be resolved is unreadable rather than wrong.
   const broken = checkout(t);
   fs.writeFileSync(path.join(broken, '.git', 'HEAD'), 'ref: refs/heads/main\n');

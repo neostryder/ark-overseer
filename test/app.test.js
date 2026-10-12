@@ -1581,3 +1581,61 @@ test('the server list feed announces itself on connect and again after a success
   await addServer(url, cookie, path.join(root, 'ASA'), 'Feed test', 7777);
   assert.match(decoder.decode((await reader.read()).value), /event: changed/);
 });
+
+const PUSH_SUB = {
+  endpoint: 'https://fcm.googleapis.com/fcm/send/route-test',
+  keys: {
+    p256dh: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
+    auth: 'BTBZMqHH6r4Tts7J_aSIgg',
+  },
+};
+
+test('a device subscribes to push alerts, checks its state, and unsubscribes', async (t) => {
+  const { url, cookie } = await fixtureWith(t);
+  const info = await (await fetch(`${url}/api/push`, { headers: { Cookie: cookie } })).json();
+  assert.equal(info.publicKey.length, 87);
+  assert.deepEqual(info.events, ['crash', 'build']);
+  const state = (endpoint) => fetch(`${url}/api/push/state`, json({ endpoint }, cookie));
+  assert.equal((await state(PUSH_SUB.endpoint)).status, 404);
+  const saved = await fetch(
+    `${url}/api/push/subscription`,
+    putJson({ subscription: PUSH_SUB, events: ['crash'] }, cookie, { Origin: url }),
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual(await saved.json(), { events: ['crash'] });
+  assert.deepEqual(await (await state(PUSH_SUB.endpoint)).json(), { events: ['crash'] });
+  const removed = await fetch(`${url}/api/push/subscription`, {
+    ...json({ endpoint: PUSH_SUB.endpoint }, cookie),
+    method: 'DELETE',
+  });
+  assert.equal(removed.status, 200);
+  assert.equal((await state(PUSH_SUB.endpoint)).status, 404);
+});
+
+test('push routes refuse a signed-out caller and a bad subscription', async (t) => {
+  const { url, cookie } = await fixtureWith(t);
+  assert.equal((await fetch(`${url}/api/push`)).status, 401);
+  assert.equal((await fetch(`${url}/api/push/subscription`, putJson({ subscription: PUSH_SUB }))).status, 401);
+  const bad = await fetch(
+    `${url}/api/push/subscription`,
+    putJson({ subscription: { endpoint: 'https://evil.example/x', keys: PUSH_SUB.keys } }, cookie),
+  );
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).error, 'The browser sent a subscription this server cannot use.');
+  const test = await fetch(`${url}/api/push/test`, json({ endpoint: PUSH_SUB.endpoint }, cookie));
+  assert.equal(test.status, 404);
+});
+
+test('a crashed server sends a push alert, and other transitions do not', async (t) => {
+  let listener;
+  const supervisor = { status: () => ({}), subscribe: (fn) => (listener = fn) };
+  const alerts = [];
+  const push = { publicKey: () => 'k', notifyCrash: async (server, reason) => alerts.push([server.name, reason]) };
+  const { url, cookie, root } = await fixtureWith(t, { supervisor, push });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Neo Olympus', 7777);
+  listener({ serverId: server.id, from: 'running', to: 'stopped', reason: 'stop' });
+  listener({ serverId: 9999, from: 'running', to: 'crashed', reason: 'exit' });
+  assert.deepEqual(alerts, []);
+  listener({ serverId: server.id, from: 'running', to: 'crashed', reason: 'exit' });
+  assert.deepEqual(alerts, [['Neo Olympus', 'exit']]);
+});

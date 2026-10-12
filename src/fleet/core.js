@@ -8,7 +8,7 @@ import { BRANCH_NAME } from '../builds/history.js';
 export const gigabytes = (bytes) => (Number(bytes) / 1e9).toFixed(1);
 
 export const MESSAGES = {
-  folderUnreadable: 'ARK Overseer cannot open that folder.',
+  folderUnreadable: 'Overseer cannot open that folder.',
   badFolder: 'Choose a full folder path outside a Steam library.',
   folderUsed: 'That folder is already an install.',
   folderNotEmpty: 'Choose an empty folder.',
@@ -32,11 +32,11 @@ export const MESSAGES = {
   pathTooLong: 'This folder path is too long for some of the server files. Choose a shorter one, such as D:\\ARK.',
   removeRunning: 'Stop the server before removing it.',
   removeSteam:
-    'This server runs from your Steam library, so ARK Overseer cannot delete its files. Remove it without deleting files, then uninstall it in Steam.',
-  removeUnsafe: "This install folder overlaps another install or ARK Overseer's own data, so nothing was deleted.",
+    'This server runs from your Steam library, so Overseer cannot delete its files. Remove it without deleting files, then uninstall it in Steam.',
+  removeUnsafe: "This install folder overlaps another install or Overseer's own data, so nothing was deleted.",
   removeLink: 'The install folder is a link, so nothing was deleted.',
   removeFailed:
-    'ARK Overseer could not delete {folder}. Another program may have a file in it open. Close that program and remove the server again.',
+    'Overseer could not delete {folder}. Another program may have a file in it open. Close that program and remove the server again.',
   removeProgress: 'Deleting the server files.',
   removedKept: 'The server was removed. Its files are still in {folder}.',
   removedDeleted: 'The server and its files were deleted.',

@@ -35,6 +35,8 @@ export function createBuildWatch({
   isBusy = () => false,
   now = () => Date.now(),
   fetch = globalThis.fetch,
+  // Called with the list of new builds after each check that found any.
+  onChanges = () => {},
   log = () => {},
   intervalMs = INTERVAL_MS,
   setTimer = setTimeout,
@@ -108,6 +110,7 @@ export function createBuildWatch({
       }
     }
     await alert(changes);
+    if (changes.length) onChanges(changes);
     return { checked: true, changes };
   }
 

@@ -74,7 +74,7 @@ test('a second restore that cannot settle the earlier row fails with that messag
   const backupsBefore = w.backups().length;
   await assert.rejects(w.restore({ backupId: row.id, scope: 'settings' }, 2), {
     message:
-      "An earlier restore on this server left files it couldn't put back, and ARK Overseer couldn't sort them out: Still blocked. Nothing was changed. Check the world and settings folders, then restart ARK Overseer to try again.",
+      "An earlier restore on this server left files it couldn't put back, and Overseer couldn't sort them out: Still blocked. Nothing was changed. Check the world and settings folders, then restart Overseer to try again.",
   });
   assert.equal(w.pending().length, 1);
   assert.equal(w.pending()[0].job_id, 1);
@@ -144,8 +144,7 @@ test('reconcile: a stage this version does not know keeps the row, reports it, a
       serverId: 1,
       wasRunning: false,
       outcome: 'failed',
-      failed:
-        "An unfinished restore stopped at a point this version doesn't know, so ARK Overseer left its files alone.",
+      failed: "An unfinished restore stopped at a point this version doesn't know, so Overseer left its files alone.",
     },
   ]);
   assert.equal(w.pending().length, 1);

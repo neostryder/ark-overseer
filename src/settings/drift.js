@@ -36,19 +36,19 @@ import {
 
 export const DRIFT_MESSAGES = {
   noServer: 'The server was not found.',
-  badAction: "Choose to keep the current values, put ARK Overseer's values back, or choose setting by setting.",
+  badAction: "Choose to keep the current values, put Overseer's values back, or choose setting by setting.",
   noLook: 'Open the differences before choosing what to do with them.',
   changedSince: 'The settings files changed after you looked at them. Look at the differences again.',
-  nothing: 'The settings files already match what ARK Overseer last wrote.',
+  nothing: 'The settings files already match what Overseer last wrote.',
   badChoices: 'Send the choices as a list, each with a file, a section, a key and a choice of baseline or live.',
   missingChoice: 'Choose a value for every setting that differs. {count} still need a choice.',
   badKeepOption: 'Send enabled as true or false.',
   safetyFailed: 'The safety backup failed, so the settings were not changed.',
   filesFailed: 'The settings files could not be replaced, so nothing was changed.',
   startWaited:
-    "Server {id} started on the values ASA wrote at shutdown, because putting ARK Overseer's settings back was still running after {seconds} seconds.",
+    "Server {id} started on the values ASA wrote at shutdown, because putting Overseer's settings back was still running after {seconds} seconds.",
   filesNotPutBack:
-    'The settings files could not be replaced, and they could not be put back either. ARK Overseer will try again the next time it starts.',
+    'The settings files could not be replaced, and they could not be put back either. Overseer will try again the next time it starts.',
   cancelled: 'The job was cancelled.',
   serverRunning:
     'The server is running. It keeps its current settings until it restarts, and it may write its own values back when it shuts down. Putting values back is safest while the server is stopped.',

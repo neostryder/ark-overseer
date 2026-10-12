@@ -540,7 +540,7 @@ test('an earlier restore that left files behind is settled before a snapshot res
   };
   await assert.rejects(restoreJob(w, snapshot.id), {
     message:
-      "An earlier restore on this server left files it couldn't put back, and ARK Overseer couldn't sort them out: Still blocked. Nothing was changed. Check the world and settings folders, then restart ARK Overseer to try again.",
+      "An earlier restore on this server left files it couldn't put back, and Overseer couldn't sort them out: Still blocked. Nothing was changed. Check the world and settings folders, then restart Overseer to try again.",
   });
   assert.equal(w.pending().length, 1);
   assert.equal(w.pending()[0].job_id, 9);

@@ -5,7 +5,7 @@ import { defaultSleep } from '../scheduler/countdown.js';
 export const READY_LINE = 'Server has completed startup and is now advertising for join';
 export const READY_MESSAGES = {
   stopped: 'The server closed before the world finished loading.',
-  timeout: 'The world was still loading after {minutes} minutes, so ARK Overseer stopped waiting.',
+  timeout: 'The world was still loading after {minutes} minutes, so Overseer stopped waiting.',
 };
 // A log grows for as long as the server runs, and the line is written once, early on.
 const TAIL_BYTES = 1024 * 1024;
