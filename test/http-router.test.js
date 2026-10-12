@@ -113,7 +113,7 @@ test('static serving applies content types, security headers and refuses travers
   assert.equal((await fetch(`${base}/..%2f..%2fpackage.json`)).status, 404);
   assert.equal((await fetch(`${base}/..%5c..%5cpackage.json`)).status, 404);
   assert.equal((await fetch(`${base}/missing.js`)).status, 404);
-  assert.equal(home.headers.get('cache-control'), 'no-cache');
+  assert.equal(home.headers.get('cache-control'), 'private, no-cache');
   const etag = home.headers.get('etag');
   assert.ok(etag);
   const unchanged = await fetch(base, { headers: { 'If-None-Match': etag } });

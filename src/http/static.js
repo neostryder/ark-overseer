@@ -34,9 +34,10 @@ export async function serveStatic(publicDir, req, res) {
   if (!stat.isFile()) return false;
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
   // The browser checks back on every load, so an updated ARK Overseer never runs yesterday's scripts.
-  // An unchanged file answers 304 with no body.
+  // An unchanged file answers 304 with no body. Private keeps a shared cache, such as a CDN edge, from holding
+  // a copy that outlives the update.
   const etag = `"${stat.size.toString(36)}-${Math.trunc(stat.mtimeMs).toString(36)}"`;
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'private, no-cache');
   res.setHeader('ETag', etag);
   if (req.headers['if-none-match'] === etag) {
     res.statusCode = 304;
