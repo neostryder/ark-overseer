@@ -805,6 +805,12 @@ export const STRINGS = {
     signOut: 'Sign out',
     accessSignedOut: 'Signed out of Overseer. Cloudflare Access stays signed in until its session ends.',
     changed: 'Password changed.',
+    feedback: {
+      title: 'Feedback on this device',
+      help: 'These choices are kept in this browser only.',
+      haptics: 'Vibrate briefly when a start, stop, or restart works or fails',
+      sound: 'Play a soft tone when a start, stop, or restart works or fails',
+    },
     alerts: {
       title: 'Alerts on this device',
       help: 'Get a notification when a server crashes or a new ARK server build comes out.',

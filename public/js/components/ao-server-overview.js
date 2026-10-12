@@ -3,6 +3,7 @@ import { STRINGS } from '../strings.js';
 import { skeleton } from '../lib/skeleton.js';
 import { icon } from '../lib/icon.js';
 import { stateName, relativeTime } from '../lib/format.js';
+import { signal } from '../lib/feedback.js';
 import { mapName } from '../lib/wizard.js';
 import { branchName, isTestBranch, switchWarning } from '../lib/builds.js';
 import { createInstallFolderPicker, validInstallFolder } from '../lib/install-folder.js';
@@ -49,6 +50,8 @@ export class AoServerOverview extends HTMLElement {
     const label = document.createElement('span');
     label.textContent = `${stateName(state)}${status.crashLoop ? ` · ${STRINGS.overview.crashLoop}` : ''}`;
     pill.append(dot, label);
+    this.pill = pill;
+    this.pillLabel = label;
     if (isTestBranch(s.install?.branch)) {
       const test = document.createElement('span');
       test.className = 'badge ptr-badge';
@@ -496,12 +499,18 @@ export class AoServerOverview extends HTMLElement {
       return;
     button.disabled = true;
     this.message.textContent = '';
+    // The status shows the move the moment the button is pressed. The next load replaces it with the real one.
+    const next = action === 'start' ? 'starting' : 'stopping';
+    this.pill.className = `status ${next}`;
+    this.pillLabel.textContent = stateName(next);
     try {
       await api.post(`/api/servers/${this.serverId}/${action}`, {});
+      signal('done');
       await this.load();
     } catch (error) {
-      this.message.textContent = error.message;
-      button.disabled = false;
+      signal('failed');
+      await this.load().catch(() => {});
+      if (this.message?.isConnected) this.message.textContent = error.message;
     }
   }
 }

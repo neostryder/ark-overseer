@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { icon } from '../lib/icon.js';
 import { passkeysSupported, registerPasskey } from '../webauthn.js';
+import { feedbackOn, setFeedback, signal } from '../lib/feedback.js';
 import {
   pushSupported,
   needsHomeScreen,
@@ -88,6 +89,28 @@ export class AoAccount extends HTMLElement {
       keys.append(add);
     }
     this.append(keys);
+    const feel = document.createElement('section');
+    feel.className = 'card form-stack';
+    const feelTitle = document.createElement('h2');
+    feelTitle.textContent = STRINGS.account.feedback.title;
+    const feelHelp = document.createElement('p');
+    feelHelp.textContent = STRINGS.account.feedback.help;
+    feel.append(feelTitle, feelHelp);
+    for (const kind of ['haptics', 'sound']) {
+      const row = document.createElement('label');
+      row.className = 'check-row';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = feedbackOn(kind);
+      // Turning a switch on shows what it does, so the person can tell it works on this device.
+      box.addEventListener('change', () => {
+        setFeedback(kind, box.checked);
+        if (box.checked) signal('done');
+      });
+      row.append(box, STRINGS.account.feedback[kind]);
+      feel.append(row);
+    }
+    this.append(feel);
     this.alerts = document.createElement('section');
     this.alerts.className = 'card form-stack';
     this.append(this.alerts);
