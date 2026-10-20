@@ -4,6 +4,141 @@ ARK Overseer is a web app for running ARK: Survival Ascended dedicated servers o
 
 Each server has its own overview with Start, Stop and Restart, a settings page for every documented option (searchable by meaning, so "make dinos grow up faster" finds Baby Mature Speed Multiplier), and a network page that lists the ports and the Windows Firewall rules they need. You can switch a server to another map, keep named settings snapshots, take and restore backups, and clone, move, remove or bulk-manage servers. Clusters let players carry survivors and creatures between servers. Restarts, backups and updates run on a schedule and warn players in game first.
 
+```mermaid
+flowchart TD
+  SERVICE["Shawl Windows service"] --> NODE["Private Node runtime"]
+  NODE --> MAIN["src/main.js<br/>start"]
+  MAIN --> DB["overseer.db<br/>OVERSEER_DATA or data"]
+  MAIN --> RUNNER["Process runner"]
+  MAIN --> PLATFORM["Windows platform<br/>PowerShell 7"]
+  MAIN --> STEAM["SteamCMD"]
+  MAIN --> SUP["Supervisor"]
+  MAIN --> GAMING["Gaming mode"]
+  MAIN --> DRIFT["Settings drift"]
+  MAIN --> HANDLERS["Install, branch, map, backup<br/>cluster and fleet handlers"]
+  MAIN --> JOBS["Job engine"]
+  MAIN --> SCHED["Scheduler"]
+  MAIN --> MAPS["Map catalog and art"]
+  MAIN --> PUSH["Push"]
+  MAIN --> APP["HTTP app<br/>port 3310 by default"]
+  SCHED --> JOBS
+  JOBS --> HANDLERS
+  SUP --> PLATFORM
+  STEAM --> RUNNER
+  DRIFT --> SUP
+  APP --> DB
+  APP --> JOBS
+  APP --> SUP
+  BROWSER["Browser"] --> APP
+  SERVICE -.-> DATA["Installed data, backups and logs<br/>C:/ProgramData/ARK Overseer"]
+```
+
+*Source of truth: `src/main.js`, `tools/service.ps1`, and the README. The first password must be set on the host PC before Cloudflare Access sign-in works.*
+
+```mermaid
+stateDiagram-v2
+  [*] --> stopped
+  stopped --> starting: Start sets desired running after beforeStart
+  crashed --> starting: Manual start or eligible automatic restart
+  starting --> running: Process survives startup checks
+  starting --> unknown: Process lookups keep failing
+  starting --> crashed: Launch fails or startup retries run out
+  running --> stopping: Stop sets desired stopped
+  unknown --> stopping: Stop finds an owned process
+  stopping --> stopped: Process exits or owned process is force-stopped
+  stopping --> unknown: Process identity cannot be confirmed
+  running --> unknown: Process lookup fails
+  unknown --> running: Poll finds or adopts owned process
+  running --> crashed: Owned process exits while desired running
+  unknown --> crashed: Confirmed exit while desired running
+  unknown --> stopped: No recorded pid and no owned process found
+  note right of starting
+    desired_state is stopped or running.
+    observed_state uses these six states.
+    A busy or broken install refuses start.
+  end note
+  note right of running
+    A running process can still be loading its world.
+    ready.js separately fails on exit or timeout.
+    save-all.js selects observed running servers.
+  end note
+  note right of crashed
+    Crash-loop protection can block automatic restart.
+  end note
+```
+
+*Source of truth: `src/db/migrations.js`, `src/supervisor/supervisor.js`, and `src/main.js`. RCON reads `ServerAdminPassword` from `GameUserSettings.ini`.*
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued
+  queued --> running: Eligible job claimed and attempts incremented
+  queued --> cancelled: Cancel before claim
+  running --> succeeded: Handler resolves and final write succeeds
+  running --> failed: Handler fails or success result cannot be saved
+  running --> cancelled: Handler rejects after cancel abort
+  running --> interrupted: Handler rejects after shutdown abort
+  running --> interrupted: Fresh start recovers leftover running row
+  note left of queued
+    Schedules enqueue the same job rows.
+    Busy servers, installs and paths delay a claim.
+  end note
+  note right of running
+    Default concurrency is 2.
+    Progress writes are throttled to 250 ms.
+    Failed final writes leave the row running.
+    Shutdown can leave an unresponsive handler running.
+  end note
+```
+
+*Source of truth: `src/jobs/engine.js`, `src/db/migrations.js`, and `src/scheduler/scheduler.js`. `GET /api/jobs` and `GET /api/jobs/events` expose rows and the event stream.*
+
+```mermaid
+flowchart TD
+  STEAM["SteamCMD"] --> ROOT["installs.path<br/>server executable and files"]
+  INSTALL["installs row"] --> ROOT
+  INSTALL -->|"install_id"| SERVER["servers row<br/>map and ports"]
+  CLUSTER["clusters row"] -->|"cluster_id"| SERVER
+  SERVER --> INI["Server settings INI files"]
+  PAGES["Settings pages"] -->|"Read and write keys"| INI
+  INI --> COMPARE["Settings drift service"]
+  BASE["settings_baselines<br/>last written or accepted hash"] --> COMPARE
+  COMPARE --> DRIFT["settings_drift<br/>live hash and detection"]
+  INI --> SNAP["settings_snapshots"]
+  ROOT --> BACKUP["backups<br/>settings and map saves"]
+  SERVER --> PENDING["pending_switches and pending_restores<br/>pending_moves and pending_clones"]
+  PENDING --> RECOVER["Startup reconciliation"]
+  BRANCH["Install branch switch"] --> STOP{"All install servers stopped<br/>or crashed"}
+  STOP -->|"no"| REFUSE["Refuse switch"]
+  STOP -->|"yes"| SAFE["Back up settings and every map's saves"]
+  SAFE --> UPDATE["SteamCMD branch update"]
+  UPDATE --> ROOT
+  UPDATE --> MODS["Test branch holds mods<br/>unless keepMods is true"]
+```
+
+*Source of truth: `src/db/migrations.js`, `src/builds/branch.js`, and `src/backups/restore.js`. A branch switch needs every server stopped first.*
+
+```mermaid
+flowchart TD
+  UI["public/index.html<br/>public/js"] --> API["public/js/api.js<br/>fetch with same-origin credentials"]
+  API --> CHECK["src/app.js<br/>host and origin checks"]
+  CHECK --> AUTH["src/auth/auth.js<br/>password session or verified Access token<br/>passkey sign-in routes"]
+  AUTH --> GATE{"Public route or signed-in user"}
+  GATE -->|"no"| REFUSE["401 API response<br/>or login redirect"]
+  GATE -->|"yes"| ROUTER["src/http/router.js<br/>routes mounted in src/app.js"]
+  ROUTER --> SERVERS["/api/servers<br/>/api/servers/events"]
+  ROUTER --> SETTINGS["/api/servers/:id/settings<br/>/api/settings/search"]
+  ROUTER --> MAPS["/api/maps"]
+  ROUTER --> JOBS["/api/jobs<br/>/api/jobs/events"]
+  ROUTER --> INSTALLS["/api/installs<br/>/api/builds"]
+  ROUTER --> PUSH["/api/push"]
+  ROUTER --> FIREWALL["/api/servers/:id/firewall"]
+  SETTINGS --> RANK["rankFields<br/>SETTINGS_FIELDS"]
+  FIREWALL --> RULES["Windows Firewall rules<br/>preview for server ports"]
+```
+
+*Source of truth: `public/js/api.js`, `src/app.js`, `src/http/router.js`, and `src/auth/auth.js`. Public files and the auth endpoints skip the signed-in gate.*
+
 ## Install
 
 You need Windows 10 or 11, 64-bit. Nothing else has to be installed first.
