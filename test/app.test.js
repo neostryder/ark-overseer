@@ -1169,13 +1169,13 @@ test('the update request route writes the strict shape, audits it, and refuses t
   assert.equal((await fetch(`${url}/api/host/update`, json({ source: 'checkout' }, cookie))).status, 400);
   const checkout = await fetch(
     `${url}/api/host/update`,
-    json({ source: 'checkout', checkout: 'C:\\Repositories\\ark-overseer' }, cookie),
+    json({ source: 'checkout', checkout: 'D:\\Repositories\\ark-overseer' }, cookie),
   );
   assert.equal(checkout.status, 200);
   const saved = JSON.parse(fs.readFileSync(requestFile, 'utf8'));
   assert.deepEqual(Object.keys(saved).sort(), ['checkout', 'requestedAt', 'source']);
   assert.equal(saved.source, 'checkout');
-  assert.equal(saved.checkout, 'C:\\Repositories\\ark-overseer');
+  assert.equal(saved.checkout, 'D:\\Repositories\\ark-overseer');
   assert.ok(!Number.isNaN(Date.parse(saved.requestedAt)));
   const audit = db.prepare("SELECT * FROM audit_events WHERE action = 'host.update_request'").get();
   assert.ok(audit);

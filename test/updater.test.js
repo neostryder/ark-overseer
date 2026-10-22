@@ -31,7 +31,7 @@ test('a deployed service with the update link offers the update and reports the 
   // Windows PowerShell's Set-Content may leave a byte order mark; it is ignored.
   fs.writeFileSync(
     path.join(d.dataDir, 'updater.json'),
-    '\uFEFF' + JSON.stringify({ appDir: 'C:\\Repositories\\ark-overseer', port: 3310, link: 'ark-overseer-update' }),
+    '\uFEFF' + JSON.stringify({ appDir: 'D:\\Repositories\\ark-overseer', port: 3310, link: 'ark-overseer-update' }),
   );
   fs.writeFileSync(
     path.join(d.logsDir, 'update-result.json'),
@@ -42,7 +42,7 @@ test('a deployed service with the update link offers the update and reports the 
   assert.equal(info.startedAt, startedAt);
   assert.equal(info.available, true);
   assert.equal(info.link, 'ark-overseer-update');
-  assert.equal(info.appDir, 'C:\\Repositories\\ark-overseer');
+  assert.equal(info.appDir, 'D:\\Repositories\\ark-overseer');
   assert.equal(info.logsDir, d.logsDir);
   assert.equal(info.lastUpdate.ok, false);
   assert.equal(info.lastUpdate.message.length, 500);
@@ -53,7 +53,7 @@ test('outside service mode, or with bad options, nothing is offered', (t) => {
   const d = tree(t);
   fs.writeFileSync(
     path.join(d.dataDir, 'updater.json'),
-    JSON.stringify({ appDir: 'C:\\Repositories\\ark-overseer', link: 'ark-overseer-update' }),
+    JSON.stringify({ appDir: 'D:\\Repositories\\ark-overseer', link: 'ark-overseer-update' }),
   );
   const manual = readUpdateInfo({ ...d, startedAt, serviceMode: false });
   assert.equal(manual.available, false);
@@ -143,10 +143,10 @@ test('the checkout reader reports a missing folder and a folder that is not a ch
 
 test('the update request keeps the strict shape and refuses what it may not choose', () => {
   const at = '2026-09-29T12:00:00.000Z';
-  assert.deepEqual(buildUpdateRequest({ source: 'checkout', checkout: 'C:\\Repositories\\ark-overseer' }, at), {
+  assert.deepEqual(buildUpdateRequest({ source: 'checkout', checkout: 'D:\\Repositories\\ark-overseer' }, at), {
     source: 'checkout',
     requestedAt: at,
-    checkout: 'C:\\Repositories\\ark-overseer',
+    checkout: 'D:\\Repositories\\ark-overseer',
   });
   assert.deepEqual(buildUpdateRequest({ source: 'github', channel: 'beta', ref: 'v1.2.3-beta.1' }, at), {
     source: 'github',
@@ -298,7 +298,7 @@ test('a checkout the service account may not open is reported as no access, not 
     throw Object.assign(new Error('denied'), { code });
   };
   for (const code of ['EACCES', 'EPERM']) {
-    const result = readCheckout('C:\Repositories\ark-overseer', { access: denied(code) });
+    const result = readCheckout('D:\Repositories\ark-overseer', { access: denied(code) });
     assert.deepEqual(result, { ok: false, noAccess: true, message: CHECKOUT_MESSAGES.noAccess });
   }
 });
