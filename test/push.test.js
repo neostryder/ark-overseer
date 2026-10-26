@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase } from '../src/db/index.js';
-import { createPush, crashMessage, EVENTS } from '../src/push/push.js';
+import { createPush, crashMessage, EVENTS, idleMessage, idleNoticeMessage } from '../src/push/push.js';
 
 const KEYS = {
   p256dh: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
@@ -128,4 +128,33 @@ test('the test alert reaches a subscribed device and refuses an unknown one', as
   assert.deepEqual(await push.test(sub('a').endpoint), { delivered: true });
   assert.equal(sent.length, 1);
   await assert.rejects(() => push.test(sub('zzz').endpoint), /not subscribed/);
+});
+
+test('the empty-server alert has two buttons that agree with the time, and a notice replaces it', () => {
+  const server = { id: 4, name: 'Neo Olympus' };
+  const prompt = idleMessage(server, 'Neo Olympus is still running and nobody has been connected for 5 minutes.', {
+    value: 1,
+    unit: 'hour',
+  });
+  assert.deepEqual(prompt.actions, [
+    { action: 'shutdown', title: 'Save and shut down now' },
+    { action: 'extend', title: 'Leave it 1 hour' },
+  ]);
+  assert.match(prompt.body, /leave it running for 1 hour more and it shuts down then if nobody is on\.$/);
+  assert.equal(prompt.tag, 'idle-4');
+  assert.deepEqual(prompt.idle, { serverId: 4, extend: { value: 1, unit: 'hour' } });
+  assert.match(idleMessage(server, 'x', { value: 3, unit: 'hour' }).actions[1].title, /^Leave it 3 hours$/);
+  const notice = idleNoticeMessage(server, 'Neo Olympus was saved and shut down (nobody answered).');
+  assert.equal(notice.tag, prompt.tag);
+  assert.equal(notice.actions, undefined);
+});
+
+test('the empty-server alert goes only to devices that asked for it', async () => {
+  const { push, sent } = setup();
+  push.subscribe(sub('idle'), ['idle']);
+  push.subscribe(sub('builds'), ['build']);
+  const result = await push.notifyIdle({ id: 4, name: 'Neo Olympus' }, 'Idle.', { value: 1, unit: 'hour' });
+  assert.deepEqual(result, { devices: 1, delivered: 1 });
+  await push.notifyIdleNotice({ id: 4, name: 'Neo Olympus' }, 'Done.');
+  assert.deepEqual(sent, [sub('idle').endpoint, sub('idle').endpoint]);
 });

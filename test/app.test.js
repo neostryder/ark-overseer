@@ -1594,7 +1594,7 @@ test('a device subscribes to push alerts, checks its state, and unsubscribes', a
   const { url, cookie } = await fixtureWith(t);
   const info = await (await fetch(`${url}/api/push`, { headers: { Cookie: cookie } })).json();
   assert.equal(info.publicKey.length, 87);
-  assert.deepEqual(info.events, ['crash', 'build']);
+  assert.deepEqual(info.events, ['crash', 'build', 'idle']);
   const state = (endpoint) => fetch(`${url}/api/push/state`, json({ endpoint }, cookie));
   assert.equal((await state(PUSH_SUB.endpoint)).status, 404);
   const saved = await fetch(
@@ -1651,4 +1651,90 @@ test('a crashed server sends a push alert, and other transitions do not', async 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(lines.length, 1);
   assert.match(lines[0], new RegExp(`^${server.id} exit .*ShooterGame\.log .*ASA$`));
+});
+
+test('the empty-server settings are read and saved by a signed-in user, and a bad value changes nothing', async (t) => {
+  const telegram = { configured: async () => true };
+  const { url, cookie, root } = await fixtureWith(t, { telegram });
+  await addServer(url, cookie, path.join(root, 'ASA'), 'Neo Olympus', 7777);
+  assert.equal((await fetch(`${url}/api/idle`)).status, 401);
+  assert.equal((await fetch(`${url}/api/idle`, putJson({ idleMinutes: 9 }))).status, 401);
+  const before = await (await fetch(`${url}/api/idle`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(before.settings, {
+    enabled: true,
+    idleMinutes: 5,
+    extendValue: 1,
+    extendUnit: 'hour',
+    autoShutdown: true,
+    autoShutdownMinutes: 15,
+    serverIds: null,
+  });
+  assert.deepEqual(before.pending, []);
+  assert.deepEqual(before.extended, []);
+  assert.deepEqual(before.telegram, { configured: true });
+  assert.deepEqual(
+    before.servers.map((server) => server.name),
+    ['Neo Olympus'],
+  );
+  const saved = await fetch(`${url}/api/idle`, putJson({ idleMinutes: 9, extendValue: 2, serverIds: [1] }, cookie));
+  assert.equal(saved.status, 200);
+  assert.deepEqual(
+    [
+      (await saved.json()).idleMinutes,
+      (await (await fetch(`${url}/api/idle`, { headers: { Cookie: cookie } })).json()).settings.extendValue,
+    ],
+    [9, 2],
+  );
+  const bad = await fetch(`${url}/api/idle`, putJson({ idleMinutes: 0 }, cookie));
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).error, 'Minutes must be a whole number from 1 to 240.');
+  const after = await (await fetch(`${url}/api/idle`, { headers: { Cookie: cookie } })).json();
+  assert.equal(after.settings.idleMinutes, 9);
+});
+
+test('answering the empty-server prompt checks the server and the action, and passes the answer through', async (t) => {
+  const calls = [];
+  const idle = {
+    status: () => ({ settings: {}, pending: [], extended: [] }),
+    respond: async (...args) => {
+      calls.push(args);
+      return args[1] === 'shutdown'
+        ? { ok: false, outcome: 'busy', message: 'Neo Olympus is busy with another task right now.' }
+        : {
+            ok: true,
+            outcome: 'extended',
+            message: 'Neo Olympus stays running for 1 hour more, then shuts down if nobody is on.',
+          };
+    },
+  };
+  const { url, cookie, root } = await fixtureWith(t, { idle });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Neo Olympus', 7777);
+  const post = (id, body, withCookie = cookie) =>
+    fetch(`${url}/api/servers/${id}/idle`, json(body, withCookie || undefined));
+  assert.equal((await post(server.id, { action: 'shutdown' }, null)).status, 401);
+  assert.equal((await post(9999, { action: 'shutdown' })).status, 404);
+  assert.equal((await post(server.id, { action: 'dance' })).status, 400);
+  assert.equal((await post(server.id, {})).status, 400);
+  const extended = await post(server.id, { action: 'extend', value: 1, unit: 'hour' });
+  assert.equal(extended.status, 200);
+  assert.match((await extended.json()).message, /1 hour more/);
+  assert.deepEqual(calls[0].slice(0, 3), [server.id, 'extend', { value: 1, unit: 'hour' }]);
+  assert.equal(calls[0][3].actor, 'user');
+  const busy = await post(server.id, { action: 'shutdown' });
+  assert.equal(busy.status, 409);
+  assert.match((await busy.json()).error, /busy with another task/);
+});
+
+test('a bad extension time from the page is a 400 with the reason', async (t) => {
+  const supervisor = { status: () => ({ observedState: 'running' }) };
+  const { url, cookie, root, db } = await fixtureWith(t, { supervisor });
+  const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Neo Olympus', 7777);
+  // Adding the install queued a job, which would make the server count as busy.
+  db.prepare('DELETE FROM jobs').run();
+  const response = await fetch(
+    `${url}/api/servers/${server.id}/idle`,
+    json({ action: 'extend', value: 0, unit: 'hour' }, cookie),
+  );
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /whole number/);
 });

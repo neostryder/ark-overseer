@@ -427,6 +427,17 @@ export const MIGRATIONS = [
         created_at TEXT NOT NULL
       );`,
   },
+  {
+    version: 16,
+    name: 'push_idle_alerts',
+    // The empty-server prompt is a new alert type. A device that already hears about something starts hearing
+    // about it; one that muted everything stays muted.
+    up: `
+      UPDATE push_subscriptions
+      SET events_json = json_insert(events_json, '$[#]', 'idle')
+      WHERE json_array_length(events_json) > 0
+        AND NOT EXISTS (SELECT 1 FROM json_each(push_subscriptions.events_json) WHERE value = 'idle');`,
+  },
 ];
 
 // Versions start at 1 with no gaps, so a typo in a version number fails at startup rather than

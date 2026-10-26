@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { icon } from '../lib/icon.js';
+import './ao-idle-settings.js';
 import { passkeysSupported, registerPasskey } from '../webauthn.js';
 import { feedbackOn, setFeedback, signal } from '../lib/feedback.js';
 import {
@@ -111,6 +112,7 @@ export class AoAccount extends HTMLElement {
       feel.append(row);
     }
     this.append(feel);
+    this.append(document.createElement('ao-idle-settings'));
     this.alerts = document.createElement('section');
     this.alerts.className = 'card form-stack';
     this.append(this.alerts);
@@ -159,7 +161,7 @@ export class AoAccount extends HTMLElement {
       return;
     }
     const boxes = {};
-    for (const kind of ['crash', 'build']) {
+    for (const kind of ['crash', 'build', 'idle']) {
       const row = document.createElement('label');
       row.className = 'check-row';
       const box = document.createElement('input');

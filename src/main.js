@@ -10,6 +10,8 @@ import { createInstallHandlers } from './steamcmd/handlers.js';
 import { createBranchHandlers } from './builds/branch.js';
 import { createBuildWatch } from './builds/watch.js';
 import { createPush } from './push/push.js';
+import { createIdleWatch } from './idle/idle.js';
+import { createTelegram } from './telegram/telegram.js';
 import { createScheduleHandlers } from './scheduler/handlers.js';
 import { createScheduler } from './scheduler/scheduler.js';
 import { createJobEngine } from './jobs/engine.js';
@@ -143,6 +145,30 @@ export async function start() {
     .filter(Boolean);
   const startedAt = new Date().toISOString();
   const push = createPush({ db, log: console.error });
+  // Phones and Telegram both hear about an empty server, and a failure on one never stops the other.
+  const fanOut = (what, sends) =>
+    Promise.allSettled(sends).then((results) => {
+      for (const result of results)
+        if (result.status === 'rejected')
+          console.error(`Empty-server ${what} was not delivered: ${result.reason?.message}`);
+    });
+  const telegram = createTelegram({
+    dataDir,
+    log: console.error,
+    onAction: (serverId, action, options) => idle.respond(serverId, action, options, { actor: 'telegram' }),
+  });
+  const idle = createIdleWatch({
+    db,
+    supervisor,
+    rcon: rconCommand,
+    getRconPassword,
+    log: console.error,
+    sinks: {
+      prompt: (server, text, extend) =>
+        fanOut('prompt', [push.notifyIdle(server, text, extend), telegram.sendPrompt(server, text, extend)]),
+      notice: (server, text) => fanOut('notice', [push.notifyIdleNotice(server, text), telegram.sendNotice(text)]),
+    },
+  });
   const buildWatch = createBuildWatch({
     db,
     steamcmd,
@@ -177,6 +203,8 @@ export async function start() {
     steamcmd,
     buildWatch,
     push,
+    idle,
+    telegram,
     runner,
     platform,
     listListeners,
@@ -275,6 +303,9 @@ export async function start() {
   const stopDriftWatch = drift.start();
   // Steam is asked about new builds every fifteen minutes, live and test branches alike.
   buildWatch.start();
+  // Every minute each running server is asked who is on it; Telegram taps come back through its own poll.
+  idle.start();
+  telegram.start();
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
@@ -282,6 +313,8 @@ export async function start() {
     stopCatalogRefresh();
     stopDriftWatch();
     buildWatch.stop();
+    idle.stop();
+    await telegram.stop();
     await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),

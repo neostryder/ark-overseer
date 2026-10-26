@@ -15,6 +15,7 @@ import './components/ao-toast.js';
 import './components/ao-fleet-rail.js';
 import './components/ao-tab-bar.js';
 import './components/ao-build-banner.js';
+import './components/ao-idle-banner.js';
 import './components/ao-server-overview.js';
 import './components/ao-clusters.js';
 import './components/ao-servers.js';
@@ -191,7 +192,13 @@ class AoApp extends HTMLElement {
     this.jobsPanel = document.createElement('ao-jobs-panel');
     this.jobsDrawer = jobs;
     jobs.append(summary, this.jobsPanel);
-    main.append(top, document.createElement('ao-build-banner'), this.view, jobs);
+    main.append(
+      top,
+      document.createElement('ao-idle-banner'),
+      document.createElement('ao-build-banner'),
+      this.view,
+      jobs,
+    );
     const dialog = document.createElement('ao-dialog');
     const toast = document.createElement('ao-toast');
     this.append(rail, scrim, main, document.createElement('ao-tab-bar'), dialog, toast);

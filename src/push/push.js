@@ -1,7 +1,8 @@
 import { checkEndpoint, checkKeys, generateVapidKeys, sendPush } from './webpush.js';
+import { choiceText, extendShortLabel, shutdownLabel } from '../idle/settings.js';
 
 // What a device can ask to hear about.
-export const EVENTS = ['crash', 'build'];
+export const EVENTS = ['crash', 'build', 'idle'];
 export const PUSH_API_MESSAGES = {
   badEvents: 'Choose from the alert types this server offers.',
   badSubscription: 'The browser sent a subscription this server cannot use.',
@@ -27,6 +28,29 @@ export function crashMessage(server, reason, extra = null) {
     body: extra ? `${body} ${extra}` : body,
     url: `/#/servers/${server.id}/overview`,
     tag: `crash-${server.id}`,
+  };
+}
+
+export function idleMessage(server, text, extend) {
+  return {
+    title: `${server.name} is empty`,
+    body: `${text} ${choiceText(extend.value, extend.unit)}`,
+    url: `/#/servers/${server.id}/overview`,
+    tag: `idle-${server.id}`,
+    actions: [
+      { action: 'shutdown', title: shutdownLabel },
+      { action: 'extend', title: extendShortLabel(extend.value, extend.unit) },
+    ],
+    idle: { serverId: server.id, extend },
+  };
+}
+
+export function idleNoticeMessage(server, text) {
+  return {
+    title: `${server.name} is empty`,
+    body: text,
+    url: `/#/servers/${server.id}/overview`,
+    tag: `idle-${server.id}`,
   };
 }
 
@@ -140,6 +164,16 @@ export function createPush({
     return notify('crash', crashMessage(server, reason, extra));
   }
 
+  // A server that is running with nobody on it. The buttons on the alert answer it without opening the page.
+  function notifyIdle(server, text, extend) {
+    return notify('idle', idleMessage(server, text, extend));
+  }
+
+  // What came of an answer or an automatic shutdown. It carries the prompt's tag, so it replaces the prompt.
+  function notifyIdleNotice(server, text) {
+    return notify('idle', idleNoticeMessage(server, text));
+  }
+
   function notifyBuilds(changes) {
     if (!changes.length) return Promise.resolve({ devices: 0, delivered: 0 });
     const first = changes[0];
@@ -162,6 +196,8 @@ export function createPush({
     test,
     notify,
     notifyCrash,
+    notifyIdle,
+    notifyIdleNotice,
     notifyBuilds,
   };
 }

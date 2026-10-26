@@ -714,6 +714,20 @@ ao-setup-wizard :focus-visible {
   vertical-align: -3px;
   margin-right: 8px;
 }
+.idle-banner {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.idle-banner[hidden] {
+  display: none;
+}
+.idle-prompt .muted {
+  color: var(--muted);
+}
+.idle-prompt .button-row {
+  align-items: end;
+}
 .restart-banner {
   display: flex;
   flex-wrap: wrap;

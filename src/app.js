@@ -12,6 +12,8 @@ import { streamJobEvents } from './jobs/sse.js';
 import { createChangeFeed } from './http/feed.js';
 import { createPush, EVENTS as PUSH_EVENTS, PUSH_API_MESSAGES } from './push/push.js';
 import { createCrashHook } from './push/crash-hook.js';
+import { createIdleWatch } from './idle/idle.js';
+import { IDLE_MESSAGES } from './idle/settings.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
@@ -167,6 +169,10 @@ export function createApp({
   gaming,
   rcon,
   getRconPassword,
+  // The empty-server watch. The real app passes one that is wired to push and Telegram and already running.
+  idle = createIdleWatch({ db, supervisor, rcon, getRconPassword, log }),
+  // Answers whether Telegram is set up; the real app passes the Telegram client.
+  telegram = null,
   serviceMode = false,
   // The settings drift service. The real app shares one with the job engine and the supervisor.
   drift = null,
@@ -591,6 +597,44 @@ export function createApp({
       return await push.test(body?.endpoint);
     } catch (cause) {
       throw error(404, cause.message);
+    }
+  });
+  // The empty-server prompt: its settings, the prompts waiting for an answer, and the answers themselves.
+  router.add('GET', '/api/idle', async () => ({
+    ...idle.status(),
+    telegram: { configured: telegram ? await telegram.configured() : false },
+    servers: db.prepare('SELECT id, name FROM servers ORDER BY name COLLATE NOCASE').all(),
+  }));
+  router.add(
+    'PUT',
+    '/api/idle',
+    protectedRoute(
+      'idle.settings',
+      'idle',
+      ({ body }) => {
+        try {
+          return idle.saveSettings(body);
+        } catch (cause) {
+          throw error(400, cause.message);
+        }
+      },
+      (ctx, result) => result,
+    ),
+  );
+  router.add('POST', '/api/servers/:id/idle', async ({ params, body, user }) => {
+    must(serverRow(db, params.id));
+    if (!['shutdown', 'extend'].includes(body?.action)) throw error(400, IDLE_MESSAGES.badAction);
+    try {
+      const result = await idle.respond(
+        Number(params.id),
+        body.action,
+        { value: body.value, unit: body.unit },
+        { actor: 'user', userId: user?.id ?? null },
+      );
+      if (!result.ok) throw error(409, result.message);
+      return result;
+    } catch (cause) {
+      throw cause.status ? cause : error(400, cause.message);
     }
   });
   router.add('GET', '/api/installs/:id/builds', ({ params }) => {
