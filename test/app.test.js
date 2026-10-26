@@ -1738,3 +1738,30 @@ test('a bad extension time from the page is a 400 with the reason', async (t) =>
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /whole number/);
 });
+
+test('the Telegram relay needs no session but passes the secret header to the Telegram module', async (t) => {
+  const seen = [];
+  const telegram = {
+    configured: async () => true,
+    relayTap: async (secret, tap) => {
+      seen.push([secret, tap]);
+      return secret === 'right'
+        ? { status: 200, message: 'Neo Olympus stays running for 1 hour more.' }
+        : { status: 403, message: 'Refused.' };
+    },
+  };
+  const { url } = await fixtureWith(t, { telegram });
+  const post = (secret) =>
+    fetch(`${url}/api/telegram/relay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(secret ? { 'X-Overseer-Relay-Secret': secret } : {}) },
+      body: JSON.stringify({ data: 'idle:1:s' }),
+    });
+  const refused = await post('wrong');
+  assert.equal(refused.status, 403);
+  assert.equal((await post(null)).status, 403);
+  const accepted = await post('right');
+  assert.equal(accepted.status, 200);
+  assert.match((await accepted.json()).message, /1 hour more/);
+  assert.deepEqual(seen[2], ['right', { data: 'idle:1:s' }]);
+});

@@ -846,7 +846,7 @@ export const STRINGS = {
       autoMinutes: 'Minutes to wait for an answer',
       everyServer: 'Watch every server',
       telegramOn: 'Telegram is set up, so the prompt also arrives there with buttons.',
-      telegramOff: 'Telegram is not set up. The README explains how to add a bot.',
+      telegramOff: 'Telegram is not set up. The README explains how to connect one.',
       save: 'Save',
       saved: 'Saved.',
       needNumbers: 'Enter whole numbers of 1 or more.',

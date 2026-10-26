@@ -3,18 +3,25 @@ import assert from 'node:assert/strict';
 import { actionData, checkConfig, createTelegram, parseAction } from '../src/telegram/telegram.js';
 
 const TOKEN = '123456789:AAEhBP0av28KpQ4eXampleTokenValue_abc';
-const CONFIG = JSON.stringify({ botToken: TOKEN, chatId: 4242 });
+const SECRET = 'relay-secret-0123456789-abcdefghijklmnop';
+const CONFIG = JSON.stringify({ botToken: TOKEN, chatId: 4242, relaySecret: SECRET });
 
 test('the config file needs a bot token and a chat number', () => {
-  assert.deepEqual(checkConfig({ botToken: TOKEN, chatId: 4242 }), { botToken: TOKEN, chatId: '4242' });
-  assert.equal(checkConfig({ botToken: TOKEN, chatId: '-100123' }).chatId, '-100123');
+  assert.deepEqual(checkConfig({ botToken: TOKEN, chatId: 4242, relaySecret: SECRET }), {
+    botToken: TOKEN,
+    chatId: '4242',
+    relaySecret: SECRET,
+  });
+  assert.equal(checkConfig({ botToken: TOKEN, chatId: '-100123', relaySecret: SECRET }).chatId, '-100123');
   for (const bad of [
     null,
     [],
     {},
-    { botToken: 'nope', chatId: 1 },
-    { botToken: TOKEN },
-    { botToken: TOKEN, chatId: 'me' },
+    { botToken: 'nope', chatId: 1, relaySecret: SECRET },
+    { botToken: TOKEN, relaySecret: SECRET },
+    { botToken: TOKEN, chatId: 'me', relaySecret: SECRET },
+    { botToken: TOKEN, chatId: 1 },
+    { botToken: TOKEN, chatId: 1, relaySecret: 'short' },
   ]) {
     assert.throws(() => checkConfig(bad), undefined, JSON.stringify(bad));
   }
@@ -43,12 +50,6 @@ function fake(results = {}) {
     const method = url.split('/').pop();
     const body = JSON.parse(init.body);
     calls.push({ url, method, body });
-    if (method === 'getUpdates' && calls.filter((call) => call.method === method).length > 1) {
-      // Later polls wait, as a real long poll does, until the loop is stopped.
-      return new Promise((resolve, reject) =>
-        init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
-      );
-    }
     const answer = results[method];
     const next = typeof answer === 'function' ? answer(body) : answer;
     if (next instanceof Error) throw next;
@@ -111,42 +112,33 @@ test('a failed send never carries the token or the address that holds it', async
   }
 });
 
-// Drives the poll loop through one batch of updates and stops it.
-async function runOnce(updates, { onAction, extra = {} } = {}) {
-  const { calls, fetchFn } = fake({ getUpdates: { result: updates }, ...extra });
-  const telegram = createTelegram({
-    dataDir: 'x',
-    fetchFn,
-    readFile: readConfig(),
-    onAction,
-    sleep: () => new Promise(() => {}),
-  });
-  telegram.start();
-  // The tap handler runs after getUpdates answers; give it a few turns, then stop the waiting poll.
-  for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve));
-  await telegram.stop();
-  return calls;
-}
-
 const tap = (overrides = {}) => ({
-  update_id: 10,
-  callback_query: {
-    id: 'cb1',
-    from: { id: 4242 },
-    message: { message_id: 55, text: 'Alpha is idle.', chat: { id: 4242 } },
-    data: 'idle:7:e:1:h',
-    ...overrides,
-  },
+  callbackQueryId: 'cb1',
+  chatId: 4242,
+  fromId: 4242,
+  messageId: 55,
+  text: 'Alpha is idle.',
+  data: 'idle:7:e:1:h',
+  ...overrides,
 });
 
-test('a tap from the chat runs the action, answers it, and closes the buttons on the message', async () => {
+function relayer(extra = {}, onAction) {
+  const { calls, fetchFn } = fake(extra);
+  const telegram = createTelegram({ dataDir: 'x', fetchFn, readFile: readConfig(), onAction });
+  return { calls, telegram };
+}
+
+test('a forwarded tap runs the action, answers it, and closes the buttons on the message', async () => {
   const seen = [];
-  const calls = await runOnce([tap()], {
-    onAction: async (...args) => (
+  const { calls, telegram } = relayer(
+    {},
+    async (...args) => (
       seen.push(args),
       { message: 'Alpha stays running for 1 hour more, then shuts down if nobody is on.' }
     ),
-  });
+  );
+  const result = await telegram.relayTap(SECRET, tap());
+  assert.equal(result.status, 200);
   assert.deepEqual(seen, [[7, 'extend', { value: 1, unit: 'hour' }]]);
   const answer = calls.find((call) => call.method === 'answerCallbackQuery');
   assert.equal(answer.body.callback_query_id, 'cb1');
@@ -155,17 +147,24 @@ test('a tap from the chat runs the action, answers it, and closes the buttons on
   assert.equal(edit.body.message_id, 55);
   assert.deepEqual(edit.body.reply_markup, { inline_keyboard: [] });
   assert.match(edit.body.text, /^Alpha is idle\.\n\nAlpha stays running/);
-  assert.deepEqual(calls[0].body.allowed_updates, ['callback_query']);
 });
 
-test('a tap from any other chat or person is refused and runs nothing', async () => {
-  for (const overrides of [
-    { from: { id: 999 } },
-    { message: { message_id: 55, text: 't', chat: { id: 999 } } },
-    { data: 'idle:7:s:extra' },
-  ]) {
+test('a tap with the wrong secret, or with none, is refused before anything runs or is sent', async () => {
+  for (const secret of ['wrong', '', undefined, SECRET + 'x', SECRET.slice(1)]) {
     let ran = false;
-    const calls = await runOnce([tap(overrides)], { onAction: async () => ((ran = true), { message: 'done' }) });
+    const { calls, telegram } = relayer({}, async () => ((ran = true), { message: 'done' }));
+    assert.equal((await telegram.relayTap(secret, tap())).status, 403);
+    assert.equal(ran, false);
+    assert.deepEqual(calls, []);
+  }
+});
+
+test('a tap from any other chat or person runs nothing and the buttons stay', async () => {
+  for (const overrides of [{ fromId: 999 }, { chatId: 999 }]) {
+    let ran = false;
+    const { calls, telegram } = relayer({}, async () => ((ran = true), { message: 'done' }));
+    const result = await telegram.relayTap(SECRET, tap(overrides));
+    assert.equal(result.status, 200);
     assert.equal(ran, false, JSON.stringify(overrides));
     assert.equal(
       calls.find((call) => call.method === 'answerCallbackQuery').body.text,
@@ -178,12 +177,20 @@ test('a tap from any other chat or person is refused and runs nothing', async ()
   }
 });
 
+test('data that is not an idle button is refused, and with no telegram.json nothing is accepted', async () => {
+  const { telegram } = relayer({}, async () => ({ message: 'x' }));
+  for (const data of ['idle:7:s:extra', 'other:1:s', '', undefined])
+    assert.equal((await telegram.relayTap(SECRET, tap({ data }))).status, 400);
+  const bare = createTelegram({ dataDir: 'x', fetchFn: fake().fetchFn, readFile: missing });
+  assert.equal((await bare.relayTap(SECRET, tap())).status, 404);
+});
+
 test('an action that throws is told to the person who tapped', async () => {
-  const calls = await runOnce([tap({ data: 'idle:7:s' })], {
-    onAction: async () => {
-      throw new Error('Alpha is busy with another task right now.');
-    },
+  const { calls, telegram } = relayer({}, async () => {
+    throw new Error('Alpha is busy with another task right now.');
   });
+  const result = await telegram.relayTap(SECRET, tap({ data: 'idle:7:s' }));
+  assert.equal(result.status, 200);
   assert.equal(
     calls.find((call) => call.method === 'answerCallbackQuery').body.text,
     'Alpha is busy with another task right now.',

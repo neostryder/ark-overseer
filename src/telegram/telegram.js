@@ -1,11 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import { extendLabel, shutdownLabel } from '../idle/settings.js';
 
-// A Telegram bot that sends the empty-server prompt with buttons and carries the taps back. The token and chat
-// come only from telegram.json in the data folder on the PC that runs Overseer, never from the web interface, and
-// a tap counts only when it comes from that chat. The bot is Overseer's own: Telegram lets one process at a time
-// receive a bot's updates, so a bot shared with another program would knock that one offline.
+// Sends the empty-server prompt to Telegram with buttons and carries the taps back. Overseer only sends: the bot is
+// shared with other programs, and Telegram lets one process at a time receive a bot's updates, so another program
+// (Hermes) holds that and forwards each tap here, to /api/telegram/relay, with a shared secret. The token, the chat
+// and the secret come only from telegram.json in the data folder on the PC that runs Overseer, never from the web
+// interface, and a tap counts only when it comes from that chat.
 export const CONFIG_FILE = 'telegram.json';
 const UNIT_CODES = { minute: 'm', hour: 'h', day: 'd' };
 const UNIT_NAMES = { m: 'minute', h: 'hour', d: 'day' };
@@ -13,12 +15,15 @@ const ACTION_PATTERN = /^idle:(\d+):(s|e)(?::(\d+):([mhd]))?$/;
 
 export function checkConfig(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The file must hold one object.');
-  const { botToken, chatId } = value;
+  const { botToken, chatId, relaySecret } = value;
   if (typeof botToken !== 'string' || !/^\d+:[\w-]{20,}$/.test(botToken)) {
     throw new Error('"botToken" must be the token BotFather gave the bot.');
   }
   if (!/^-?\d+$/.test(String(chatId ?? ''))) throw new Error('"chatId" must be the number of your chat with the bot.');
-  return { botToken, chatId: String(chatId) };
+  if (typeof relaySecret !== 'string' || relaySecret.length < 32) {
+    throw new Error('"relaySecret" must be a made-up string of at least 32 characters.');
+  }
+  return { botToken, chatId: String(chatId), relaySecret };
 }
 
 export function actionData(serverId, action, extend) {
@@ -41,19 +46,8 @@ export function createTelegram({
   log = () => {},
   // Called with (serverId, action, { value, unit }) for a tap; returns { message }.
   onAction = async () => ({ message: '' }),
-  pollSeconds = 30,
-  retryMs = 30 * 1000,
-  idleMs = 60 * 1000,
-  sleep = (ms, signal) =>
-    new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
-      timer.unref?.();
-      signal?.addEventListener('abort', () => (clearTimeout(timer), resolve()), { once: true });
-    }),
 }) {
   const file = path.join(dataDir, CONFIG_FILE);
-  let abort = null;
-  let task = null;
 
   async function load() {
     let text;
@@ -129,84 +123,49 @@ export function createTelegram({
     return true;
   }
 
-  async function handleTap(config, query, signal) {
-    const fromChat =
-      String(query.message?.chat?.id ?? '') === config.chatId && String(query.from?.id ?? '') === config.chatId;
-    const parsed = fromChat ? parseAction(query.data) : null;
+  // A tap forwarded by the program that receives the bot's updates. Returns { status, message }: 403 for a wrong
+  // secret, 400 for a tap that is not an idle button, 200 once the action has been tried (its outcome is the message).
+  async function relayTap(secret, tap) {
+    const config = await load().catch(() => null);
+    if (!config) return { status: 404, message: 'Telegram is not set up.' };
+    const given = Buffer.from(String(secret ?? ''));
+    const wanted = Buffer.from(config.relaySecret);
+    if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) return { status: 403, message: 'Refused.' };
+    const parsed = parseAction(tap?.data);
+    if (!parsed) return { status: 400, message: 'That is not an idle button.' };
+    const fromChat = String(tap.chatId ?? '') === config.chatId && String(tap.fromId ?? '') === config.chatId;
     let message = 'That button is not for this chat.';
-    if (parsed) {
+    if (fromChat) {
       try {
         message = (await onAction(parsed.serverId, parsed.action, { value: parsed.value, unit: parsed.unit })).message;
       } catch (cause) {
         message = cause.message;
       }
     }
-    await call(
-      config,
-      'answerCallbackQuery',
-      { callback_query_id: query.id, text: message.slice(0, 190) },
-      signal,
-    ).catch(() => {});
-    if (parsed && query.message?.message_id) {
+    const signal = AbortSignal.timeout(15000);
+    if (typeof tap.callbackQueryId === 'string' && tap.callbackQueryId) {
+      await call(
+        config,
+        'answerCallbackQuery',
+        { callback_query_id: tap.callbackQueryId, text: message.slice(0, 190) },
+        signal,
+      ).catch(() => {});
+    }
+    if (fromChat && Number.isInteger(tap.messageId)) {
       await call(
         config,
         'editMessageText',
         {
           chat_id: config.chatId,
-          message_id: query.message.message_id,
-          text: `${query.message.text ?? ''}\n\n${message}`,
+          message_id: tap.messageId,
+          text: `${String(tap.text ?? '').slice(0, 3500)}\n\n${message}`,
           reply_markup: { inline_keyboard: [] },
         },
         signal,
       ).catch(() => {});
     }
+    return { status: 200, message };
   }
 
-  async function loop(signal) {
-    let offset = 0;
-    while (!signal.aborted) {
-      let config;
-      try {
-        config = await load();
-      } catch (cause) {
-        log(`Telegram: telegram.json is not usable: ${cause.message}`);
-        await sleep(idleMs, signal);
-        continue;
-      }
-      if (!config) {
-        await sleep(idleMs, signal);
-        continue;
-      }
-      try {
-        const updates = await call(
-          config,
-          'getUpdates',
-          { offset, timeout: pollSeconds, allowed_updates: ['callback_query'] },
-          AbortSignal.any([signal, AbortSignal.timeout((pollSeconds + 15) * 1000)]),
-        );
-        for (const update of updates ?? []) {
-          offset = Math.max(offset, update.update_id + 1);
-          if (update.callback_query) await handleTap(config, update.callback_query, signal);
-        }
-      } catch (cause) {
-        if (signal.aborted) return;
-        log(`Telegram: ${cause.message}`);
-        await sleep(cause.status === 401 ? 5 * idleMs : retryMs, signal);
-      }
-    }
-  }
-
-  function start() {
-    if (task) return;
-    abort = new AbortController();
-    task = loop(abort.signal).catch((cause) => log(`Telegram: ${cause.message}`));
-  }
-  async function stop() {
-    abort?.abort();
-    await task;
-    task = null;
-    abort = null;
-  }
-
-  return { configured, sendNotice, sendPrompt, start, stop };
+  return { configured, sendNotice, sendPrompt, relayTap };
 }
