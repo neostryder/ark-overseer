@@ -7,6 +7,7 @@ import {
   parseTag,
   selectReleases,
   createReleaseChecker,
+  githubKeyFromFile,
   RELEASE_MESSAGES,
 } from '../src/releases.js';
 
@@ -81,8 +82,10 @@ const EDGE_RELEASE = {
 
 async function fakeGitHub(t, routes) {
   const requests = [];
+  const auths = [];
   const server = http.createServer((req, res) => {
     requests.push(req.url);
+    auths.push(req.headers.authorization ?? null);
     const route = routes[req.url];
     if (!route) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -94,7 +97,7 @@ async function fakeGitHub(t, routes) {
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => server.close());
-  return { baseUrl: `http://127.0.0.1:${server.address().port}`, requests };
+  return { baseUrl: `http://127.0.0.1:${server.address().port}`, requests, auths };
 }
 
 const releasesUrl = `/repos/${UPDATE_REPO}/releases?per_page=100`;
@@ -211,6 +214,84 @@ test('a second check within ten minutes is served from the cache, and after that
   // The cache is per channel: Beta is asked for on its own.
   await checker.check('beta');
   assert.equal(requests.length, 3);
+});
+
+test('a failed check is remembered for one minute, not ten, so Try again works once GitHub recovers', async (t) => {
+  let now = 1_000_000;
+  let failing = true;
+  const server = http.createServer((req, res) => {
+    if (failing) {
+      res.writeHead(403, { 'Content-Type': 'application/json', 'x-ratelimit-remaining': '0' });
+      res.end('{}');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(RELEASES));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const checker = createReleaseChecker({ baseUrl: `http://127.0.0.1:${server.address().port}`, now: () => now });
+  assert.equal((await checker.check('stable')).message, RELEASE_MESSAGES.rateLimited);
+  failing = false;
+  // Within the minute the failure is still served, with no new request.
+  now += 59 * 1000;
+  assert.equal((await checker.check('stable')).ok, false);
+  // After the minute GitHub is asked again and the good answer is kept for the full ten minutes.
+  now += 2 * 1000;
+  assert.equal((await checker.check('stable')).ok, true);
+  failing = true;
+  now += 9 * 60 * 1000;
+  assert.equal((await checker.check('stable')).ok, true);
+});
+
+test('with a key in github.json the check is signed in, and without one it goes out anonymously', async (t) => {
+  const readFile = async (file) => {
+    if (!file.includes('data') || !file.endsWith('github.json')) {
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+    }
+    return '\uFEFF{"githubToken": "  abc123  "}';
+  };
+  const signed = await fakeGitHub(t, { [releasesUrl]: { body: RELEASES } });
+  await createReleaseChecker({ baseUrl: signed.baseUrl, readKey: githubKeyFromFile('C:/data', readFile) }).check(
+    'stable',
+  );
+  assert.deepEqual(signed.auths, ['Bearer abc123']);
+
+  const anonymous = await fakeGitHub(t, { [releasesUrl]: { body: RELEASES } });
+  await createReleaseChecker({
+    baseUrl: anonymous.baseUrl,
+    readKey: githubKeyFromFile('C:/elsewhere', readFile),
+  }).check('stable');
+  assert.deepEqual(anonymous.auths, [null]);
+
+  const unreadable = githubKeyFromFile('C:/data', async () => 'not json');
+  assert.equal(await unreadable(), null);
+});
+
+test('a key GitHub refuses falls back to an anonymous check instead of failing the update', async (t) => {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push(req.headers.authorization ?? null);
+    if (req.headers.authorization) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end('{}');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(RELEASES));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const logged = [];
+  const checker = createReleaseChecker({
+    baseUrl: `http://127.0.0.1:${server.address().port}`,
+    readKey: async () => 'revoked',
+    log: (line) => logged.push(line),
+  });
+  assert.equal((await checker.check('stable')).ok, true);
+  assert.deepEqual(seen, ['Bearer revoked', null]);
+  assert.equal(logged.length, 1);
+  assert.doesNotMatch(logged[0], /revoked/);
 });
 
 test('a rate limit and a network failure are plain messages, and the rest keeps working', async (t) => {

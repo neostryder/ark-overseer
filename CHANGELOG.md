@@ -11,6 +11,7 @@ All notable changes to ARK Overseer are listed here.
 
 ### Fixed
 
+- [Visible] [Server] **Checking for an update can go out signed in to GitHub, and a failed check no longer sticks for ten minutes.** Put a `github.json` file with a `githubToken` in the data folder and the check uses GitHub's much higher signed-in limit instead of the 60 an hour that an anonymous program shares per address. If GitHub refuses the key, the check goes out anonymously and the log notes it. A failed check, such as a rate limit, is now remembered for one minute instead of ten, so Try again works once GitHub is reachable again.
 - [Visible] [Server] **The Update from GitHub button works again on a package install.** After a package install or update, the update link pointed into a download folder that Overseer had already deleted, so the click started nothing and Windows never asked for approval. The link now runs a copy of the updater kept beside the service's PowerShell, which a package install refreshes each time. A package install made before this fix needs one update started from a checkout, or a reinstall, to repair the link.
 
 ## [1.3.0] - 2026-10-12
