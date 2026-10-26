@@ -196,22 +196,19 @@ Nobody answering means the server gets saved and shut down 15 minutes after the 
 
 The Empty server prompt card on the Account page is where you set how many minutes to wait before asking, the usual extra time, how long to wait for an answer, whether to shut down when nobody answers, and which servers to watch. Those settings follow you to every device.
 
-Telegram needs a bot of its own. Only one program at a time can receive a bot's button taps, so a bot that another program already uses would stop working there.
+Telegram works with any bot, including one that another program already uses. Overseer only sends the prompt and never listens for taps, because Telegram lets one program at a time receive a bot's updates. That program forwards each tap on an Overseer button to `POST /api/telegram/relay`, with the header `X-Overseer-Relay-Secret` and a JSON body holding `callbackQueryId`, `chatId`, `fromId`, `messageId`, `text`, and `data`. Overseer checks the secret, checks that the tap came from your chat, runs the answer, and updates the message.
 
-1. In Telegram, message @BotFather, send `/newbot`, and follow the prompts to get a bot token.
-2. Send any message to the new bot, then open `https://api.telegram.org/bot<token>/getUpdates` in a browser with your token in place of `<token>`. The number after `"chat":{"id":` is your chat id. That address contains the token, so don't share it.
-3. Make a file called `telegram.json` in the data folder (`C:\ProgramData\ARK Overseer` when it runs as the service):
+Make a file called `telegram.json` in the data folder (`C:\ProgramData\ARK Overseer` when it runs as the service):
 
 ```json
 {
   "botToken": "<token>",
-  "chatId": "<chat id>"
+  "chatId": "<chat id>",
+  "relaySecret": "<at least 32 random characters>"
 }
 ```
 
-4. Restart Overseer so it starts listening for taps.
-
-Only someone at the PC can change `telegram.json`, and the web interface never shows the token. Overseer only acts on taps from that chat, and it sends a plain message there after a server shuts down. Without the file, prompts still reach the page and any phone with alerts on.
+Overseer reads the file whenever it needs it, so there's nothing to restart. Only someone at the PC can change it, and the web interface never shows the token or the secret. Overseer only acts on taps from that chat, and it sends a plain message there after a server shuts down. When Overseer sits behind Cloudflare Access, the forwarding program also needs an Access service token to reach the address. Without the file, prompts still reach the page and any phone with alerts on.
 
 ## Behind Cloudflare Access
 

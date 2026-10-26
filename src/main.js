@@ -303,9 +303,8 @@ export async function start() {
   const stopDriftWatch = drift.start();
   // Steam is asked about new builds every fifteen minutes, live and test branches alike.
   buildWatch.start();
-  // Every minute each running server is asked who is on it; Telegram taps come back through its own poll.
+  // Every minute each running server is asked who is on it.
   idle.start();
-  telegram.start();
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
@@ -314,7 +313,6 @@ export async function start() {
     stopDriftWatch();
     buildWatch.stop();
     idle.stop();
-    await telegram.stop();
     await gaming.stop();
     await saveAllWorlds({ db, supervisor, rcon: rconCommand, getRconPassword, timeoutMs: SAVE_ALL_MS }).catch((error) =>
       console.error(`World saves before shutdown failed: ${error.message}`),

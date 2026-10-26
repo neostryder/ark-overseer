@@ -637,6 +637,14 @@ export function createApp({
       throw cause.status ? cause : error(400, cause.message);
     }
   });
+  // A button tap on a Telegram prompt, forwarded by the program that receives the bot's updates. It has no
+  // session, so it proves itself with the shared secret in telegram.json instead.
+  router.add('POST', '/api/telegram/relay', async ({ req, body }) => {
+    if (!telegram) throw error(404, API_MESSAGES.notFound);
+    const result = await telegram.relayTap(req.headers['x-overseer-relay-secret'], body);
+    if (result.status !== 200) throw error(result.status, result.message);
+    return { message: result.message };
+  });
   router.add('GET', '/api/installs/:id/builds', ({ params }) => {
     must(db.prepare('SELECT id FROM installs WHERE id = ?').get(params.id));
     return listInstallBuilds(db, Number(params.id));
@@ -1283,7 +1291,7 @@ export function createApp({
     const user = await auth.identify(req, res);
     if (req.accessAuditEmail !== undefined && user)
       audit(db, user, 'auth.access.login', 'user', user.id, { email: req.accessAuditEmail });
-    if (!authRoute && !isPublic(pathname)) {
+    if (!authRoute && !isPublic(pathname) && pathname !== '/api/telegram/relay') {
       if (!user) {
         if (pathname.startsWith('/api/')) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
