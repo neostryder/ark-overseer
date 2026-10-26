@@ -156,6 +156,14 @@ To remove it, double-click **Uninstall ARK Overseer**. It asks before it touches
 
 Open ARK Overseer on the PC that runs it, go to **This computer** and choose Update. Windows asks for administrator approval, the service installs the new version and restarts, and the page reloads when it's back. Pick the Stable, Beta or Edge channel, read the release notes before you update, and go back to an earlier release if a new one causes trouble. If an update fails, the previous version is put back.
 
+Checking for a new release asks GitHub, and GitHub lets an anonymous program ask only 60 times an hour for each internet address. To check signed in, which raises that to 5,000 an hour, put a file called `github.json` in the data folder (`C:\ProgramData\ARK Overseer` when it runs as the service):
+
+```json
+{ "githubToken": "a fine-grained personal access token with read-only access to public repositories" }
+```
+
+The file is read on every check, so a change needs no restart, and it can only be changed on the PC itself. If GitHub refuses the key, the check goes out anonymously and the log says so. A failed check is remembered for one minute, so Try again works as soon as GitHub is reachable.
+
 ## Reaching it from other devices
 
 Other devices on your network can open `http://<the PC's name>:3310`, but Windows Firewall blocks them until you allow the port. In an administrator PowerShell:

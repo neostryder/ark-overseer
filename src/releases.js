@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 // The published repository. Change this constant to point at another fork or mirror before release.
 export const UPDATE_REPO = 'neostryder/ark-overseer';
 export const UPDATE_CHANNELS = ['stable', 'beta', 'edge'];
@@ -9,6 +12,11 @@ export const RELEASE_MESSAGES = {
   noReleases: 'No releases were found for this channel.',
 };
 const CACHE_MS = 10 * 60 * 1000;
+// A failed check is remembered only briefly, so Try again works as soon as GitHub or the network recovers.
+const FAILURE_CACHE_MS = 60 * 1000;
+// Optional file in the data folder that holds a GitHub access key: {"githubToken": "..."}. A signed-in
+// request gets GitHub's far higher rate limit than an anonymous one, which shares 60 an hour per address.
+export const GITHUB_FILE = 'github.json';
 // vX.Y.Z is a stable release; vX.Y.Z-beta.N is a beta. Anything else, such as a release candidate, is ignored.
 const TAG = /^v(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/;
 
@@ -109,6 +117,20 @@ export function selectReleases(releases, channel) {
   );
 }
 
+// Reads the access key on every check, so adding or changing the file needs no restart. A missing or
+// unreadable file means checks go out anonymously.
+export function githubKeyFromFile(dataDir, readFile = fs.readFile) {
+  const file = path.join(dataDir, GITHUB_FILE);
+  return async () => {
+    try {
+      const value = JSON.parse((await readFile(file, 'utf8')).replace(/^﻿/, ''));
+      return typeof value?.githubToken === 'string' && value.githubToken.trim() ? value.githubToken.trim() : null;
+    } catch {
+      return null;
+    }
+  };
+}
+
 function messageFor(error) {
   if (error?.code === 'rate_limited') return RELEASE_MESSAGES.rateLimited;
   if (error?.code === 'unreachable') return RELEASE_MESSAGES.unreachable;
@@ -123,6 +145,7 @@ async function fetchJson({ fetchImpl, url, headers }) {
     throw Object.assign(new Error(RELEASE_MESSAGES.unreachable), { code: 'unreachable' });
   }
   if (!response.ok) {
+    if (response.status === 401) throw Object.assign(new Error(RELEASE_MESSAGES.unreadable), { code: 'unauthorized' });
     const limited =
       response.status === 429 || (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0');
     throw Object.assign(new Error(limited ? RELEASE_MESSAGES.rateLimited : RELEASE_MESSAGES.unreadable), {
@@ -136,13 +159,23 @@ async function fetchJson({ fetchImpl, url, headers }) {
   }
 }
 
-async function loadChannel({ baseUrl, repo, fetchImpl, channel }) {
+async function loadChannel({ baseUrl, repo, fetchImpl, channel, readKey, log }) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'ark-overseer' };
-  const releases = await fetchJson({
-    fetchImpl,
-    url: `${baseUrl}/repos/${repo}/releases?per_page=100`,
-    headers,
-  });
+  const url = `${baseUrl}/repos/${repo}/releases?per_page=100`;
+  const key = await readKey().catch(() => null);
+  let releases;
+  try {
+    releases = await fetchJson({
+      fetchImpl,
+      url,
+      headers: key ? { ...headers, Authorization: `Bearer ${key}` } : headers,
+    });
+  } catch (error) {
+    if (!key || error.code !== 'unauthorized') throw error;
+    // GitHub refused the key (expired or revoked): fall back to an anonymous check rather than failing the update.
+    log('Release check: GitHub refused the key in github.json, so the check went out anonymously.');
+    releases = await fetchJson({ fetchImpl, url, headers });
+  }
   if (channel === 'edge') {
     const release = Array.isArray(releases) ? releases.find((item) => !item?.draft && item?.tag_name === 'edge') : null;
     const newest = release && releaseItem(release);
@@ -155,24 +188,27 @@ async function loadChannel({ baseUrl, repo, fetchImpl, channel }) {
   return { ok: true, channel, newest, history };
 }
 
-// Asks GitHub for the newest release on a channel, at most once every ten minutes per channel. The
-// answer, including a failure, is cached so the page can open and re-check without hammering GitHub.
+// Asks GitHub for the newest release on a channel, at most once every ten minutes per channel. A good answer is
+// cached for ten minutes and a failure for one, so the page can open and re-check without hammering GitHub.
 export function createReleaseChecker({
   baseUrl = 'https://api.github.com',
   repo = UPDATE_REPO,
   fetch: fetchImpl = globalThis.fetch,
   now = () => Date.now(),
   cacheMs = CACHE_MS,
+  failureCacheMs = FAILURE_CACHE_MS,
+  readKey = async () => null,
+  log = () => {},
 } = {}) {
   const cache = new Map();
   async function check(channel) {
     if (!UPDATE_CHANNELS.includes(channel))
       throw Object.assign(new Error(RELEASE_MESSAGES.badChannel), { status: 400 });
     const cached = cache.get(channel);
-    if (cached && now() - cached.at < cacheMs) return cached.value;
+    if (cached && now() - cached.at < (cached.value.ok ? cacheMs : failureCacheMs)) return cached.value;
     let value;
     try {
-      value = await loadChannel({ baseUrl, repo, fetchImpl, channel });
+      value = await loadChannel({ baseUrl, repo, fetchImpl, channel, readKey, log });
       value.checkedAt = new Date(now()).toISOString();
     } catch (error) {
       value = { ok: false, channel, message: messageFor(error) };
