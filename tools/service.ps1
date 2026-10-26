@@ -337,8 +337,21 @@ if ($Action -eq 'install') {
     Invoke-Step 'Record the update options' "Set-Content $(Quote $updaterFile) $updater" {
       Set-Content -LiteralPath $updaterFile -Value $updater -Encoding utf8NoBOM
     }
+    # A checkout runs the updater from the checkout. A package is unpacked into a download folder that the
+    # updater deletes when it finishes, and the deployed app is closed to ordinary users, so the link runs a
+    # copy kept beside the runtime PowerShell. Users can read and run it, never change it.
+    $updateScript = Join-Path $AppDir 'tools\update.ps1'
+    if ($Package) {
+      $updaterDir = Join-Path $Runtime 'updater'
+      $updateScript = Join-Path $updaterDir 'update.ps1'
+      Invoke-Step 'Keep a copy of the updater for the update link' "Copy-Item $(Quote (Join-Path $AppDir 'tools\update.ps1')) $(Quote $updateScript)" {
+        New-Item -ItemType Directory -Force -Path $updaterDir | Out-Null
+        Copy-Item -LiteralPath (Join-Path $AppDir 'tools\update.ps1') -Destination $updateScript -Force
+      }
+      Invoke-Native "Let the update link run $updaterDir" $Icacls @($updaterDir, '/inheritance:r', '/grant:r', "${System}:(OI)(CI)F", "${Administrators}:(OI)(CI)F", "${Users}:(OI)(CI)RX")
+    }
     $linkCommand = '"{0}" --headless "{1}" -NoProfile -ExecutionPolicy Bypass -File "{2}" -Root "{3}"' -f `
-    (Join-Path $env:SystemRoot 'System32\conhost.exe'), (Join-Path $pwshDir 'pwsh.exe'), (Join-Path $AppDir 'tools\update.ps1'), $Root
+    (Join-Path $env:SystemRoot 'System32\conhost.exe'), (Join-Path $pwshDir 'pwsh.exe'), $updateScript, $Root
     Invoke-Step 'Register the update link for this Windows account' "$UpdateLink :: $linkCommand" {
       New-Item -Path "$UpdateLink\shell\open\command" -Force | Out-Null
       Set-ItemProperty -LiteralPath $UpdateLink -Name '(default)' -Value 'URL:ARK Overseer update'

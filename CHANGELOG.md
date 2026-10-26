@@ -9,6 +9,10 @@ All notable changes to ARK Overseer are listed here.
 - [Visible] [Server] **A crash alert can carry one extra line from a program you name.** Put a `crash-hook.json` file in the data folder with the program's full path, its arguments, and an optional timeout, and Overseer runs it when a server crashes and an alert is about to go out. The first line it prints is added to the alert. A program that fails, runs too long, or has a bad config is noted in the log and the alert goes out as before. The file is read on every crash and can only be changed on the PC itself, never from the web interface.
 - [Visible] [Server] [Settings] **Overseer asks what to do with a server that has run for 5 minutes with nobody on it.** The prompt says the server is still running and nobody has been on for 5 minutes. Its two answers are Save and shut down now and Leave it running for 1 hour more, then shut down if nobody is on, where the extra time can be any whole number of minutes, hours, or days and the unit always fits the number. It shows up as a banner on every page and as a push alert with two buttons. Put a bot token and chat id in `telegram.json` in the data folder and it comes through Telegram too, with a one-tap button for each answer. If nobody answers, Overseer saves and shuts down the server 15 minutes later. The Empty server prompt card on the Account page can turn that off, change the other timings, and pick which servers are watched.
 
+### Fixed
+
+- [Visible] [Server] **The Update from GitHub button works again on a package install.** After a package install or update, the update link pointed into a download folder that Overseer had already deleted, so the click started nothing and Windows never asked for approval. The link now runs a copy of the updater kept beside the service's PowerShell, which a package install refreshes each time. A package install made before this fix needs one update started from a checkout, or a reinstall, to repair the link.
+
 ## [1.3.0] - 2026-10-12
 
 ### Added

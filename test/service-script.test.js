@@ -122,6 +122,51 @@ test('service script install dry run validates hashes and prints all planned ste
   assert.deepEqual(fs.readdirSync(path.join(appDir, 'vendor')).sort(), ['pwsh.zip', 'shawl.zip']);
 });
 
+test(
+  'a package install registers the update link on a copy of the updater that outlives the download folder',
+  { skip },
+  (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'overseer-service-package-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    // The updater unpacks a package into a download folder and deletes it when it finishes.
+    const appDir = path.join(root, 'ark-overseer-update-package-1', 'unpacked', 'app');
+    fs.mkdirSync(path.join(appDir, 'tools'), { recursive: true });
+    const serviceRoot = path.join(root, 'ProgramData', 'ARK Overseer');
+    const result = spawnSync(
+      'pwsh',
+      [
+        '-NoProfile',
+        '-File',
+        'tools/service.ps1',
+        'install',
+        '-DryRun',
+        '-Package',
+        '-AppDir',
+        appDir,
+        '-Root',
+        serviceRoot,
+        '-ServiceName',
+        `ArkOverseerTest${process.pid}`,
+      ],
+      { cwd: process.cwd(), encoding: 'utf8', windowsHide: true },
+    );
+    const steps = (result.stdout + result.stderr).split(/\r?\n/).filter((line) => line.startsWith('STEP: '));
+    const updaterDir = path.join(serviceRoot, 'runtime', 'updater');
+    const copy = steps.find((line) => line.startsWith('STEP: Keep a copy of the updater'));
+    assert.ok(copy.includes(path.join(appDir, 'tools', 'update.ps1')));
+    assert.ok(copy.includes(path.join(updaterDir, 'update.ps1')));
+    assert.ok(
+      steps.some(
+        (line) =>
+          line.includes('*S-1-5-32-545:(OI)(CI)RX') && line.includes(updaterDir) && line.includes('/inheritance:r'),
+      ),
+    );
+    const link = steps.find((line) => line.startsWith('STEP: Register the update link'));
+    assert.ok(link.includes(path.join(updaterDir, 'update.ps1')));
+    assert.ok(!link.includes(appDir), 'the link never names the download folder');
+  },
+);
+
 test('service status for an unknown service exits cleanly', { skip }, (t) => {
   const name = `ArkOverseerMissing${process.pid}`;
   const result = spawnSync('pwsh', ['-NoProfile', '-File', 'tools/service.ps1', 'status', '-ServiceName', name], {
