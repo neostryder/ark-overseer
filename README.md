@@ -186,6 +186,33 @@ Right before a crash alert goes out, Overseer runs the program once and tacks th
 
 Overseer rereads the file on every crash, so you can edit it without a restart. Only someone at the PC can change it; the web interface has no setting for it.
 
+## Empty server prompt
+
+Overseer looks at who's connected to each running server once a minute. If a server has been up for 5 minutes and nobody's on it, you get a prompt telling you so, with two answers: Save and shut down now, or Leave it running for 1 hour more, then shut down if nobody is on. The 1 hour is only the default. Set it to any whole number of minutes, hours, or days, up to 7 days, and the button reads naturally for whatever you pick, like 1 hour, 2 hours, or 30 minutes.
+
+You'll see the prompt in a banner on every page. Phones that have alerts on get it as a push alert as well, once you tick "A server is running with nobody connected" on the Account page. The alert carries both answers as buttons, and tapping one works without opening the page. With a Telegram bot set up, the prompt lands there too.
+
+Nobody answering means the server gets saved and shut down 15 minutes after the prompt. You can switch that off, in which case the prompt just repeats every hour and the server keeps running. Someone joining clears the prompt and cancels any extra time you gave it. At the end of the extra time, the server is saved and shut down only if it's still empty, and the same check happens for every answer: tap Save and shut down after players have come back, and the server stays up. If Overseer can't read a server's player list, it doesn't count that server as empty.
+
+The Empty server prompt card on the Account page is where you set how many minutes to wait before asking, the usual extra time, how long to wait for an answer, whether to shut down when nobody answers, and which servers to watch. Those settings follow you to every device.
+
+Telegram needs a bot of its own. Only one program at a time can receive a bot's button taps, so a bot that another program already uses would stop working there.
+
+1. In Telegram, message @BotFather, send `/newbot`, and follow the prompts to get a bot token.
+2. Send any message to the new bot, then open `https://api.telegram.org/bot<token>/getUpdates` in a browser with your token in place of `<token>`. The number after `"chat":{"id":` is your chat id. That address contains the token, so don't share it.
+3. Make a file called `telegram.json` in the data folder (`C:\ProgramData\ARK Overseer` when it runs as the service):
+
+```json
+{
+  "botToken": "<token>",
+  "chatId": "<chat id>"
+}
+```
+
+4. Restart Overseer so it starts listening for taps.
+
+Only someone at the PC can change `telegram.json`, and the web interface never shows the token. Overseer only acts on taps from that chat, and it sends a plain message there after a server shuts down. Without the file, prompts still reach the page and any phone with alerts on.
+
 ## Behind Cloudflare Access
 
 If you publish ARK Overseer on a domain protected by Cloudflare Access, enter your Access team domain, the application's AUD tag and the public address on the This computer page. A request that carries a valid Access token then signs in without the password prompt. Every token is checked again on every request, and the site and address checks still apply. The first password is still set on the PC itself.
