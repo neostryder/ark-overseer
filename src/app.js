@@ -11,6 +11,7 @@ import { allocatePorts, assignPorts, findConflicts } from './network/ports.js';
 import { streamJobEvents } from './jobs/sse.js';
 import { createChangeFeed } from './http/feed.js';
 import { createPush, EVENTS as PUSH_EVENTS, PUSH_API_MESSAGES } from './push/push.js';
+import { createCrashHook } from './push/crash-hook.js';
 import { firewallPreview, applyFirewallScript } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
@@ -159,6 +160,8 @@ export function createApp({
   releases = null,
   allowedHosts = [],
   log = console.error,
+  // Runs the optional command named in crash-hook.json when a server crashes.
+  crashHook = createCrashHook({ dataDir, log }),
   now = () => Date.now(),
   scheduler,
   gaming,
@@ -184,8 +187,14 @@ export function createApp({
   supervisor.subscribe?.((event) => {
     serverFeed.notify();
     if (event.to !== 'crashed') return;
-    const row = db.prepare('SELECT id, name FROM servers WHERE id = ?').get(event.serverId);
-    if (row) void push.notifyCrash(row, event.reason);
+    const row = db
+      .prepare(
+        'SELECT s.id, s.name, i.path AS install_path FROM servers s JOIN installs i ON i.id = s.install_id WHERE s.id = ?',
+      )
+      .get(event.serverId);
+    if (!row) return;
+    const server = { ...row, log_path: serverPaths(row.install_path).logPath };
+    void push.notifyCrash(server, event.reason, { detail: () => crashHook.run(server, event.reason) });
   });
   jobs.subscribe((event) => {
     if (event.type !== 'progress') serverFeed.notify();

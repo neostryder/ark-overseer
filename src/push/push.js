@@ -19,6 +19,17 @@ export function checkEvents(value) {
   return [...new Set(value)];
 }
 
+// The alert for a server that went down. `extra` is the optional line from the crash hook.
+export function crashMessage(server, reason, extra = null) {
+  const body = reason === 'crash loop' ? 'It keeps crashing, so Overseer stopped restarting it.' : 'It crashed.';
+  return {
+    title: `${server.name} needs attention`,
+    body: extra ? `${body} ${extra}` : body,
+    url: `/#/servers/${server.id}/overview`,
+    tag: `crash-${server.id}`,
+  };
+}
+
 export function createPush({
   db,
   fetchFn = globalThis.fetch,
@@ -120,16 +131,13 @@ export function createPush({
   }
 
   // A server went down on its own, or the crash guard stopped restarting it.
-  function notifyCrash(server, reason) {
+  // `detail` is called only when an alert will go out, and may return one more line for the body.
+  async function notifyCrash(server, reason, { detail } = {}) {
     const last = lastCrash.get(server.id);
-    if (last !== undefined && now() - last < crashQuietMs) return Promise.resolve({ devices: 0, delivered: 0 });
+    if (last !== undefined && now() - last < crashQuietMs) return { devices: 0, delivered: 0 };
     lastCrash.set(server.id, now());
-    return notify('crash', {
-      title: `${server.name} needs attention`,
-      body: reason === 'crash loop' ? 'It keeps crashing, so Overseer stopped restarting it.' : 'It crashed.',
-      url: `/#/servers/${server.id}/overview`,
-      tag: `crash-${server.id}`,
-    });
+    const extra = await Promise.resolve(detail?.()).catch(() => null);
+    return notify('crash', crashMessage(server, reason, extra));
   }
 
   function notifyBuilds(changes) {

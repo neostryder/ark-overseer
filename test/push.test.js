@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase } from '../src/db/index.js';
-import { createPush, EVENTS } from '../src/push/push.js';
+import { createPush, crashMessage, EVENTS } from '../src/push/push.js';
 
 const KEYS = {
   p256dh: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4',
@@ -66,6 +66,37 @@ test('a server that keeps crashing sends one alert in the quiet period', async (
   tick(11 * 60 * 1000);
   await push.notifyCrash({ id: 1, name: 'Neo Olympus' }, 'crash loop');
   assert.equal(sent.length, 3);
+});
+
+test('the crash alert text carries the detail line when there is one', () => {
+  const server = { id: 3, name: 'Neo' };
+  assert.equal(crashMessage(server, 'exit').body, 'It crashed.');
+  assert.equal(crashMessage(server, 'exit', 'Mod conflict.').body, 'It crashed. Mod conflict.');
+  assert.match(crashMessage(server, 'crash loop', 'Mod conflict.').body, /stopped restarting it\. Mod conflict\.$/);
+  assert.equal(crashMessage(server, 'exit').tag, 'crash-3');
+});
+
+test('only a crash alert that will be sent asks for the detail', async () => {
+  const { push, sent } = setup();
+  push.subscribe(sub('a'), ['crash']);
+  let asked = 0;
+  const detail = async () => (asked++, 'x');
+  await push.notifyCrash({ id: 1, name: 'Neo' }, 'exit', { detail });
+  await push.notifyCrash({ id: 1, name: 'Neo' }, 'exit', { detail });
+  assert.equal(asked, 1);
+  assert.equal(sent.length, 1);
+});
+
+test('a detail that fails or returns nothing leaves the alert as it was', async () => {
+  const { push, sent } = setup();
+  push.subscribe(sub('a'), ['crash']);
+  await push.notifyCrash({ id: 1, name: 'A' }, 'exit', {
+    detail: async () => {
+      throw new Error('hook broke');
+    },
+  });
+  await push.notifyCrash({ id: 2, name: 'B' }, 'exit', { detail: () => null });
+  assert.equal(sent.length, 2);
 });
 
 test('a subscription the push service no longer knows is forgotten', async () => {

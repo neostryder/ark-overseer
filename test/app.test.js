@@ -1630,12 +1630,25 @@ test('a crashed server sends a push alert, and other transitions do not', async 
   let listener;
   const supervisor = { status: () => ({}), subscribe: (fn) => (listener = fn) };
   const alerts = [];
-  const push = { publicKey: () => 'k', notifyCrash: async (server, reason) => alerts.push([server.name, reason]) };
-  const { url, cookie, root } = await fixtureWith(t, { supervisor, push });
+  const lines = [];
+  const push = {
+    publicKey: () => 'k',
+    notifyCrash: async (server, reason, options) => {
+      alerts.push([server.name, reason]);
+      lines.push(await options.detail());
+    },
+  };
+  const crashHook = {
+    run: async (server, reason) => `${server.id} ${reason} ${server.log_path} ${server.install_path}`,
+  };
+  const { url, cookie, root } = await fixtureWith(t, { supervisor, push, crashHook });
   const { server } = await addServer(url, cookie, path.join(root, 'ASA'), 'Neo Olympus', 7777);
   listener({ serverId: server.id, from: 'running', to: 'stopped', reason: 'stop' });
   listener({ serverId: 9999, from: 'running', to: 'crashed', reason: 'exit' });
   assert.deepEqual(alerts, []);
   listener({ serverId: server.id, from: 'running', to: 'crashed', reason: 'exit' });
   assert.deepEqual(alerts, [['Neo Olympus', 'exit']]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], new RegExp(`^${server.id} exit .*ShooterGame\.log .*ASA$`));
 });

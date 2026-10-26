@@ -170,6 +170,22 @@ Sign in with the same password. Passkeys work on the PC itself, and on other dev
 
 ARK Overseer can run servers on a Steam test branch such as the Public Test Realm, which gets new server builds before the live game. The Steam branch and builds card on a server's Overview page moves an install to a test branch and back, and Add a test copy puts a copy of a server in its own folder on the test branch while the original stays on the live game. A switch needs the install's servers stopped, and ARK Overseer backs up the settings and every map's saves before it downloads anything. On a test branch the server's mods go on hold and a clustered server stays put unless you tick the box to override either one. Worlds saved by a test build may not load on the live game, so the way back is restoring the backup taken before the switch from the Backups page.
 
+## Adding detail to crash alerts
+
+If you want a crash alert to say more, point Overseer at a program of your own. Make a file called `crash-hook.json` in the data folder (`C:\ProgramData\ARK Overseer` when it runs as the service) that names the program and what to pass it:
+
+```json
+{
+  "command": "C:\\Python\\python.exe",
+  "args": ["C:\\Tools\\triage.py", "{logPath}", "{serverName}"],
+  "timeoutSeconds": 45
+}
+```
+
+Right before a crash alert goes out, Overseer runs the program once and tacks the first line it prints onto the alert. In `args` you can use `{serverId}`, `{serverName}`, `{reason}`, `{logPath}` and `{installPath}`. Each one arrives as a single argument, so a server name with spaces is fine. The command has to be the full path of an executable (a `.bat` or `.cmd` file won't work, so run the interpreter and hand it your script). It's stopped after `timeoutSeconds`, which defaults to 45 and tops out at 120. If it fails, runs out of time, or the file is malformed, the problem goes in the log and the alert is sent without the extra line.
+
+Overseer rereads the file on every crash, so you can edit it without a restart. Only someone at the PC can change it; the web interface has no setting for it.
+
 ## Behind Cloudflare Access
 
 If you publish ARK Overseer on a domain protected by Cloudflare Access, enter your Access team domain, the application's AUD tag and the public address on the This computer page. A request that carries a valid Access token then signs in without the password prompt. Every token is checked again on every request, and the site and address checks still apply. The first password is still set on the PC itself.
