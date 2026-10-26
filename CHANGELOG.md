@@ -4,6 +4,10 @@ All notable changes to ARK Overseer are listed here.
 
 ## [Unreleased]
 
+### Added
+
+- [Visible] [Server] **A crash alert can carry one extra line from a program you name.** Put a `crash-hook.json` file in the data folder with the program's full path, its arguments, and an optional timeout, and Overseer runs it when a server crashes and an alert is about to go out. The first line it prints is added to the alert. A program that fails, runs too long, or has a bad config is noted in the log and the alert goes out as before. The file is read on every crash and can only be changed on the PC itself, never from the web interface.
+
 ## [1.3.0] - 2026-10-12
 
 ### Added
