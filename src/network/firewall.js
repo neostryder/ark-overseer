@@ -160,6 +160,74 @@ export function neededRules(server, install) {
   return rules;
 }
 
+// The ports a rule names, so 7777-7778 and the two separate ports compare as the same set.
+function portKey(ports) {
+  if (ports === 'any') return 'any';
+  if (!Array.isArray(ports)) return '';
+  const numbers = [];
+  for (const entry of ports) {
+    if (typeof entry === 'number' && Number.isInteger(entry)) numbers.push(entry);
+    else if (entry && Number.isInteger(entry.from) && Number.isInteger(entry.to)) {
+      for (let port = entry.from; port <= entry.to; port += 1) numbers.push(port);
+    }
+  }
+  return [...new Set(numbers)].sort((a, b) => a - b).join(',');
+}
+const sameText = (a, b) => String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
+const expectedShape = (rule) => ({ ports: rule.localPorts, protocol: rule.protocol, direction: rule.direction });
+
+function driftProblems(expected, live) {
+  const problems = [];
+  if (!live.enabled) problems.push('disabled');
+  if (portKey(live.localPorts) !== portKey(expected.localPorts)) problems.push('ports');
+  if (!sameText(live.protocol, expected.protocol)) problems.push('protocol');
+  if (!sameText(live.direction, expected.direction)) problems.push('direction');
+  return problems;
+}
+
+// Compared with the rules Windows is enforcing. Nothing is added, deleted or enabled here;
+// changing a rule stays on the apply route.
+export function firewallDrift(expectedRules, liveRules, { checked = true, localRulesIgnored = false } = {}) {
+  if (!checked) return { checked: false, localRulesIgnored, ok: null, rules: [] };
+  const rules = [];
+  for (const expected of expectedRules) {
+    const matches = liveRules.filter((live) => sameText(live.name, expected.name));
+    const expectedFields = expectedShape(expected);
+    if (matches.length === 0) {
+      rules.push({ name: expected.name, problems: ['missing'], expected: expectedFields, actual: null });
+      continue;
+    }
+    const inSync = matches.some(
+      (live) =>
+        live.enabled &&
+        portKey(live.localPorts) === portKey(expected.localPorts) &&
+        sameText(live.protocol, expected.protocol) &&
+        sameText(live.direction, expected.direction),
+    );
+    if (inSync) continue;
+    const live = matches.find((item) => item.enabled) ?? matches[0];
+    rules.push({
+      name: expected.name,
+      problems: driftProblems(expected, live),
+      expected: expectedFields,
+      actual: {
+        ports: live.localPorts,
+        protocol: live.protocol,
+        direction: live.direction,
+        enabled: live.enabled,
+      },
+    });
+  }
+  return { checked: true, localRulesIgnored, ok: rules.length === 0, rules };
+}
+
+// Reads through the same PowerShell runner as readFirewallRules, then compares. The runner is only
+// asked to print the registry rules.
+export async function checkFirewallDrift(server, install, options = {}) {
+  const { rules, localRulesIgnored = false } = await readFirewallRules(options);
+  return firewallDrift(neededRules(server, install), rules, { checked: true, localRulesIgnored });
+}
+
 // A rule limited to some profiles or to some remote addresses lets the traffic through only some of
 // the time, so only a rule that applies everywhere counts as cover.
 function appliesEverywhere(rule) {

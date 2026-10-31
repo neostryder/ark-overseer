@@ -938,8 +938,57 @@ test('a failed firewall read still shows the whole script and says the check was
     const body = await response.json();
     assert.equal(body.checked, false);
     assert.match(body.script, /netsh advfirewall firewall add rule/);
+    assert.deepEqual(body.drift, { checked: false, localRulesIgnored: false, ok: null, rules: [] });
     assert.match(logged.join('\n'), /Reading firewall rules failed: access denied/);
+    const drift = await fetch(`${url}/api/servers/1/firewall/drift`, { headers: { Cookie: cookie } });
+    assert.deepEqual(await drift.json(), body.drift);
   }
+});
+
+test('the firewall drift route reports changed rules and does not apply them', async (t) => {
+  let live = [
+    {
+      name: 'ARK Overseer - One [1] - Game',
+      enabled: true,
+      direction: 'in',
+      protocol: 'UDP',
+      localPorts: [7777],
+      profiles: ['Any'],
+      remoteIp: 'Any',
+      action: 'allow',
+      limited: false,
+    },
+  ];
+  const calls = [];
+  const { url, cookie, db } = await fixtureWith(t, {
+    firewallRules: async () => ({ rules: live, localRulesIgnored: false }),
+    runner: async () => {
+      calls.push('runner');
+      return { code: 0 };
+    },
+  });
+  seedServer(db);
+  const headers = { Cookie: cookie };
+  const drift = await (await fetch(`${url}/api/servers/1/firewall/drift`, { headers })).json();
+  const preview = await (await fetch(`${url}/api/servers/1/firewall`, { headers })).json();
+  assert.deepEqual(preview.drift, drift);
+  assert.equal(drift.ok, false);
+  assert.deepEqual(
+    drift.rules.map((rule) => [rule.name, rule.problems]),
+    [['ARK Overseer - One [1] - Game', ['ports']]],
+  );
+  assert.match(preview.script, /localport=7777-7778/);
+  live = [
+    {
+      ...live[0],
+      localPorts: [{ from: 7777, to: 7778 }],
+    },
+  ];
+  const matched = await (await fetch(`${url}/api/servers/1/firewall/drift`, { headers })).json();
+  assert.equal(matched.ok, true);
+  assert.deepEqual(matched.rules, []);
+  assert.equal((await fetch(`${url}/api/servers/9/firewall/drift`, { headers })).status, 404);
+  assert.deepEqual(calls, []);
 });
 
 test('closing the server does not wait for a browser holding the live jobs feed open', async (t) => {

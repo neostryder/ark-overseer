@@ -9,6 +9,8 @@ import {
   neededRules,
   coveredBy,
   firewallPreview,
+  firewallDrift,
+  checkFirewallDrift,
   removalScript,
   applyFirewallScript,
 } from '../src/network/firewall.js';
@@ -439,6 +441,119 @@ test('a generated script survives a first apply where every delete fails, with &
     'enable=yes',
   ]);
   assert.equal(calls[3][8], 'localport=27015');
+});
+
+test('firewallDrift reports a missing, disabled or changed rule and ignores one that still matches', () => {
+  const [game, query] = neededRules(server, install);
+  const match = (rule, change = {}) => ({
+    name: rule.name,
+    enabled: true,
+    direction: rule.direction,
+    protocol: rule.protocol,
+    localPorts: rule.localPorts,
+    ...change,
+  });
+  const expected = { ports: game.localPorts, protocol: 'UDP', direction: 'in' };
+  assert.deepEqual(firewallDrift([game, query], [match(game), match(query)]), {
+    checked: true,
+    localRulesIgnored: false,
+    ok: true,
+    rules: [],
+  });
+  // 7777,7778 is the same set as the game range, and netsh matches the name without regard to case.
+  assert.deepEqual(
+    firewallDrift([game], [match(game, { name: game.name.toLowerCase(), localPorts: [7778, 7777] })]).rules,
+    [],
+  );
+  const missing = firewallDrift(
+    [game],
+    [{ name: 'Someone else', enabled: true, direction: 'in', protocol: 'UDP', localPorts: [7777] }],
+  );
+  assert.deepEqual(missing.rules, [{ name: game.name, problems: ['missing'], expected, actual: null }]);
+  const cases = [
+    [{ enabled: false }, ['disabled']],
+    [{ localPorts: [7777] }, ['ports']],
+    [{ protocol: 'TCP' }, ['protocol']],
+    [{ direction: 'out' }, ['direction']],
+    [
+      { enabled: false, localPorts: [1], protocol: 'TCP', direction: 'out' },
+      ['disabled', 'ports', 'protocol', 'direction'],
+    ],
+  ];
+  for (const [change, problems] of cases) {
+    const result = firewallDrift([game], [match(game, change)]);
+    assert.deepEqual(
+      result.rules.map((rule) => rule.problems),
+      [problems],
+      JSON.stringify(change),
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.rules[0].actual.enabled, change.enabled ?? true);
+    assert.deepEqual(result.rules[0].expected, expected);
+  }
+  // A second copy that still matches wins over a drifted copy of the same name.
+  assert.equal(firewallDrift([game], [match(game, { enabled: false }), match(game)]).ok, true);
+  // An extra rule this server does not expect is left out of the report.
+  assert.equal(firewallDrift([game], [match(game), match(query, { protocol: 'TCP' })]).ok, true);
+  assert.deepEqual(firewallDrift([game], [], { checked: false, localRulesIgnored: true }), {
+    checked: false,
+    localRulesIgnored: true,
+    ok: null,
+    rules: [],
+  });
+});
+
+test('checkFirewallDrift reads through the injected pwsh runner and does not change rules', async () => {
+  const [game, query] = neededRules(server, install);
+  const gameText = `v2.33|Action=Allow|Active=FALSE|Dir=Out|Protocol=6|LPort=7777|Name=${game.name}|`;
+  const queryText = `v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort=27015|Name=${query.name}|`;
+  let calls = 0;
+  const exec = async (file, args, options) => {
+    calls += 1;
+    assert.equal(file, 'C:\\pwsh\\pwsh.exe');
+    assert.equal(options.windowsHide, true);
+    assert.equal(args[0], '-NoProfile');
+    assert.doesNotMatch(args.at(-1), /netsh|add rule|Set-NetFirewall/i);
+    assert.match(args.at(-1), /FirewallRules/);
+    return {
+      stdout: JSON.stringify({
+        rules: [
+          { store: 'local', text: gameText },
+          { store: 'local', text: queryText },
+        ],
+        merge: [null, null, null],
+      }),
+    };
+  };
+  const drift = await checkFirewallDrift(server, install, { pwshPath: 'C:\\pwsh\\pwsh.exe', exec, env });
+  assert.equal(calls, 1);
+  assert.equal(drift.checked, true);
+  assert.equal(drift.localRulesIgnored, false);
+  assert.equal(drift.ok, false);
+  assert.deepEqual(
+    drift.rules.map((rule) => [rule.name, rule.problems, rule.actual]),
+    [
+      [
+        game.name,
+        ['disabled', 'ports', 'protocol', 'direction'],
+        { ports: [7777], protocol: 'TCP', direction: 'out', enabled: false },
+      ],
+    ],
+  );
+});
+
+test('checkFirewallDrift treats a local rule as missing when group policy ignores local rules', async () => {
+  const [game] = neededRules({ ...server, query_port: null }, install);
+  const text = `v2.33|Action=Allow|Active=TRUE|Dir=In|Protocol=17|LPort2_10=7777-7778|Name=${game.name}|`;
+  const exec = async () => ({
+    stdout: JSON.stringify({ rules: [{ store: 'local', text }], merge: [0, null, null] }),
+  });
+  const drift = await checkFirewallDrift({ ...server, query_port: null }, install, { exec, env });
+  assert.equal(drift.localRulesIgnored, true);
+  assert.deepEqual(
+    drift.rules.map((rule) => rule.problems),
+    [['missing']],
+  );
 });
 
 test('a generated script stops at the first add that fails and exits 1', async (t) => {

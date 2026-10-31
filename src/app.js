@@ -14,7 +14,7 @@ import { createPush, EVENTS as PUSH_EVENTS, PUSH_API_MESSAGES } from './push/pus
 import { createCrashHook } from './push/crash-hook.js';
 import { createIdleWatch } from './idle/idle.js';
 import { IDLE_MESSAGES } from './idle/settings.js';
-import { firewallPreview, applyFirewallScript } from './network/firewall.js';
+import { firewallPreview, applyFirewallScript, firewallDrift, neededRules } from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
 import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
@@ -1154,6 +1154,13 @@ export function createApp({
       return { cancelled };
     }),
   );
+  const firewallDriftFor = (row, rules, meta) =>
+    firewallDrift(neededRules(row, { path: row.install_path }), rules, meta);
+  router.add('GET', '/api/servers/:id/firewall/drift', async ({ params }) => {
+    const row = must(serverRow(db, params.id));
+    const { rules, checked, localRulesIgnored } = await readFirewallRules();
+    return firewallDriftFor(row, rules, { checked, localRulesIgnored });
+  });
   router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
     const row = must(serverRow(db, params.id));
     const { rules, checked, localRulesIgnored } = await readFirewallRules();
@@ -1162,6 +1169,7 @@ export function createApp({
       ...preview,
       checked,
       localRulesIgnored,
+      drift: firewallDriftFor(row, rules, { checked, localRulesIgnored }),
       token: preview.script ? crypto.createHash('sha256').update(preview.script).digest('hex') : null,
     };
   });
