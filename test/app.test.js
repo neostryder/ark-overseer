@@ -878,6 +878,9 @@ test('a bad schedule is refused with a 400 and nothing is stored', async (t) => 
     ['backup', { cron: '0 5 * * *', options: { keep: 0 } }],
     ['backup', { cron: '0 5 * * *', options: { keep: 1.5 } }],
     ['backup', { cron: '0 5 * * *', enabled: 'yes' }],
+    ['auto_update', { cron: '0 5 * * *', options: { maxHold: -1 } }],
+    ['auto_update', { cron: '0 5 * * *', options: { maxHold: 49 } }],
+    ['auto_update', { cron: '0 5 * * *', options: { maxHold: 2.5 } }],
   ];
   for (const [kind, body] of cases) {
     const response = await fetch(`${url}/api/servers/1/schedules/${kind}`, put(body, cookie));
@@ -885,6 +888,20 @@ test('a bad schedule is refused with a 400 and nothing is stored', async (t) => 
   }
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM schedules').get().n, 0);
   assert.equal((await fetch(`${url}/api/servers/9/schedules/restart`, put(cases[1][1], cookie))).status, 404);
+});
+
+test('an automatic update schedule stores how many busy runs to skip', async (t) => {
+  const { url, cookie, db } = await fixtureWith(t);
+  seedServer(db);
+  const body = {
+    cron: '0 4 * * *',
+    options: { countdownMinutes: [15, 5, 1], announce: 'chat', keep: 10, maxHold: 0 },
+  };
+  const saved = await fetch(`${url}/api/servers/1/schedules/auto_update`, put(body, cookie));
+  assert.equal(saved.status, 200);
+  const list = await (await fetch(`${url}/api/servers/1/schedules`, { headers: { Cookie: cookie } })).json();
+  assert.equal(list[0].options.maxHold, 0);
+  assert.equal(db.prepare('SELECT kind FROM schedules').get().kind, 'auto_update');
 });
 
 test('update schedules are refused for a Steam library install', async (t) => {

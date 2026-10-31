@@ -79,9 +79,10 @@ export function createScheduler({
     const job = jobs.enqueue(
       JOB_KINDS[row.kind],
       // A scheduled backup is marked as one, so pruning and the backup list can tell it from a manual one.
+      // A scheduled update is marked the same way, so the player guard does not apply to an update started by hand.
       {
         ...JSON.parse(row.options_json),
-        ...(row.kind === 'backup' ? { reason: 'scheduled' } : {}),
+        ...(row.kind === 'backup' || row.kind === 'auto_update' ? { reason: 'scheduled' } : {}),
         ...(row.cluster_id ? { clusterId: row.cluster_id } : {}),
       },
       row.cluster_id

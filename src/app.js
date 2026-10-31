@@ -21,6 +21,7 @@ import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
 import { serverPaths, checkModList } from './supervisor/launch.js';
 import { redact } from './util/redact.js';
 import { parseCron, describeCron } from './scheduler/cron.js';
+import { MAX_UPDATE_HOLD } from './scheduler/handlers.js';
 import { createCatalog } from './maps/catalog.js';
 import { readCheckout, buildUpdateRequest, writeUpdateRequest, UPDATE_CHANNELS } from './updater.js';
 import { createArtResolver, findModPreview } from './maps/art.js';
@@ -755,7 +756,7 @@ export function createApp({
         restart: ['countdownMinutes', 'announce'],
         backup: ['keep'],
         update_check: [],
-        auto_update: ['countdownMinutes', 'announce', 'keep'],
+        auto_update: ['countdownMinutes', 'announce', 'keep', 'maxHold'],
       }[params.kind];
       if (Object.keys(options).some((key) => !allowedOptions.includes(key)))
         throw error(400, API_MESSAGES.badScheduleOptions);
@@ -771,6 +772,11 @@ export function createApp({
       if (options.announce !== undefined && !['chat', 'broadcast'].includes(options.announce))
         throw error(400, API_MESSAGES.badScheduleOptions);
       if (options.keep !== undefined && (!Number.isInteger(options.keep) || options.keep < 1 || options.keep > 100))
+        throw error(400, API_MESSAGES.badScheduleOptions);
+      if (
+        options.maxHold !== undefined &&
+        (!Number.isInteger(options.maxHold) || options.maxHold < 0 || options.maxHold > MAX_UPDATE_HOLD)
+      )
         throw error(400, API_MESSAGES.badScheduleOptions);
       if (['update_check', 'auto_update'].includes(params.kind) && server.install_source === 'steam-client')
         throw error(400, API_MESSAGES.steamSchedule);

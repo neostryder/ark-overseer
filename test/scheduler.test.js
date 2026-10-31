@@ -86,7 +86,7 @@ test('update schedules target the install, not the server', (t) => {
   scheduler.start();
   assert.deepEqual(state.enqueued, [
     ['install.check_update', {}, { installId: 3 }],
-    ['install.auto_update', { keep: 3 }, { installId: 3 }],
+    ['install.auto_update', { keep: 3, reason: 'scheduled' }, { installId: 3 }],
   ]);
 });
 
