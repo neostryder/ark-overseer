@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { STRINGS } from '../strings.js';
 import { skeleton } from '../lib/skeleton.js';
 import { icon } from '../lib/icon.js';
+const fill = (text, values) => text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
 export class AoServerNetwork extends HTMLElement {
   async connectedCallback() {
     this.id = this.getAttribute('server-id');
@@ -129,6 +130,20 @@ export class AoServerNetwork extends HTMLElement {
       note.className = 'wizard-warning';
       note.textContent = text;
       section.append(note);
+    }
+    const drift = this.firewall.drift;
+    if (drift?.checked && drift.ok) {
+      const ok = document.createElement('p');
+      ok.textContent = STRINGS.network.driftOk;
+      section.append(ok);
+    } else if (drift?.checked) {
+      for (const rule of drift.rules) {
+        const p = document.createElement('p');
+        p.className = 'wizard-warning';
+        const problems = rule.problems.map((key) => STRINGS.network.driftProblems[key] ?? key).join(', ');
+        p.textContent = fill(STRINGS.network.driftRule, { name: rule.name, problems });
+        section.append(p);
+      }
     }
     for (const rule of this.firewall.rules || []) {
       const p = document.createElement('p');

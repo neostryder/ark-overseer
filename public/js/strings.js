@@ -688,6 +688,15 @@ export const STRINGS = {
     peerUnknown: 'set a game port first',
     coveredBy: 'Covered by',
     noRule: 'No rule covers this yet',
+    driftOk: 'Firewall rules match.',
+    driftRule: '{name}: {problems}',
+    driftProblems: {
+      missing: 'missing',
+      disabled: 'disabled',
+      ports: 'ports',
+      protocol: 'protocol',
+      direction: 'direction',
+    },
     localIgnored:
       "Group policy on this computer turns off local firewall rules, so rules added here won't take effect. Ask whoever manages that policy to open the game and query ports.",
     unchecked:
