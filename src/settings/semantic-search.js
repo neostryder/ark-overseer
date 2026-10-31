@@ -1,5 +1,8 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFileAtomic } from '../util/fsutil.js';
 
 // Semantic fallback for the settings search box: when the live keyword filter finds nothing,
 // this ranks every curated field against the query by embedding similarity instead. Fully local -
@@ -17,6 +20,13 @@ export function modelCachePath() {
     process.env.OVERSEER_MODEL_CACHE ||
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.model-cache'),
   );
+}
+
+// Bump this when the file layout changes. A mismatch is a miss, same as a corrupt file.
+const CACHE_VERSION = 1;
+
+export function corpusCachePath() {
+  return path.join(modelCachePath(), 'settings-corpus-embeddings.json');
 }
 
 // Measured directly against this model on the dashboard's own 325-field corpus (see
@@ -55,6 +65,61 @@ export function fieldCorpusText(field) {
     .join(' . ');
 }
 
+// JSON.stringify keeps each field text's boundary exact. A joined string would hash two different
+// corpora the same when one text contained the separator.
+function corpusFingerprint(texts) {
+  return crypto.createHash('sha256').update(JSON.stringify(texts)).digest('hex');
+}
+
+function vectorShapeOk(vector, dimension) {
+  return (
+    Array.isArray(vector) &&
+    vector.length === dimension &&
+    vector.every((value) => typeof value === 'number' && Number.isFinite(value))
+  );
+}
+
+// A restart should not embed the corpus again when the model and the field texts are unchanged.
+// A file that fails the version, model, hash, length or dimension checks is a miss. The next
+// successful embed replaces it. A miss never throws: search still runs from a fresh embed.
+function readCachedCorpus(fields, texts) {
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(corpusCachePath(), 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  if (parsed.version !== CACHE_VERSION) return null;
+  if (parsed.modelId !== MODEL_ID) return null;
+  if (parsed.corpusHash !== corpusFingerprint(texts)) return null;
+  if (!Number.isInteger(parsed.dimension) || parsed.dimension < 1) return null;
+  if (!Array.isArray(parsed.entries) || parsed.entries.length !== fields.length) return null;
+  for (let index = 0; index < fields.length; index++) {
+    const entry = parsed.entries[index];
+    if (!entry || entry.key !== fields[index].key || !vectorShapeOk(entry.vector, parsed.dimension)) return null;
+  }
+  return parsed.entries.map((entry) => entry.vector);
+}
+
+function writeCachedCorpus(texts, entries) {
+  const dimension = entries[0]?.vector?.length;
+  if (!Number.isInteger(dimension) || dimension < 1) return;
+  if (!entries.every((entry) => vectorShapeOk(entry.vector, dimension))) return;
+  const payload = {
+    version: CACHE_VERSION,
+    modelId: MODEL_ID,
+    corpusHash: corpusFingerprint(texts),
+    dimension,
+    entries: entries.map((entry) => ({ key: entry.key, vector: entry.vector })),
+  };
+  try {
+    writeFileAtomic(corpusCachePath(), JSON.stringify(payload));
+  } catch {
+    // The in-memory corpus still serves this process when the cache directory cannot be written.
+  }
+}
+
 function dotProduct(a, b) {
   let score = 0;
   for (let i = 0; i < a.length; i++) score += a[i] * b[i];
@@ -62,6 +127,7 @@ function dotProduct(a, b) {
 }
 
 // The corpus is embedded once per field list and extractor, then held for the life of the process.
+// A memory miss reads the on-disk vectors when the model and the exact field texts still match.
 function getCorpus(fields, extractor, cacheKey) {
   let byExtractor = corpora.get(fields);
   if (!byExtractor) {
@@ -70,9 +136,13 @@ function getCorpus(fields, extractor, cacheKey) {
   }
   if (!byExtractor.has(cacheKey)) {
     const pending = (async () => {
-      const output = await extractor(fields.map(fieldCorpusText), { pooling: 'mean', normalize: true });
-      const vectors = output.tolist();
-      return fields.map((field, index) => ({ key: field.key, vector: vectors[index] }));
+      const texts = fields.map(fieldCorpusText);
+      const cached = readCachedCorpus(fields, texts);
+      if (cached) return fields.map((field, index) => ({ key: field.key, vector: cached[index] }));
+      const output = await extractor(texts, { pooling: 'mean', normalize: true });
+      const entries = fields.map((field, index) => ({ key: field.key, vector: output.tolist()[index] }));
+      writeCachedCorpus(texts, entries);
+      return entries;
     })();
     pending.catch(() => byExtractor.delete(cacheKey));
     byExtractor.set(cacheKey, pending);
