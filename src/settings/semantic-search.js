@@ -140,7 +140,8 @@ function getCorpus(fields, extractor, cacheKey) {
       const cached = readCachedCorpus(fields, texts);
       if (cached) return fields.map((field, index) => ({ key: field.key, vector: cached[index] }));
       const output = await extractor(texts, { pooling: 'mean', normalize: true });
-      const entries = fields.map((field, index) => ({ key: field.key, vector: output.tolist()[index] }));
+      const vectors = output.tolist();
+      const entries = fields.map((field, index) => ({ key: field.key, vector: vectors[index] }));
       writeCachedCorpus(texts, entries);
       return entries;
     })();
