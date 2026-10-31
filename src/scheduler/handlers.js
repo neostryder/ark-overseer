@@ -35,7 +35,7 @@ export const PLAYER_MESSAGES = {
 export const MESSAGES = {
   noServer: 'The server was not found.',
   noInstall: 'The install was not found.',
-  updateHeld: 'Players are online, so this update waits for the next scheduled run.',
+  updateHeld: 'Players are online. This update waits for the next scheduled run.',
 };
 // Skipped runs stay bounded so a busy server still gets the build. A schedule may set maxHold from 0 up to this.
 export const UPDATE_HELD = 'players online';
