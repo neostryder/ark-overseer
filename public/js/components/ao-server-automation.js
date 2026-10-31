@@ -131,6 +131,8 @@ export class AoServerAutomation extends HTMLElement {
       const cron = readPicker();
       const body = { cron, enabled: enabled.checked, options: {} };
       for (const [key, get] of Object.entries(read)) body.options[key] = get();
+      // The page has no field for this, but a value saved through the API must survive a later save here.
+      if (Number.isInteger(options.maxHold)) body.options.maxHold = options.maxHold;
       if (!cron || (read.countdownMinutes && !body.options.countdownMinutes)) {
         error.textContent = !cron ? a.badTime : a.badCountdown;
         return;

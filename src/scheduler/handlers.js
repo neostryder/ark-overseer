@@ -1,4 +1,5 @@
 import { MESSAGES as IMPORT_MESSAGES } from '../import/phase0.js';
+import { parsePlayerCount } from '../idle/idle.js';
 import { backupServer, pruneBackups } from './backup.js';
 import { runInstall } from '../steamcmd/handlers.js';
 import { defaultSleep, createTell, runCountdown } from './countdown.js';
@@ -34,7 +35,12 @@ export const PLAYER_MESSAGES = {
 export const MESSAGES = {
   noServer: 'The server was not found.',
   noInstall: 'The install was not found.',
+  updateHeld: 'Players are online, so this update waits for the next scheduled run.',
 };
+// Skipped runs stay bounded so a busy server still gets the build. A schedule may set maxHold from 0 up to this.
+export const UPDATE_HELD = 'players online';
+export const DEFAULT_UPDATE_HOLD = 3;
+export const MAX_UPDATE_HOLD = 48;
 const RUNNING = 'running';
 
 export function createScheduleHandlers({
@@ -52,6 +58,66 @@ export function createScheduleHandlers({
   const serverRow = (id) => db.prepare(`${serverSql} WHERE s.id = ?`).get(id);
   const isRunning = (id) => supervisor.status(id)?.observedState === RUNNING;
   const tell = createTell({ rcon, getRconPassword });
+  const holdLimit = (value) =>
+    Number.isInteger(value) && value >= 0 && value <= MAX_UPDATE_HOLD ? value : DEFAULT_UPDATE_HOLD;
+
+  // Consecutive holds are counted from finished jobs, because the schedule starts a new job each run.
+  function deferralsSoFar(job) {
+    const id = Number.isInteger(job.id) ? job.id : null;
+    const rows = db
+      .prepare(
+        `SELECT result_json FROM jobs
+         WHERE kind = 'install.auto_update' AND install_id = ? AND state = 'succeeded' AND (? IS NULL OR id != ?)
+         ORDER BY id DESC LIMIT ?`,
+      )
+      .all(job.installId, id, id, MAX_UPDATE_HOLD);
+    let count = 0;
+    for (const row of rows) {
+      let result;
+      try {
+        result = JSON.parse(row.result_json);
+      } catch {
+        break;
+      }
+      if (result?.held !== UPDATE_HELD) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  // The scheduler has already moved next_run_at to the following run by the time this job starts.
+  function nextQuietWindow(installId) {
+    return (
+      db
+        .prepare(
+          `SELECT MIN(s.next_run_at) AS at FROM schedules s
+           JOIN servers sv ON sv.id = s.server_id
+           WHERE s.kind = 'auto_update' AND s.enabled = 1 AND sv.install_id = ? AND s.next_run_at > ?`,
+        )
+        .get(installId, new Date(now()).toISOString())?.at ?? null
+    );
+  }
+
+  // A missing or unreadable count is unknown, which does not count as someone being online.
+  async function someoneOnline(servers, signal) {
+    for (const server of servers) {
+      if (signal?.aborted) throw signal.reason;
+      let text;
+      try {
+        text = await rcon({
+          host: '127.0.0.1',
+          port: server.rcon_port,
+          password: await getRconPassword(server),
+          command: 'ListPlayers',
+        });
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason ?? error;
+        continue;
+      }
+      if (parsePlayerCount(text) > 0) return true;
+    }
+    return false;
+  }
 
   async function checkInstall(id, signal) {
     const install = db.prepare('SELECT * FROM installs WHERE id = ?').get(id);
@@ -131,6 +197,13 @@ export function createScheduleHandlers({
       if (!check.updateAvailable) return { updated: false, ...check };
       const servers = db.prepare(`${serverSql} WHERE s.install_id = ? ORDER BY s.id`).all(job.installId);
       const running = servers.filter((server) => isRunning(server.id));
+      if (params.reason === 'scheduled' && running.length && deferralsSoFar(job) < holdLimit(params.maxHold)) {
+        const retryAt = nextQuietWindow(job.installId);
+        if (retryAt && (await someoneOnline(running, signal))) {
+          progress(null, MESSAGES.updateHeld);
+          return { updated: false, held: UPDATE_HELD, retryAt };
+        }
+      }
       const announce = params.announce ?? 'chat';
       // Only servers this job stopped are started again afterwards, whatever else goes wrong.
       const stopped = [];

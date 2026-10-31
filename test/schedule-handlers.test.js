@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openDatabase } from '../src/db/index.js';
-import { createScheduleHandlers, PLAYER_MESSAGES } from '../src/scheduler/handlers.js';
+import { createScheduleHandlers, MESSAGES, PLAYER_MESSAGES, UPDATE_HELD } from '../src/scheduler/handlers.js';
 
 const T = '2026-01-01T00:00:00.000Z';
 
@@ -50,6 +50,7 @@ function world(t, { source = 'steamcmd', build = '100', running = [1] } = {}) {
   const rcon = async ({ port, command }) => {
     events.push(['rcon', port, command]);
     if (world.failRcon) throw new Error('connection refused');
+    if (command === 'ListPlayers') return world.players?.[port];
   };
   const steamcmd = {
     latestBuildId: async () => world.latest ?? '101',
@@ -84,7 +85,7 @@ function world(t, { source = 'steamcmd', build = '100', running = [1] } = {}) {
   return { db, events, handlers, ctx, states, root };
 }
 test.afterEach(() => {
-  for (const key of ['failRcon', 'failUpdate', 'latest', 'abortOnSleep']) delete world[key];
+  for (const key of ['failRcon', 'failUpdate', 'latest', 'abortOnSleep', 'players']) delete world[key];
 });
 
 test('a scheduled restart warns at each mark, waits the gaps, then restarts', async (t) => {
@@ -219,6 +220,180 @@ test('a cancelled update countdown starts nothing it never stopped', async (t) =
   await assert.rejects(handlers['install.auto_update'](ctx({ countdownMinutes: [5] }, { installId: 1 })), /cancelled/);
   assert.ok(!events.some((e) => e[0] === 'stop' || e[0] === 'start' || e[0] === 'update'));
   assert.deepEqual(events.at(-1), ['rcon', 27020, `ServerChat ${PLAYER_MESSAGES.cancelled}`]);
+});
+
+const NEXT = '2026-01-02T04:00:00.000Z';
+const HELD = JSON.stringify({ updated: false, held: UPDATE_HELD, retryAt: NEXT });
+
+function scheduleUpdate(db, { next = NEXT, enabled = 1, serverId = 1 } = {}) {
+  db.prepare(
+    `INSERT INTO schedules (created_at, updated_at, server_id, kind, cron, enabled, options_json, next_run_at)
+     VALUES (?, ?, ?, 'auto_update', '0 4 * * *', ?, '{}', ?)`,
+  ).run(T, T, serverId, enabled, next);
+}
+
+function heldUpdate(db, id) {
+  db.prepare(
+    `INSERT INTO jobs (id, created_at, updated_at, kind, install_id, state, result_json)
+     VALUES (?, ?, ?, 'install.auto_update', 1, 'succeeded', ?)`,
+  ).run(id, T, T, HELD);
+}
+
+test('a scheduled update waits when players are online and names the next run', async (t) => {
+  const { handlers, ctx, events, db } = world(t, { running: [1, 2] });
+  scheduleUpdate(db);
+  world.players = { 27020: 'No Players Connected', 27021: '0. Zed, 0002a1b2' };
+  const result = await handlers['install.auto_update'](
+    ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.deepEqual(result, { updated: false, held: UPDATE_HELD, retryAt: NEXT });
+  assert.deepEqual(
+    events.map((entry) => entry[0]),
+    ['rcon', 'rcon', 'progress'],
+  );
+  assert.equal(events.at(-1)[1], MESSAGES.updateHeld);
+  assert.equal(db.prepare('SELECT build_id FROM installs').get().build_id, '100');
+  assert.equal(db.prepare('SELECT latest_build_id FROM installs').get().latest_build_id, '101');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM backups').get().n, 0);
+});
+
+test('a scheduled update with nobody connected still counts down', async (t) => {
+  const { handlers, ctx, events, db } = world(t, { running: [1] });
+  scheduleUpdate(db);
+  // Server 2 is stopped, so a player list for it is never asked for.
+  world.players = { 27020: 'No Players Connected ', 27021: '0. Zed, 0002a1b2' };
+  const result = await handlers['install.auto_update'](
+    ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(result.updated, true);
+  assert.ok(events.some((entry) => entry[0] === 'stop'));
+  assert.ok(events.some((entry) => entry[2] === 'ListPlayers'));
+});
+
+test('an unreadable player count does not hold the scheduled update', async (t) => {
+  const unread = world(t, { running: [1, 2] });
+  scheduleUpdate(unread.db);
+  world.players = { 27020: 'Server received, But no response!!', 27021: '' };
+  const result = await unread.handlers['install.auto_update'](
+    unread.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(result.updated, true);
+  const refused = world(t, { running: [1] });
+  scheduleUpdate(refused.db);
+  world.failRcon = true;
+  const forced = await refused.handlers['install.auto_update'](
+    refused.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(forced.updated, true);
+  assert.ok(refused.events.some((entry) => entry[0] === 'update'));
+});
+
+test('one known player holds the update even when another server cannot be counted', async (t) => {
+  const { handlers, ctx, db } = world(t, { running: [1, 2] });
+  scheduleUpdate(db);
+  world.players = { 27020: 'not a count', 27021: '0. Zed, 0002a1b2' };
+  const result = await handlers['install.auto_update'](ctx({ reason: 'scheduled' }, { installId: 1 }));
+  assert.equal(result.held, UPDATE_HELD);
+});
+
+test('a scheduled update with no later run, or started by hand, does not wait', async (t) => {
+  const busy = world(t, { running: [1] });
+  world.players = { 27020: '0. Zed, 0002a1b2' };
+  const noWindow = await busy.handlers['install.auto_update'](
+    busy.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(noWindow.updated, true);
+  const past = world(t, { running: [1] });
+  scheduleUpdate(past.db, { next: T });
+  const missed = await past.handlers['install.auto_update'](
+    past.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(missed.updated, true);
+  const manual = world(t, { running: [1] });
+  scheduleUpdate(manual.db);
+  const started = await manual.handlers['install.auto_update'](manual.ctx({ countdownMinutes: [1] }, { installId: 1 }));
+  assert.equal(started.updated, true);
+  assert.ok(!manual.events.some((entry) => entry[2] === 'ListPlayers'));
+});
+
+test('players cannot hold a scheduled update past the configured number of runs', async (t) => {
+  const { handlers, ctx, db, events } = world(t, { running: [1] });
+  scheduleUpdate(db);
+  world.players = { 27020: '0. Zed, 0002a1b2' };
+  const open = await handlers['install.auto_update'](
+    ctx({ reason: 'scheduled', maxHold: 0, countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(open.updated, true);
+  assert.ok(!events.some((entry) => entry[2] === 'ListPlayers'));
+  const capped = world(t, { running: [1] });
+  scheduleUpdate(capped.db);
+  heldUpdate(capped.db, 10);
+  const once = await capped.handlers['install.auto_update'](
+    capped.ctx({ reason: 'scheduled', maxHold: 1, countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(once.updated, true);
+  const fresh = world(t, { running: [1] });
+  scheduleUpdate(fresh.db);
+  heldUpdate(fresh.db, 10);
+  heldUpdate(fresh.db, 11);
+  const waiting = await fresh.handlers['install.auto_update'](
+    fresh.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.deepEqual(waiting, { updated: false, held: UPDATE_HELD, retryAt: NEXT });
+  heldUpdate(fresh.db, 12);
+  const forced = await fresh.handlers['install.auto_update'](
+    fresh.ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(forced.updated, true);
+  const reset = world(t, { running: [1] });
+  scheduleUpdate(reset.db);
+  heldUpdate(reset.db, 10);
+  reset.db
+    .prepare(
+      `INSERT INTO jobs (id, created_at, updated_at, kind, install_id, state, result_json)
+       VALUES (11, ?, ?, 'install.auto_update', 1, 'succeeded', ?)`,
+    )
+    .run(T, T, JSON.stringify({ updated: true }));
+  const again = await reset.handlers['install.auto_update'](
+    reset.ctx({ reason: 'scheduled', maxHold: 1 }, { installId: 1 }),
+  );
+  assert.equal(again.held, UPDATE_HELD);
+});
+
+test('the soonest later automatic update is the retry time', async (t) => {
+  const { handlers, ctx, db } = world(t, { running: [1] });
+  scheduleUpdate(db, { next: '2026-01-03T04:00:00.000Z', serverId: 1 });
+  scheduleUpdate(db, { next: '2026-01-02T06:00:00.000Z', serverId: 2 });
+  world.players = { 27020: '0. Zed, 0002a1b2' };
+  const result = await handlers['install.auto_update'](ctx({ reason: 'scheduled' }, { installId: 1 }));
+  assert.equal(result.retryAt, '2026-01-02T06:00:00.000Z');
+});
+
+test('a scheduled update does not ask who is online when there is nothing to install or nothing is running', async (t) => {
+  const same = world(t, { running: [1] });
+  scheduleUpdate(same.db);
+  world.latest = '100';
+  world.players = { 27020: '0. Zed, 0002a1b2' };
+  const unchanged = await same.handlers['install.auto_update'](same.ctx({ reason: 'scheduled' }, { installId: 1 }));
+  assert.equal(unchanged.updated, false);
+  assert.equal(unchanged.held, undefined);
+  assert.ok(!same.events.some((entry) => entry[2] === 'ListPlayers'));
+  const stopped = world(t, { running: [] });
+  scheduleUpdate(stopped.db);
+  world.latest = '101';
+  const result = await stopped.handlers['install.auto_update'](stopped.ctx({ reason: 'scheduled' }, { installId: 1 }));
+  assert.equal(result.updated, true);
+  assert.ok(!stopped.events.some((entry) => entry[2] === 'ListPlayers'));
+});
+
+test('a disabled schedule is not a later run', async (t) => {
+  const { handlers, ctx, db } = world(t, { running: [1] });
+  scheduleUpdate(db, { enabled: 0 });
+  world.players = { 27020: '0. Zed, 0002a1b2' };
+  const result = await handlers['install.auto_update'](
+    ctx({ reason: 'scheduled', countdownMinutes: [1] }, { installId: 1 }),
+  );
+  assert.equal(result.updated, true);
 });
 
 test('Steam library installs are refused for checks and updates', async (t) => {
