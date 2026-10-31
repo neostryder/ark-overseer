@@ -688,7 +688,7 @@ export const STRINGS = {
     peerUnknown: 'set a game port first',
     coveredBy: 'Covered by',
     noRule: 'No rule covers this yet',
-    driftOk: 'Firewall rules match.',
+    driftOk: 'All expected firewall rules are present and unchanged.',
     driftRule: '{name}: {problems}',
     driftProblems: {
       missing: 'missing',
