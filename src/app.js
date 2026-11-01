@@ -14,7 +14,13 @@ import { createPush, EVENTS as PUSH_EVENTS, PUSH_API_MESSAGES } from './push/pus
 import { createCrashHook } from './push/crash-hook.js';
 import { createIdleWatch } from './idle/idle.js';
 import { IDLE_MESSAGES } from './idle/settings.js';
-import { firewallPreview, applyFirewallScript, firewallDrift, neededRules } from './network/firewall.js';
+import {
+  firewallPreview,
+  firewallRuleScript,
+  applyFirewallScript,
+  firewallDrift,
+  neededRules,
+} from './network/firewall.js';
 import { detectPhase0, previewImport, applyImport } from './import/phase0.js';
 import { createSettingsStore } from './settings/store.js';
 import { SESSION_NAME_MAX_LENGTH } from './settings/fields.js';
@@ -46,6 +52,7 @@ import {
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
+  unknownFirewallRule: 'That is not a firewall rule for this server.',
   firewallService:
     "A Windows service can't ask for administrator approval. Download the script and run it as an administrator.",
   previewExpired: 'That preview has expired. Run it again.',
@@ -1167,10 +1174,21 @@ export function createApp({
     const { rules, checked, localRulesIgnored } = await readFirewallRules();
     return firewallDriftFor(row, rules, { checked, localRulesIgnored });
   });
-  router.add('GET', '/api/servers/:id/firewall', async ({ params }) => {
+  router.add('GET', '/api/servers/:id/firewall', async ({ params, query }) => {
     const row = must(serverRow(db, params.id));
+    const install = { path: row.install_path };
+    // A named preview is the script for that one expected rule. It does not read the live firewall, so the token stays valid until the server's ports or install path change.
+    if (Object.hasOwn(query, 'rule')) {
+      const fix = firewallRuleScript(row, install, query.rule);
+      if (!fix) throw error(400, API_MESSAGES.unknownFirewallRule);
+      return {
+        rule: fix.rule.name,
+        script: fix.script,
+        token: crypto.createHash('sha256').update(fix.script).digest('hex'),
+      };
+    }
     const { rules, checked, localRulesIgnored } = await readFirewallRules();
-    const preview = firewallPreview([{ server: row, install: { path: row.install_path } }], rules);
+    const preview = firewallPreview([{ server: row, install }], rules);
     return {
       ...preview,
       checked,
@@ -1186,16 +1204,18 @@ export function createApp({
       'server.firewall.apply',
       'server',
       async ({ params, body }) => {
-        const row = must(serverRow(db, params.id)),
-          preview = firewallPreview(
-            [{ server: row, install: { path: row.install_path } }],
-            (await readFirewallRules()).rules,
-          );
-        if (!preview.script) return { applied: false };
-        if (serviceMode) throw error(409, API_MESSAGES.firewallService, { script: preview.script });
-        const token = crypto.createHash('sha256').update(preview.script).digest('hex');
+        const row = must(serverRow(db, params.id));
+        const install = { path: row.install_path };
+        const named = Object.hasOwn(body, 'rule');
+        const fix = named ? firewallRuleScript(row, install, body.rule) : null;
+        if (named && !fix) throw error(400, API_MESSAGES.unknownFirewallRule);
+        const preview = named ? null : firewallPreview([{ server: row, install }], (await readFirewallRules()).rules);
+        const script = named ? fix.script : preview.script;
+        if (!script) return { applied: false };
+        if (serviceMode) throw error(409, API_MESSAGES.firewallService, { script });
+        const token = crypto.createHash('sha256').update(script).digest('hex');
         if (token !== body.token) throw error(409, API_MESSAGES.firewallChanged);
-        const result = await applyFirewallScript(preview.script, {
+        const result = await applyFirewallScript(script, {
           runner,
           elevated: await isElevated(),
           dir: path.join(dataDir, 'firewall', String(now())),
@@ -1203,7 +1223,10 @@ export function createApp({
         });
         return { applied: result.ok, ...result };
       },
-      (ctx) => ({ token: ctx.body.token }),
+      (ctx) => ({
+        token: ctx.body.token,
+        ...(Object.hasOwn(ctx.body, 'rule') ? { rule: ctx.body.rule } : {}),
+      }),
     ),
   );
   router.add(

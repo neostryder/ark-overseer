@@ -1008,6 +1008,98 @@ test('the firewall drift route reports changed rules and does not apply them', a
   assert.deepEqual(calls, []);
 });
 
+test('a firewall fix applies one named rule and refuses a name the server does not expect', async (t) => {
+  const calls = [];
+  const reads = [];
+  const { url, cookie, db } = await fixtureWith(t, {
+    firewallRules: async () => {
+      reads.push('read');
+      return { rules: [], localRulesIgnored: false };
+    },
+    isElevated: async () => true,
+    runner: async (command, args, options) => {
+      calls.push({ command, args, options });
+      return { code: 0 };
+    },
+  });
+  seedServer(db);
+  db.prepare('UPDATE servers SET query_port = 27015 WHERE id = 1').run();
+  const headers = { Cookie: cookie };
+  const post = (body) => fetch(`${url}/api/servers/1/firewall/apply`, json(body, cookie));
+  const audits = () => db.prepare("SELECT detail_json FROM audit_events WHERE action = 'server.firewall.apply'").all();
+  const unknown = await post({ rule: 'ARK Game Port', token: 'x' });
+  assert.equal(unknown.status, 400);
+  assert.equal((await unknown.json()).error, API_MESSAGES.unknownFirewallRule);
+  assert.equal(calls.length, 0);
+  assert.equal(audits().length, 0);
+  const name = 'ARK Overseer - One [1] - Game';
+  const preview = await (
+    await fetch(`${url}/api/servers/1/firewall?rule=${encodeURIComponent(name)}`, { headers })
+  ).json();
+  assert.equal(preview.rule, name);
+  assert.match(preview.script, /delete rule name="ARK Overseer - One \[1\] - Game"/);
+  assert.match(preview.script, /add rule name="ARK Overseer - One \[1\] - Game"/);
+  assert.match(preview.script, /localport=7777-7778/);
+  assert.doesNotMatch(preview.script, / - Query"/);
+  assert.equal((await post({ rule: name, token: 'old' })).status, 409);
+  assert.equal(calls.length, 0);
+  assert.equal(audits().length, 0);
+  const applied = await post({ rule: name.toLowerCase(), token: preview.token });
+  assert.equal(applied.status, 200);
+  assert.equal((await applied.json()).applied, true);
+  assert.equal(calls.length, 1);
+  assert.equal(fs.readFileSync(path.join(calls[0].options.cwd, 'apply.cmd'), 'utf8'), preview.script);
+  assert.equal(JSON.parse(audits()[0].detail_json).rule, name.toLowerCase());
+  assert.deepEqual(reads, []);
+  const full = await (await fetch(`${url}/api/servers/1/firewall`, { headers })).json();
+  assert.match(full.script, / - Game"/);
+  assert.match(full.script, / - Query"/);
+  assert.notEqual(full.token, preview.token);
+  assert.deepEqual(reads, ['read']);
+  const missingQuery = await fetch(
+    `${url}/api/servers/1/firewall?rule=${encodeURIComponent('ARK Overseer - One [1] - Query')}`,
+    { headers },
+  );
+  assert.equal(missingQuery.status, 200);
+  assert.equal((await missingQuery.json()).rule, 'ARK Overseer - One [1] - Query');
+  assert.equal(
+    (
+      await fetch(`${url}/api/servers/1/firewall?rule=${encodeURIComponent('ARK Overseer - Other [2] - Game')}`, {
+        headers,
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await fetch(`${url}/api/servers/9/firewall?rule=Game`, { headers })).status, 404);
+});
+
+test('service mode refuses a one-rule firewall fix and returns that rule script', async (t) => {
+  const calls = [];
+  const { url, cookie, db } = await fixtureWith(t, {
+    serviceMode: true,
+    runner: async (...args) => {
+      calls.push(args);
+      return { code: 0 };
+    },
+  });
+  seedServer(db);
+  const name = 'ARK Overseer - One [1] - Game';
+  const preview = await (
+    await fetch(`${url}/api/servers/1/firewall?rule=${encodeURIComponent(name)}`, { headers: { Cookie: cookie } })
+  ).json();
+  const response = await fetch(
+    `${url}/api/servers/1/firewall/apply`,
+    json({ rule: name, token: preview.token }, cookie),
+  );
+  assert.equal(response.status, 409);
+  const payload = await response.json();
+  assert.equal(payload.error, API_MESSAGES.firewallService);
+  assert.equal(payload.script, preview.script);
+  assert.match(payload.script, / - Game"/);
+  assert.doesNotMatch(payload.script, / - Query"/);
+  assert.deepEqual(calls, []);
+});
+
 test('closing the server does not wait for a browser holding the live jobs feed open', async (t) => {
   const { url, app } = await fixture(t);
   const { cookie } = await setup(url);

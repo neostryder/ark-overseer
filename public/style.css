@@ -505,6 +505,20 @@ small {
   padding: 10px;
   border-left: 3px solid var(--gold);
 }
+.drift-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.drift-fix .wizard-warning {
+  margin: 0;
+  flex: 1 1 16rem;
+}
+.drift-fix-outcome {
+  flex-basis: 100%;
+  margin: 0;
+}
 .wizard-issue {
   display: block;
   margin-top: 4px;

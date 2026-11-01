@@ -690,6 +690,8 @@ export const STRINGS = {
     noRule: 'No rule covers this yet',
     driftOk: 'All expected firewall rules are present and unchanged.',
     driftRule: '{name}: {problems}',
+    fix: 'Fix',
+    confirmFix: 'Windows will ask for administrator approval, then replace {name}.',
     driftProblems: {
       missing: 'missing',
       disabled: 'disabled',
