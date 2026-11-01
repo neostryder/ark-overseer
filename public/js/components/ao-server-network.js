@@ -138,11 +138,57 @@ export class AoServerNetwork extends HTMLElement {
       section.append(ok);
     } else if (drift?.checked) {
       for (const rule of drift.rules) {
+        const row = document.createElement('div');
+        row.className = 'drift-fix';
         const p = document.createElement('p');
         p.className = 'wizard-warning';
         const problems = rule.problems.map((key) => STRINGS.network.driftProblems[key] ?? key).join(', ');
         p.textContent = fill(STRINGS.network.driftRule, { name: rule.name, problems });
-        section.append(p);
+        row.append(p);
+        // A service cannot show the administrator prompt, so the one-rule fix stays off, the same as Apply. A failed host check falls back to showing it.
+        if (!this.host?.service) {
+          const fix = document.createElement('button');
+          fix.type = 'button';
+          fix.className = 'button secondary';
+          fix.append(icon('shield'), STRINGS.network.fix);
+          const outcome = document.createElement('p');
+          outcome.className = 'drift-fix-outcome';
+          outcome.setAttribute('aria-live', 'polite');
+          fix.addEventListener('click', async () => {
+            const confirmed = await document
+              .querySelector('ao-dialog')
+              .ask(STRINGS.network.firewall, fill(STRINGS.network.confirmFix, { name: rule.name }));
+            if (!confirmed) return;
+            fix.disabled = true;
+            outcome.textContent = '';
+            try {
+              const preview = await api.get(`/api/servers/${this.id}/firewall?rule=${encodeURIComponent(rule.name)}`);
+              const result = await api.post(`/api/servers/${this.id}/firewall/apply`, {
+                token: preview.token,
+                rule: rule.name,
+              });
+              if (result.applied) {
+                await this.load();
+                document.querySelector('ao-toast').show(STRINGS.network.applied);
+                return;
+              }
+              outcome.textContent = STRINGS.network.notApplied;
+              if (result.log) {
+                const log = document.createElement('pre');
+                log.textContent = result.log;
+                outcome.append(log);
+              }
+            } catch (error) {
+              if (error.status === 409) {
+                await this.load();
+                document.querySelector('ao-toast').show(STRINGS.network.changed);
+              } else outcome.textContent = error.message;
+            }
+            fix.disabled = false;
+          });
+          row.append(fix, outcome);
+          section.append(row);
+        } else section.append(row);
       }
     }
     for (const rule of this.firewall.rules || []) {

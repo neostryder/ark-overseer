@@ -9,6 +9,7 @@ import {
   neededRules,
   coveredBy,
   firewallPreview,
+  firewallRuleScript,
   firewallDrift,
   checkFirewallDrift,
   removalScript,
@@ -554,6 +555,26 @@ test('checkFirewallDrift treats a local rule as missing when group policy ignore
     drift.rules.map((rule) => rule.problems),
     [['missing']],
   );
+});
+
+test('firewallRuleScript replaces one expected rule and refuses a name this server does not use', () => {
+  const [gameRule, queryRule] = neededRules(server, install);
+  const game = firewallRuleScript(server, install, gameRule.name);
+  const query = firewallRuleScript(server, install, queryRule.name.toLowerCase());
+  assert.equal(game.rule.name, gameRule.name);
+  assert.equal(query.rule.name, queryRule.name);
+  assert.match(game.script, /delete rule name="ARK Overseer - Neo Olympus \[1\] - Game"/);
+  assert.match(game.script, /add rule name="ARK Overseer - Neo Olympus \[1\] - Game"/);
+  assert.match(game.script, /localport=7777-7778/);
+  assert.doesNotMatch(game.script, /localport=27015/);
+  assert.match(query.script, /localport=27015/);
+  assert.doesNotMatch(query.script, / - Game"/);
+  // The replacement does not depend on whether the live rule is missing, disabled or changed.
+  assert.equal(firewallRuleScript(server, install, gameRule.name).script, game.script);
+  assert.equal(firewallRuleScript(server, install, 'ARK Game Port 7777 UDP'), null);
+  assert.equal(firewallRuleScript(server, install, ''), null);
+  assert.equal(firewallRuleScript(server, install, null), null);
+  assert.equal(firewallRuleScript({ ...server, query_port: null }, install, queryRule.name), null);
 });
 
 test('a generated script stops at the first add that fails and exits 1', async (t) => {

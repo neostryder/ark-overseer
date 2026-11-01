@@ -307,6 +307,14 @@ export function firewallPreview(servers, existingRules) {
   return { rules, toAdd, script: toAdd.length ? scriptFor(toAdd) : null };
 }
 
+// One script covers a missing, disabled or changed rule. scriptFor already ignores a delete of a name that is not there, then adds the expected rule.
+export function firewallRuleScript(server, install, name) {
+  if (typeof name !== 'string' || name === '') return null;
+  const rule = neededRules(server, install).find((item) => sameText(item.name, name));
+  if (!rule) return null;
+  return { rule, script: scriptFor([rule]) };
+}
+
 export function removalScript(server) {
   // A server without a query port never had a Query rule, so a missing rule is not a failure here
   // either; the log still records what netsh said.
