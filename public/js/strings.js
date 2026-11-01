@@ -691,7 +691,8 @@ export const STRINGS = {
     driftOk: 'All expected firewall rules are present and unchanged.',
     driftRule: '{name}: {problems}',
     fix: 'Fix',
-    confirmFix: 'Windows will ask for administrator approval, then replace {name}.',
+    confirmFix:
+      "Replace the firewall rule {name}? Windows will ask for administrator approval first. The server's other rules are not changed.",
     driftProblems: {
       missing: 'missing',
       disabled: 'disabled',

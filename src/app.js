@@ -52,7 +52,8 @@ import {
 
 export const API_MESSAGES = {
   firewallChanged: 'The firewall rules changed after the preview. Look at the new preview before applying it.',
-  unknownFirewallRule: 'That is not a firewall rule for this server.',
+  unknownFirewallRule:
+    "That rule is not one of this server's expected firewall rules. Use a rule name from the server's firewall drift report.",
   firewallService:
     "A Windows service can't ask for administrator approval. Download the script and run it as an administrator.",
   previewExpired: 'That preview has expired. Run it again.',
