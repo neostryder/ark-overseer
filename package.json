@@ -16,11 +16,11 @@
     "format:check": "prettier --check src test tools public"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.0",
+    "@huggingface/transformers": "^4.3.2",
     "@simplewebauthn/server": "^14.0.3",
-    "jose": "^6.2.12"
+    "jose": "^6.2.15"
   },
   "devDependencies": {
-    "prettier": "^3.9.9"
+    "prettier": "^3.9.10"
   }
 }
