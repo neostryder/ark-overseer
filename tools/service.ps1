@@ -220,7 +220,7 @@ if ($Action -eq 'install') {
     $commit = git -C $AppDir rev-parse --verify HEAD 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail "$AppDir is not a git checkout with a commit to deploy."; $commit = 'HEAD' }
     elseif (git -C $AppDir status --porcelain) { Write-Output "NOTE: $AppDir has uncommitted changes. They are not deployed; the service runs commit $commit." }
-    if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules. Run npm ci there first." }
+    if (-not (Test-Path -LiteralPath (Join-Path $AppDir 'node_modules'))) { Fail "$AppDir has no node_modules. Run pnpm install --frozen-lockfile there first." }
     $modulesFrom = $AppDir
   }
   $zipPath = if ($Archive) { $Archive } else { Join-Path ([IO.Path]::GetTempPath()) "ark-overseer-$commit.zip" }
