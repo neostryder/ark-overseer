@@ -17,7 +17,8 @@ function fixture(t) {
   const vendor = [Buffer.from('fake shawl'), Buffer.from('fake powershell')];
   const names = ['shawl-v1.9.0-win64.zip', 'PowerShell-7.6.6-win-x64.zip'];
   fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({ version: '1.2.3', engines: { node: '>=26' } }));
-  fs.writeFileSync(path.join(cwd, 'package-lock.json'), '{}');
+  fs.writeFileSync(path.join(cwd, 'pnpm-lock.yaml'), '{}');
+  fs.writeFileSync(path.join(cwd, 'pnpm-workspace.yaml'), 'nodeLinker: hoisted\n');
   const vendorLines = names
     .map((name, index) => `  $${index ? 'PwshZip' : 'ShawlZip'}  = '${hash(vendor[index])}'`)
     .join('\n');
@@ -32,7 +33,8 @@ function fixture(t) {
   fs.writeFileSync(path.join(cwd, 'test', 'secret.test.js'), 'excluded');
   const tracked = [
     'package.json',
-    'package-lock.json',
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
     'tools/service.ps1',
     'src/main.js',
     'test/secret.test.js',
@@ -49,7 +51,9 @@ function fixture(t) {
     if (exe === 'git' && args[0] === 'status') return '';
     if (exe === 'git' && args[0] === 'show') return '1780000000';
     if (exe === 'git' && args[0] === 'ls-files') return tracked.join('\n');
-    if (exe === 'npm') {
+    if (exe === 'pnpm') {
+      assert.equal(fs.readFileSync(path.join(at, 'pnpm-lock.yaml'), 'utf8'), '{}');
+      assert.equal(fs.readFileSync(path.join(at, 'pnpm-workspace.yaml'), 'utf8'), 'nodeLinker: hoisted\n');
       fs.mkdirSync(path.join(at, 'node_modules', 'prod'), { recursive: true });
       fs.writeFileSync(path.join(at, 'node_modules', 'prod', 'index.js'), 'prod');
       return '';
@@ -72,8 +76,10 @@ test('release package selection, metadata, checksum, and zip bytes are stable', 
   const sidecar = fs.readFileSync(`${first.zipPath}.sha256`, 'utf8');
   assert.equal(sidecar, `${hash(firstBytes)}  ark-overseer-1.2.3-win-x64.zip\n`);
   assert.match(first.release.nodeSha256, /^[a-f0-9]{64}$/);
-  assert.ok(fx.commands.some(({ exe, args }) => exe === 'npm' && args.join(' ') === 'ci --omit=dev'));
-  assert.ok(!fx.commands.some(({ exe, args }) => exe === 'npm' && args.includes('node_modules')));
+  assert.ok(
+    fx.commands.some(({ exe, args }) => exe === 'pnpm' && args.join(' ') === 'install --frozen-lockfile --prod'),
+  );
+  assert.ok(!fx.commands.some(({ exe, args }) => exe === 'pnpm' && args.includes('node_modules')));
   assert.ok(firstBytes.includes(Buffer.from('ark-overseer-1.2.3-win-x64/src/main.js')));
   assert.ok(!firstBytes.includes(Buffer.from('test/secret.test.js')));
   assert.ok(!firstBytes.includes(Buffer.from('.gitignore')));
@@ -162,7 +168,7 @@ test('zip writer orders entries and reproduces bytes for identical input', () =>
 test('other-platform search runtime binaries are left out and the Windows x64 one stays', (t) => {
   const fx = fixture(t);
   const runCommand = (exe, args, at) => {
-    if (exe === 'npm') {
+    if (exe === 'pnpm') {
       const modules = path.join(at, 'node_modules');
       for (const rel of [
         'onnxruntime-web',

@@ -224,9 +224,9 @@ If you publish ARK Overseer on a domain protected by Cloudflare Access, enter yo
 
 ## Running from source
 
-You need Node.js 26 or later, PowerShell 7 and Git. Run `npm install`, then `npm start`, and open http://localhost:3310 on the same computer. The database, backups and SteamCMD live in the `data` folder next to the code. Set `OVERSEER_DATA` to keep them somewhere else, or `OVERSEER_PORT` to use another port.
+You need Node.js 26 or later, PowerShell 7 and Git. Run `pnpm install`, then `pnpm start`, and open http://localhost:3310 on the same computer. The database, backups and SteamCMD live in the `data` folder next to the code. Set `OVERSEER_DATA` to keep them somewhere else, or `OVERSEER_PORT` to use another port.
 
-Run the tests with `npm test`, check formatting with `npm run format:check`, and check the settings catalog with `npm run check`. `node tools/build-release.js` builds the release zip, and `tools\service.ps1 install` installs a checkout as the service.
+Run the tests with `pnpm test`, check formatting with `pnpm run format:check`, and check the settings catalog with `pnpm run check`. `node tools/build-release.js` builds the release zip, and `tools\service.ps1 install` installs a checkout as the service.
 
 ## Contributing
 

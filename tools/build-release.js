@@ -22,11 +22,11 @@ const value = (name, fallback) => {
 const flag = (name) => args.includes(name);
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const run = (exe, argv, cwd = root) =>
-  execFileSync(exe === 'npm' && process.platform === 'win32' ? 'npm.cmd' : exe, argv, {
+  execFileSync(exe === 'pnpm' && process.platform === 'win32' ? 'pnpm.cmd' : exe, argv, {
     cwd,
     encoding: 'utf8',
     windowsHide: true,
-    shell: exe === 'npm' && process.platform === 'win32',
+    shell: exe === 'pnpm' && process.platform === 'win32',
   }).trim();
 
 // Programs the package carries besides node_modules. Their licenses are MIT; Node.js also bundles other
@@ -203,8 +203,9 @@ function build({
     const depStage = fs.mkdtempSync(path.join(os.tmpdir(), 'ark-overseer-deps-'));
     try {
       fs.copyFileSync(path.join(cwd, 'package.json'), path.join(depStage, 'package.json'));
-      fs.copyFileSync(path.join(cwd, 'package-lock.json'), path.join(depStage, 'package-lock.json'));
-      runCommand('npm', ['ci', '--omit=dev'], depStage);
+      fs.copyFileSync(path.join(cwd, 'pnpm-lock.yaml'), path.join(depStage, 'pnpm-lock.yaml'));
+      fs.copyFileSync(path.join(cwd, 'pnpm-workspace.yaml'), path.join(depStage, 'pnpm-workspace.yaml'));
+      runCommand('pnpm', ['install', '--frozen-lockfile', '--prod'], depStage);
       fs.cpSync(path.join(depStage, 'node_modules'), path.join(packageRoot, 'node_modules'), { recursive: true });
       // The package is Windows x64 only and the search model runs on onnxruntime-node, so the macOS, Linux
       // and Windows ARM binaries and the browser runtime (onnxruntime-web) are dead weight, about 300 MB.

@@ -14,16 +14,18 @@ jobs:
     steps:
       # To update, check each action's GitHub releases page and replace @vN with its newest tagged major.
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: 26
+          cache: pnpm
       - name: Check and test
         shell: pwsh
         run: |
-          npm ci
-          npm run format:check
-          npm run check
-          npm test
+          pnpm install --frozen-lockfile
+          pnpm run format:check
+          pnpm run check
+          pnpm test
       - name: Verify tag and changelog
         shell: pwsh
         run: |

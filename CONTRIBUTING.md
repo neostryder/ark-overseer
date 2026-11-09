@@ -8,7 +8,7 @@ ARK Overseer is offered under the AGPL-3.0 and, separately, under commercial lic
 
 Before you open a pull request:
 
-- Run `npm test`, `npm run format:check` and `npm run check`. All three must pass.
+- Run `pnpm test`, `pnpm run format:check` and `pnpm run check`. All three must pass.
 - Add a test for every behavior you add or change, and make sure the test fails without your change.
 - Add a line under `## [Unreleased]` in `CHANGELOG.md`. Each line starts with `[Visible]` or `[Internal]`, then category tags, then a short bold title and what changed from the user's side.
 - Keep user-facing text short, plain and direct, with plain ASCII punctuation. Every string a user reads lives in `public/js/strings.js` or in a `MESSAGES` object beside the code that raises it.
